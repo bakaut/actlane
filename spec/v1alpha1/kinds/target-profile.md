@@ -8,9 +8,10 @@ Examples:
 AGENTS.md
 SKILL.md
 MCP metadata
-OpenAPI Action
+CLI command docs
+Codex instructions
+Claude instructions
 OpenCode snippet
-VS Code MCP snippet
 policy bundle
 contract tests
 ```

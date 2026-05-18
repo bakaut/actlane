@@ -14,14 +14,13 @@ spec:
     - policies/safe-gitops-pr.policy.yaml
     - policies/block-secrets.policy.yaml
   targets:
+    - cli
     - agents-md
     - skill-md
     - mcp
-    - openapi
     - opencode
-    - vscode
     - codex
-    - custom-gpt
+    - claude
   adoptionProfile:
     writePolicy:
       default: neverOverwrite

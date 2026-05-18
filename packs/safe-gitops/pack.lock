@@ -21,10 +21,13 @@ policies:
   block-secrets:
     digest: phase0-placeholder
 generatedFiles:
+  - generated/cli/commands.md
   - generated/agents/AGENTS.generated.md
   - generated/agents/skills.generated.md
   - generated/mcp/tools.json
-  - generated/openapi/openapi.yaml
+  - generated/codex/AGENTS.md
+  - generated/claude/CLAUDE.md
+  - generated/opencode/create-safe-draft-pr.md
   - generated/policies/policy-bundle.json
 ownedBlocks:
   - id: safe-gitops.create-safe-draft-pr

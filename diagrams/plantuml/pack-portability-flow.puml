@@ -21,26 +21,26 @@ rectangle "safe-gitops pack" as pack {
 database "actlane.lock\nexact generated state" as lock
 
 rectangle "Developer A\nCodex / OpenCode" as devA
-rectangle "Developer B\nVS Code / Cursor" as devB
+rectangle "Developer B\nClaude / CLI agent" as devB
 rectangle "Team Gateway\noptional later" as gateway
 
 rectangle "Generated for Codex" as codex
 rectangle "Generated for OpenCode" as opencode
-rectangle "Generated for VS Code" as vscode
-rectangle "Generated OpenAPI Action" as customgpt
+rectangle "Generated for Claude" as claude
+rectangle "Generated CLI command docs" as cli
 rectangle "Generated policy bundle" as bundle
 
 pack --> codex
 pack --> opencode
-pack --> vscode
-pack --> customgpt
+pack --> claude
+pack --> cli
 pack --> bundle
 pack --> lock
 
 codex --> devA
 opencode --> devA
-vscode --> devB
-customgpt --> devB
+claude --> devB
+cli --> devB
 bundle --> gateway
 
 note bottom of pack

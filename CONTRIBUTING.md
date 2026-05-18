@@ -5,7 +5,7 @@ Actlane is currently an RFC-stage repository. The most useful contributions are 
 ## Good First Contributions
 
 - Explain a real agent workflow you want to make portable.
-- Request a target runtime: Codex, OpenCode, VS Code, Cursor, Cline, Continue, Custom GPT, or Orchestra.
+- Request a target runtime: Codex, Claude, OpenCode, or CLI agents.
 - Open a `Try Actlane on my setup` issue with your current files and desired generated artifact.
 - Improve the `safe-gitops` example.
 - Add policy examples for allow, deny, mutate, and requires-approval.

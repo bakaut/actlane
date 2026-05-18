@@ -9,9 +9,9 @@ prompt
 AGENTS.md
 SKILL.md
 MCP tool schema
-OpenAPI Action
+CLI/Codex/Claude/OpenCode config
 opencode.json
-.vscode/mcp.json
+.claude/mcp.json
 gateway policy
 CI scripts
 README
@@ -22,7 +22,7 @@ This creates three practical problems.
 
 ## Capability Drift
 
-The same workflow is described differently for each runtime. A "safe draft PR" workflow might exist as a prompt paragraph, an MCP tool schema, a skill, an OpenAPI Action, and a gateway rule.
+The same workflow is described differently for each runtime. A "safe draft PR" workflow might exist as a prompt paragraph, an MCP tool schema, a skill, an CLI/Codex/Claude/OpenCode config, and a gateway rule.
 
 When one copy changes, the others silently drift.
 

@@ -25,14 +25,17 @@ packs/safe-gitops/
     tools/
       create-safe-draft-pr.tool.json
   adapters/
+    cli/
     opencode/
-    vscode/
     codex/
-    custom-gpt/
+    claude/
   generated/
+    cli/
     agents/
     mcp/
-    openapi/
+    codex/
+    claude/
+    opencode/
     policies/
     tests/
   examples/

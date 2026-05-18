@@ -14,14 +14,10 @@ Actlane = capability contract, generated artifacts, policy bundle
 Actlane should work with existing agents and runtimes:
 
 ```text
+CLI agents
 Codex
+Claude
 OpenCode
-VS Code
-Cursor
-Cline
-Continue
-Custom GPT
-Orchestra
 ```
 
 ## Why This Matters
@@ -36,7 +32,7 @@ The first product surface should be the pack and generated artifacts, not a new 
 
 ## Correct Boundary
 
-Actlane may generate instructions, tool metadata, OpenAPI Actions, MCP metadata, IDE snippets, and policy bundles.
+Actlane may generate instructions, tool metadata, CLI/Codex/Claude/OpenCode configs, MCP metadata, agent snippets, and policy bundles.
 
 The agent runtime still decides when to act.
 Actlane defines what a safe action contract looks like.

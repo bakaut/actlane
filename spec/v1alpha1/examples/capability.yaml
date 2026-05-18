@@ -26,10 +26,13 @@ spec:
     - tool: github.commit_files
     - tool: github.create_pull_request
   targets:
+    - cli
     - agents-md
     - skill-md
     - mcp
-    - openapi
+    - codex
+    - claude
+    - opencode
     - policy
   reporting:
     includeChangedFiles: true

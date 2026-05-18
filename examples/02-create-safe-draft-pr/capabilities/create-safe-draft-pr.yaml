@@ -17,8 +17,9 @@ spec:
   policies:
     - safe-gitops-pr-policy
   targets:
-    - openapi
+    - cli
     - mcp
+    - codex
+    - claude
     - opencode
-    - vscode
     - policy

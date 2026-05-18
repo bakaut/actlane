@@ -4,13 +4,19 @@ metadata:
   name: safe-gitops-default-targets
 spec:
   targets:
+    - name: cli
+      path: generated/cli/commands.md
     - name: agents-md
       path: generated/agents/AGENTS.generated.md
     - name: skill-md
       path: generated/agents/skills.generated.md
     - name: mcp
       path: generated/mcp/tools.json
-    - name: openapi
-      path: generated/openapi/openapi.yaml
+    - name: codex
+      path: generated/codex/AGENTS.md
+    - name: claude
+      path: generated/claude/CLAUDE.md
+    - name: opencode
+      path: generated/opencode/create-safe-draft-pr.md
     - name: policy
       path: generated/policies/policy-bundle.json

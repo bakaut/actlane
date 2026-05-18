@@ -9,8 +9,9 @@ spec:
   policies:
     - policies/safe-gitops-pr.policy.yaml
   targets:
-    - openapi
+    - cli
     - mcp
+    - codex
+    - claude
     - opencode
-    - vscode
     - policy

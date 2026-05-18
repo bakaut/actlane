@@ -54,9 +54,9 @@ Describes where to generate:
 AGENTS.md
 SKILL.md
 MCP metadata
-OpenAPI Action
+CLI/Codex/Claude/OpenCode config
 OpenCode snippets
-VS Code snippets
+Claude snippets
 policy bundle
 contract tests
 ```

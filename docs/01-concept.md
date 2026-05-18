@@ -46,9 +46,9 @@ The same contract can generate:
 AGENTS.md
 SKILL.md
 MCP metadata
-OpenAPI Action schema
+Claude/Codex/OpenCode adapter
 OpenCode commands/config
-VS Code MCP config snippets
+Claude instruction snippets
 policy bundle
 contract tests
 audit schema

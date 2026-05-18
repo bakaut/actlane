@@ -10,8 +10,8 @@ skinparam NoteBorderColor #FF8A00
 
 title Optional Runtime Enforcement
 
-rectangle "Agent Runtime\nCodex / OpenCode / Custom GPT / IDE" as agent
-rectangle "Generated target artifact\nAGENTS / SKILL / MCP / OpenAPI" as artifact
+rectangle "Agent Runtime\nCLI / Codex / Claude / OpenCode" as agent
+rectangle "Generated target artifact\nAGENTS / SKILL / MCP / agent snippets" as artifact
 rectangle "Existing gateway\nMCP wrapper\nor local sidecar" as gateway
 rectangle "Actlane policy bundle" as policy
 rectangle "Policy decision" as decision

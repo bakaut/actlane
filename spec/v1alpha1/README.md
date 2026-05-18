@@ -7,7 +7,7 @@ It is designed to support the first no-code proof:
 ```text
 safe-gitops
 create-safe-draft-pr
-generated AGENTS.md / SKILL.md / MCP metadata / OpenAPI Action / policy bundle
+generated AGENTS.md / SKILL.md / MCP metadata / CLI/Codex/Claude/OpenCode config / policy bundle
 ```
 
 ## Kinds

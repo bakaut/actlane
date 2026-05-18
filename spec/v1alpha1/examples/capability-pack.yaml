@@ -11,10 +11,11 @@ spec:
     - safe-gitops-pr-policy
     - block-secrets
   targets:
+    - cli
     - agents-md
     - skill-md
     - mcp
-    - openapi
+    - codex
+    - claude
     - opencode
-    - vscode
   adoptionProfile: brownfield-safe

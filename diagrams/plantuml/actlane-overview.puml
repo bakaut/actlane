@@ -27,8 +27,8 @@ package "Generated artifacts" {
   rectangle "AGENTS.md block" as agents
   rectangle "SKILL.md" as skill
   rectangle "MCP metadata" as mcp
-  rectangle "OpenAPI Action" as openapi
-  rectangle "IDE / agent snippets" as snippets
+  rectangle "CLI command docs" as cli
+  rectangle "Codex / Claude / OpenCode snippets" as snippets
   rectangle "policy bundle" as policy
   rectangle "contract tests" as tests
 }
@@ -47,7 +47,7 @@ targets --> generator
 generator --> agents
 generator --> skill
 generator --> mcp
-generator --> openapi
+generator --> cli
 generator --> snippets
 generator --> policy
 generator --> tests

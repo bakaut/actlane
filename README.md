@@ -6,7 +6,7 @@ Actlane is a pre-alpha RFC for portable, policy-aware capability packs for AI ag
 
 ## The Problem
 
-AI-agent safety rules are scattered across prompts, `AGENTS.md`, `SKILL.md`, MCP tool schemas, OpenAPI Actions, IDE configs, gateway policies, CI scripts, and human memory.
+AI-agent safety rules are scattered across prompts, `AGENTS.md`, `SKILL.md`, MCP tool schemas, CLI/Codex/Claude/OpenCode configs, agent configs, gateway policies, CI scripts, and human memory.
 
 That makes one capability hard to move, review, reproduce, and safely remove.
 
@@ -23,7 +23,7 @@ From that contract, Actlane can generate:
 AGENTS.md
 SKILL.md
 MCP metadata
-OpenAPI Actions
+CLI/Codex/Claude/OpenCode configs
 IDE / agent snippets
 policy bundles
 contract tests
@@ -102,6 +102,6 @@ raw/       source research / exported design conversation
 
 Star the repo if your team also struggles with scattered agent prompts, MCP configs, skills, and policies.
 
-Open an issue if you want Actlane to generate packs for a specific target such as Codex, OpenCode, VS Code, Cursor, Cline, Continue, Custom GPT, or Orchestra.
+Open an issue if you want Actlane to generate packs for a specific target such as Codex, Claude, OpenCode, or CLI agents.
 
 Use the `Try Actlane on my setup` issue template. The first real adapters should be driven by actual user setups, not guesses.

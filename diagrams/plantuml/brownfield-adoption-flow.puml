@@ -13,7 +13,7 @@ title Brownfield-Safe Adoption Flow
 
 start
 :Inspect existing project;
-:Detect AGENTS.md, SKILL.md,\nMCP configs, IDE configs;
+:Detect AGENTS.md, SKILL.md,\nMCP configs, agent configs;
 :Initialize .actlane/ only;
 :Generate into .actlane/generated;
 :Create plan and diff;

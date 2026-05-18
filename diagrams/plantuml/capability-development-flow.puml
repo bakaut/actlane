@@ -37,7 +37,7 @@ fork again
 fork again
   :MCP tool metadata;
 fork again
-  :OpenAPI Action schema;
+  :CLI / Codex / Claude / OpenCode adapter;
 fork again
   :policy bundle;
 end fork
