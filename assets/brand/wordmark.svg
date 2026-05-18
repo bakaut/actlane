@@ -1,10 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="720" height="180" viewBox="0 0 720 180" role="img" aria-label="Actlane wordmark">
-  <rect width="720" height="180" fill="#FFFFFF"/>
-  <g transform="translate(32 34)">
-    <path d="M0 72h54l18-36h48" fill="none" stroke="#1B5EBE" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
-    <path d="M0 36h48l18 36h54" fill="none" stroke="#061A40" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
-    <circle cx="0" cy="72" r="8" fill="#FF8A00"/>
-    <circle cx="120" cy="36" r="8" fill="#FF8A00"/>
+<svg width="960" height="220" viewBox="0 0 960 220" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <g transform="translate(20 20) scale(0.35)">
+    <path d="M130 366L240 122H302V366H250V252L198 366H130Z" fill="#061A40"/>
+    <path d="M322 122H382V316H448V366H322V122Z" fill="#34C6A3"/>
+    <path d="M210 268H294L254 310H190L210 268Z" fill="#F8FBFF"/>
   </g>
-  <text x="190" y="110" font-family="Arial, Helvetica, sans-serif" font-size="64" font-weight="700" fill="#061A40">Actlane</text>
+  <text x="220" y="140" font-family="Inter, Arial, sans-serif" font-size="86" font-weight="700" fill="#061A40">Actlane</text>
 </svg>
