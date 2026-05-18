@@ -1,0 +1,29 @@
+@startuml
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam roundcorner 16
+skinparam ArrowColor #1B5EBE
+skinparam ActivityBorderColor #1B5EBE
+skinparam ActivityBackgroundColor #F8FBFF
+skinparam ActivityFontColor #061A40
+
+title Actlane: Define Once, Generate Integrations
+
+start
+:Write Capability manifest;
+:Validate manifest;
+:Generate artifacts;
+fork
+  :MCP tool;
+fork again
+  :OpenAPI Action;
+fork again
+  :Agent instructions;
+fork again
+  :IDE configs;
+fork again
+  :Policy bundle;
+end fork
+:Use in agent runtime;
+stop
+@enduml

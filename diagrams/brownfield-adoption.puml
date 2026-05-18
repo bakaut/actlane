@@ -1,0 +1,25 @@
+@startuml
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam roundcorner 16
+skinparam ArrowColor #1B5EBE
+skinparam ActivityBorderColor #1B5EBE
+skinparam ActivityBackgroundColor #F8FBFF
+skinparam ActivityFontColor #061A40
+
+title Actlane Brownfield Adoption
+
+start
+:inspect;
+:init --no-touch;
+:generate into .actlane/generated;
+:plan apply / show diff;
+if (user accepts?) then (yes)
+  :apply owned snippets;
+else (no)
+  :keep generated artifacts only;
+endif
+:optional enforce;
+:remove only owned files/blocks if needed;
+stop
+@enduml
