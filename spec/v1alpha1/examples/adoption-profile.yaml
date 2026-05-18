@@ -1,0 +1,13 @@
+apiVersion: actlane.dev/v1alpha1
+kind: AdoptionProfile
+metadata:
+  name: brownfield-safe
+spec:
+  writePolicy:
+    default: neverOverwrite
+  requireExplicitApply: true
+  removeOnlyOwnedFiles: true
+  ownership:
+    markers: true
+  backups:
+    enabled: true

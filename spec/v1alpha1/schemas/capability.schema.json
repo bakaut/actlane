@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://actlane.dev/schemas/v1alpha1/capability.schema.json",
+  "title": "Actlane Capability",
+  "type": "object",
+  "required": ["apiVersion", "kind", "metadata", "spec"],
+  "properties": {
+    "apiVersion": { "const": "actlane.dev/v1alpha1" },
+    "kind": { "const": "Capability" },
+    "metadata": {
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name": { "type": "string" },
+        "description": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "spec": {
+      "type": "object",
+      "required": ["whenToUse", "inputs", "outputs", "policies"],
+      "properties": {
+        "whenToUse": { "type": "string" },
+        "inputs": { "type": "object" },
+        "outputs": { "type": "object" },
+        "policies": { "type": "array", "items": { "type": "string" } },
+        "toolFlow": { "type": "array", "items": { "type": "object" } },
+        "targets": { "type": "array", "items": { "type": "string" } },
+        "reporting": { "type": "object" }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": false
+}

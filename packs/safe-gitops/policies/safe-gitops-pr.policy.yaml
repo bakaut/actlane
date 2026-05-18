@@ -1,0 +1,32 @@
+apiVersion: actlane.dev/v1alpha1
+kind: ToolCallPolicy
+metadata:
+  name: safe-gitops-pr-policy
+spec:
+  allow:
+    - action: create-safe-draft-pr
+      when:
+        confirmed: true
+  deny:
+    - reason: Too many files for a safe first pass.
+      maxFiles: 20
+    - reason: Diff too large for draft PR automation.
+      maxDiffBytes: 120000
+  mutate:
+    - field: branch
+      ensurePrefix: actlane/
+      reason: Branches created by this pack must be recognizable.
+    - field: draft
+      value: true
+      reason: PRs created by this pack must start as draft.
+  requiresApproval:
+    - mutating: true
+      reason: Creating branches, commits, and PRs changes remote state.
+  audit:
+    include:
+      - repo
+      - title
+      - branch
+      - files
+      - policyDecision
+      - mutations

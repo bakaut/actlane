@@ -1,0 +1,16 @@
+apiVersion: actlane.dev/v1alpha1
+kind: CapabilityPack
+metadata:
+  name: create-safe-draft-pr-example
+  version: 0.1.0-rfc
+spec:
+  capabilities:
+    - capabilities/create-safe-draft-pr.yaml
+  policies:
+    - policies/safe-gitops-pr.policy.yaml
+  targets:
+    - openapi
+    - mcp
+    - opencode
+    - vscode
+    - policy

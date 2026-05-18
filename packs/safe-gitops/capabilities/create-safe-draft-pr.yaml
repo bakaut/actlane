@@ -1,0 +1,58 @@
+apiVersion: actlane.dev/v1alpha1
+kind: Capability
+metadata:
+  name: create-safe-draft-pr
+  description: Safely create an AI-assisted draft pull request.
+spec:
+  whenToUse: Use when the user asks to prepare a draft PR from reviewed changes.
+  inputs:
+    repo:
+      type: string
+      required: true
+    title:
+      type: string
+      required: true
+    branch:
+      type: string
+      required: true
+    files:
+      type: array
+      required: true
+    summary:
+      type: string
+      required: true
+    confirmed:
+      type: boolean
+      required: true
+  outputs:
+    prUrl:
+      type: string
+    branch:
+      type: string
+    policyDecision:
+      type: string
+    summary:
+      type: string
+  policies:
+    - safe-gitops-pr-policy
+    - block-secrets
+  toolFlow:
+    - tool: github.create_branch
+      purpose: create safe branch
+    - tool: github.commit_files
+      purpose: commit reviewed files
+    - tool: github.create_pull_request
+      purpose: create draft PR
+  targets:
+    - agents-md
+    - skill-md
+    - mcp
+    - openapi
+    - opencode
+    - vscode
+    - codex
+    - custom-gpt
+  reporting:
+    includeChangedFiles: true
+    includePolicyDecision: true
+    includePrUrl: true

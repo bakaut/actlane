@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://actlane.dev/schemas/v1alpha1/adoption-profile.schema.json",
+  "title": "Actlane AdoptionProfile",
+  "type": "object",
+  "required": ["apiVersion", "kind", "metadata", "spec"],
+  "properties": {
+    "apiVersion": { "const": "actlane.dev/v1alpha1" },
+    "kind": { "const": "AdoptionProfile" },
+    "metadata": {
+      "type": "object",
+      "required": ["name"],
+      "properties": { "name": { "type": "string" } },
+      "additionalProperties": true
+    },
+    "spec": {
+      "type": "object",
+      "properties": {
+        "writePolicy": { "type": "object" },
+        "requireExplicitApply": { "type": "boolean" },
+        "removeOnlyOwnedFiles": { "type": "boolean" },
+        "ownership": { "type": "object" },
+        "backups": { "type": "object" }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,17 @@
+apiVersion: actlane.dev/v1alpha1
+kind: Capability
+metadata:
+  name: minimal-readonly-context
+  description: Minimal read-only context lookup example.
+spec:
+  whenToUse: Use when an agent needs read-only project context.
+  inputs:
+    query:
+      type: string
+  outputs:
+    summary:
+      type: string
+  policies: []
+  targets:
+    - agents-md
+    - mcp

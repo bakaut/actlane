@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="180" viewBox="0 0 720 180" role="img" aria-label="Actlane wordmark">
+  <rect width="720" height="180" fill="#FFFFFF"/>
+  <g transform="translate(32 34)">
+    <path d="M0 72h54l18-36h48" fill="none" stroke="#1B5EBE" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M0 36h48l18 36h54" fill="none" stroke="#061A40" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="0" cy="72" r="8" fill="#FF8A00"/>
+    <circle cx="120" cy="36" r="8" fill="#FF8A00"/>
+  </g>
+  <text x="190" y="110" font-family="Arial, Helvetica, sans-serif" font-size="64" font-weight="700" fill="#061A40">Actlane</text>
+</svg>

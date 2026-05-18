@@ -1,0 +1,12 @@
+{
+  "action": "create-safe-draft-pr",
+  "input": {
+    "repo": "example/repo",
+    "title": "Document Actlane Phase 0",
+    "branch": "actlane/docs-phase-0",
+    "files": ["README.md", "docs/00-problem.md"],
+    "summary": "Adds Phase 0 documentation.",
+    "confirmed": true,
+    "draft": true
+  }
+}

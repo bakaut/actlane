@@ -1,0 +1,11 @@
+openapi: 3.1.0
+info:
+  title: create-safe-draft-pr Example
+  version: 0.1.0-rfc
+paths:
+  /actions/create-safe-draft-pr:
+    post:
+      operationId: createSafeDraftPr
+      responses:
+        "200":
+          description: Draft PR result.

@@ -1,0 +1,40 @@
+@startuml
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam roundcorner 12
+skinparam ArrowColor #1B5EBE
+skinparam ActivityBorderColor #1B5EBE
+skinparam ActivityBackgroundColor #F8FBFF
+skinparam ActivityFontColor #061A40
+skinparam NoteBackgroundColor #FFF8ED
+skinparam NoteBorderColor #FF8A00
+
+title Brownfield-Safe Adoption Flow
+
+start
+:Inspect existing project;
+:Detect AGENTS.md, SKILL.md,\nMCP configs, IDE configs;
+:Initialize .actlane/ only;
+:Generate into .actlane/generated;
+:Create plan and diff;
+
+if (User explicitly applies?) then (yes)
+  :Write only owned files\nor owned marked blocks;
+  :Record checksums and ownership\nin actlane.lock;
+else (no)
+  :Keep generated artifacts separate;
+endif
+
+if (User removes later?) then (yes)
+  :Remove only lockfile-owned files\nand owned blocks;
+else (no)
+  :Leave project unchanged;
+endif
+
+stop
+
+note right
+Default posture:
+never overwrite existing project files.
+end note
+@enduml

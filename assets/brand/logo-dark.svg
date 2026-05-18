@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" role="img" aria-label="Actlane logo dark">
+  <rect width="256" height="256" rx="40" fill="#061A40"/>
+  <path d="M48 152h72l24-48h64" fill="none" stroke="#7CB7FF" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M48 104h64l24 48h72" fill="none" stroke="#FFFFFF" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="48" cy="152" r="12" fill="#FFB454"/>
+  <circle cx="208" cy="104" r="12" fill="#FFB454"/>
+</svg>

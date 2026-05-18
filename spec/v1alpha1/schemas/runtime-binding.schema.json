@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://actlane.dev/schemas/v1alpha1/runtime-binding.schema.json",
+  "title": "Actlane RuntimeBinding",
+  "type": "object",
+  "required": ["apiVersion", "kind", "metadata", "spec"],
+  "properties": {
+    "apiVersion": { "const": "actlane.dev/v1alpha1" },
+    "kind": { "const": "RuntimeBinding" },
+    "metadata": {
+      "type": "object",
+      "required": ["name"],
+      "properties": { "name": { "type": "string" } },
+      "additionalProperties": true
+    },
+    "spec": {
+      "type": "object",
+      "properties": {
+        "mode": { "type": "string" },
+        "policyBundle": { "type": "string" },
+        "failMode": { "type": "string", "enum": ["deny", "allow"] }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": false
+}

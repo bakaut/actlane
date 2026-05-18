@@ -1,0 +1,26 @@
+apiVersion: actlane.dev/v1alpha1
+kind: ToolCallPolicy
+metadata:
+  name: safe-gitops-pr-policy
+spec:
+  allow:
+    - action: create-safe-draft-pr
+      when: user-confirmed
+  deny:
+    - paths:
+        - .env
+        - "**/*secret*"
+        - "**/*credential*"
+  mutate:
+    - field: branch
+      ensurePrefix: actlane/
+    - field: draft
+      value: true
+  requiresApproval:
+    - mutating: true
+  audit:
+    include:
+      - repo
+      - branch
+      - files
+      - policyDecision

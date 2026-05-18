@@ -1,0 +1,16 @@
+apiVersion: actlane.dev/v1alpha1
+kind: TargetProfile
+metadata:
+  name: safe-gitops-default-targets
+spec:
+  targets:
+    - name: agents-md
+      path: generated/agents/AGENTS.generated.md
+    - name: skill-md
+      path: generated/agents/skills.generated.md
+    - name: mcp
+      path: generated/mcp/tools.json
+    - name: openapi
+      path: generated/openapi/openapi.yaml
+    - name: policy
+      path: generated/policies/policy-bundle.json

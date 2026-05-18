@@ -1,0 +1,7 @@
+{
+  "decision": "allow",
+  "reasons": ["User confirmed mutating action.", "No forbidden paths detected."],
+  "mutations": [],
+  "auditId": "phase0-allow-example",
+  "policyRefs": ["safe-gitops-pr-policy", "block-secrets"]
+}

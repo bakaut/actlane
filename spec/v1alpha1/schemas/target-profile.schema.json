@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://actlane.dev/schemas/v1alpha1/target-profile.schema.json",
+  "title": "Actlane TargetProfile",
+  "type": "object",
+  "required": ["apiVersion", "kind", "metadata", "spec"],
+  "properties": {
+    "apiVersion": { "const": "actlane.dev/v1alpha1" },
+    "kind": { "const": "TargetProfile" },
+    "metadata": {
+      "type": "object",
+      "required": ["name"],
+      "properties": { "name": { "type": "string" } },
+      "additionalProperties": true
+    },
+    "spec": {
+      "type": "object",
+      "required": ["targets"],
+      "properties": {
+        "targets": { "type": "array", "items": { "type": "object" } }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,62 @@
+@startuml
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam roundcorner 12
+skinparam ArrowColor #1B5EBE
+skinparam RectangleBorderColor #1B5EBE
+skinparam RectangleBackgroundColor #F8FBFF
+skinparam PackageBorderColor #5A6B7A
+skinparam PackageBackgroundColor #FFFFFF
+skinparam NoteBackgroundColor #FFF8ED
+skinparam NoteBorderColor #FF8A00
+
+title Actlane Overview: One Contract, Many Agent Artifacts
+
+actor "Developer / Team" as dev
+
+package "Source of truth" {
+  rectangle "actlane.yaml" as manifest
+  rectangle "capabilities/*.yaml" as capabilities
+  rectangle "policies/*.yaml" as policies
+  rectangle "target-profiles/*.yaml" as targets
+}
+
+rectangle "Actlane generator\n(Phase 1+ prototype)" as generator
+
+package "Generated artifacts" {
+  rectangle "AGENTS.md block" as agents
+  rectangle "SKILL.md" as skill
+  rectangle "MCP metadata" as mcp
+  rectangle "OpenAPI Action" as openapi
+  rectangle "IDE / agent snippets" as snippets
+  rectangle "policy bundle" as policy
+  rectangle "contract tests" as tests
+}
+
+package "Optional later layers" {
+  rectangle "actlane.lock" as lock
+  rectangle "runtime enforcement" as runtime
+}
+
+dev --> manifest : defines safe action
+manifest --> generator
+capabilities --> generator
+policies --> generator
+targets --> generator
+
+generator --> agents
+generator --> skill
+generator --> mcp
+generator --> openapi
+generator --> snippets
+generator --> policy
+generator --> tests
+generator --> lock : reproducible state
+
+policy --> runtime : optional
+
+note right of runtime
+Runtime is not the MVP core.
+Actlane is not an MCP gateway.
+end note
+@enduml

@@ -1,0 +1,12 @@
+{
+  "action": "create-safe-draft-pr",
+  "input": {
+    "repo": "example/repo",
+    "title": "Add roadmap",
+    "branch": "docs-roadmap",
+    "files": ["ROADMAP.md"],
+    "summary": "Adds roadmap.",
+    "confirmed": true,
+    "draft": false
+  }
+}

@@ -1,0 +1,48 @@
+@startuml
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam roundcorner 12
+skinparam ArrowColor #1B5EBE
+skinparam ActivityBorderColor #1B5EBE
+skinparam ActivityBackgroundColor #F8FBFF
+skinparam ActivityFontColor #061A40
+skinparam NoteBackgroundColor #FFF8ED
+skinparam NoteBorderColor #FF8A00
+
+title Capability Development Flow: create-safe-draft-pr
+
+start
+:Choose one workflow;
+note right
+Phase 0 workflow:
+create-safe-draft-pr
+end note
+
+:Describe capability intent;
+:Define input and output schema;
+:Map high-level action to tool calls;
+:Attach ToolCallPolicy;
+
+if (Policy complete?) then (yes)
+  :Validate source manifests;
+else (no)
+  :Add deny, mutate, approval, audit rules;
+endif
+
+:Generate expected artifacts;
+fork
+  :AGENTS.md snippet;
+fork again
+  :SKILL.md;
+fork again
+  :MCP tool metadata;
+fork again
+  :OpenAPI Action schema;
+fork again
+  :policy bundle;
+end fork
+
+:Add allow / deny / mutate examples;
+:Document acceptance criteria;
+stop
+@enduml

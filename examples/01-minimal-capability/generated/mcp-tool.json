@@ -1,0 +1,11 @@
+{
+  "name": "minimal_readonly_context",
+  "description": "Return read-only project context for a query.",
+  "inputSchema": {
+    "type": "object",
+    "required": ["query"],
+    "properties": {
+      "query": { "type": "string" }
+    }
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "commands": [
+    {
+      "name": "create-safe-draft-pr",
+      "description": "Prepare a safe draft PR using the safe-gitops policy.",
+      "path": "commands/create-safe-draft-pr.md"
+    }
+  ]
+}

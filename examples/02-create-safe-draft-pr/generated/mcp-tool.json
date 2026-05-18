@@ -1,0 +1,4 @@
+{
+  "name": "create_safe_draft_pr",
+  "description": "Create a safe draft pull request."
+}

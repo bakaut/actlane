@@ -1,0 +1,20 @@
+{
+  "name": "run_project_tests",
+  "description": "Run a configured project test command before PR creation.",
+  "inputSchema": {
+    "type": "object",
+    "required": ["repo", "command"],
+    "properties": {
+      "repo": { "type": "string" },
+      "command": { "type": "string" },
+      "timeoutSeconds": { "type": "integer", "default": 600 }
+    }
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "exitCode": { "type": "integer" },
+      "outputSummary": { "type": "string" }
+    }
+  }
+}

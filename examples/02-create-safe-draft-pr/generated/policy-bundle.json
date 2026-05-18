@@ -1,0 +1,9 @@
+{
+  "pack": "safe-gitops",
+  "capability": "create-safe-draft-pr",
+  "rules": {
+    "branchPrefix": "actlane/",
+    "forceDraft": true,
+    "forbiddenPaths": [".env", "**/*secret*"]
+  }
+}

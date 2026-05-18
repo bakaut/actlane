@@ -1,0 +1,24 @@
+apiVersion: actlane.dev/v1alpha1
+kind: Capability
+metadata:
+  name: create-safe-draft-pr
+spec:
+  whenToUse: Use after the user confirms a draft PR should be prepared.
+  inputs:
+    repo:
+      type: string
+    title:
+      type: string
+    files:
+      type: array
+  outputs:
+    prUrl:
+      type: string
+  policies:
+    - safe-gitops-pr-policy
+  targets:
+    - openapi
+    - mcp
+    - opencode
+    - vscode
+    - policy

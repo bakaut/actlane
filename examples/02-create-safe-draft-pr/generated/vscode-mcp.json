@@ -1,0 +1,7 @@
+{
+  "servers": {
+    "safe-gitops": {
+      "tools": ["create_safe_draft_pr"]
+    }
+  }
+}

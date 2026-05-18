@@ -1,0 +1,41 @@
+openapi: 3.1.0
+info:
+  title: safe-gitops Actions
+  version: 0.1.0-rfc
+  description: Phase 0 OpenAPI Action shape for Custom GPT.
+paths:
+  /actions/create-safe-draft-pr:
+    post:
+      operationId: createSafeDraftPr
+      summary: Create a safe draft pull request.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - repo
+                - title
+                - branch
+                - files
+                - summary
+                - confirmed
+              properties:
+                repo:
+                  type: string
+                title:
+                  type: string
+                branch:
+                  type: string
+                files:
+                  type: array
+                  items:
+                    type: string
+                summary:
+                  type: string
+                confirmed:
+                  type: boolean
+      responses:
+        "200":
+          description: Draft PR result.

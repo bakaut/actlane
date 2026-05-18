@@ -1,0 +1,25 @@
+{
+  "name": "create_safe_draft_pr",
+  "description": "Create a safe draft pull request from reviewed file changes.",
+  "inputSchema": {
+    "type": "object",
+    "required": ["repo", "title", "branch", "files", "summary", "confirmed"],
+    "properties": {
+      "repo": { "type": "string" },
+      "title": { "type": "string" },
+      "branch": { "type": "string" },
+      "files": { "type": "array", "items": { "type": "string" } },
+      "summary": { "type": "string" },
+      "confirmed": { "type": "boolean" }
+    }
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "prUrl": { "type": "string" },
+      "branch": { "type": "string" },
+      "policyDecision": { "type": "string" },
+      "summary": { "type": "string" }
+    }
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "decision": "mutate",
+  "reasons": ["Branch prefix and draft default were normalized."],
+  "mutations": [
+    {
+      "field": "branch",
+      "before": "docs-roadmap",
+      "after": "actlane/docs-roadmap"
+    },
+    {
+      "field": "draft",
+      "before": false,
+      "after": true
+    }
+  ],
+  "auditId": "phase0-mutate-example",
+  "policyRefs": ["safe-gitops-pr-policy"]
+}

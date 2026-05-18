@@ -1,0 +1,20 @@
+apiVersion: actlane.dev/v1alpha1
+kind: CapabilityPack
+metadata:
+  name: safe-gitops
+  version: 0.1.0-rfc
+spec:
+  capabilities:
+    - create-safe-draft-pr
+    - run-project-tests
+  policies:
+    - safe-gitops-pr-policy
+    - block-secrets
+  targets:
+    - agents-md
+    - skill-md
+    - mcp
+    - openapi
+    - opencode
+    - vscode
+  adoptionProfile: brownfield-safe

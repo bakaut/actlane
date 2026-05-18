@@ -1,0 +1,51 @@
+@startuml
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam roundcorner 12
+skinparam ArrowColor #1B5EBE
+skinparam RectangleBorderColor #1B5EBE
+skinparam RectangleBackgroundColor #F8FBFF
+skinparam DatabaseBorderColor #5A6B7A
+skinparam DatabaseBackgroundColor #FFFFFF
+skinparam NoteBackgroundColor #FFF8ED
+skinparam NoteBorderColor #FF8A00
+
+title Pack Portability Flow: safe-gitops
+
+rectangle "safe-gitops pack" as pack {
+  rectangle "Capability\ncreate-safe-draft-pr" as cap
+  rectangle "ToolCallPolicy\nsafe-gitops-pr-policy" as pol
+  rectangle "TargetProfiles" as tgt
+}
+
+database "actlane.lock\nexact generated state" as lock
+
+rectangle "Developer A\nCodex / OpenCode" as devA
+rectangle "Developer B\nVS Code / Cursor" as devB
+rectangle "Team Gateway\noptional later" as gateway
+
+rectangle "Generated for Codex" as codex
+rectangle "Generated for OpenCode" as opencode
+rectangle "Generated for VS Code" as vscode
+rectangle "Generated OpenAPI Action" as customgpt
+rectangle "Generated policy bundle" as bundle
+
+pack --> codex
+pack --> opencode
+pack --> vscode
+pack --> customgpt
+pack --> bundle
+pack --> lock
+
+codex --> devA
+opencode --> devA
+vscode --> devB
+customgpt --> devB
+bundle --> gateway
+
+note bottom of pack
+Same safe action contract.
+Different target artifacts.
+No raw MCP tool bag exposed to agents.
+end note
+@enduml

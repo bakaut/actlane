@@ -1,0 +1,33 @@
+apiVersion: actlane.dev/v1alpha1
+kind: CapabilityPack
+metadata:
+  name: safe-gitops
+  version: 0.1.0-rfc
+  description: Safe AI-assisted GitHub workflows for agent runtimes.
+spec:
+  status: phase-0-rfc
+  implementation: handwritten-example
+  capabilities:
+    - capabilities/create-safe-draft-pr.yaml
+    - capabilities/run-project-tests.yaml
+  policies:
+    - policies/safe-gitops-pr.policy.yaml
+    - policies/block-secrets.policy.yaml
+  targets:
+    - agents-md
+    - skill-md
+    - mcp
+    - openapi
+    - opencode
+    - vscode
+    - codex
+    - custom-gpt
+  adoptionProfile:
+    writePolicy:
+      default: neverOverwrite
+    requireExplicitApply: true
+    removeOnlyOwnedFiles: true
+    ownership:
+      markers: true
+    backups:
+      enabled: true

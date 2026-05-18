@@ -1,0 +1,33 @@
+@startuml
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam roundcorner 12
+skinparam ArrowColor #1B5EBE
+skinparam RectangleBorderColor #1B5EBE
+skinparam RectangleBackgroundColor #F8FBFF
+skinparam NoteBackgroundColor #FFF8ED
+skinparam NoteBorderColor #FF8A00
+
+title Optional Runtime Enforcement
+
+rectangle "Agent Runtime\nCodex / OpenCode / Custom GPT / IDE" as agent
+rectangle "Generated target artifact\nAGENTS / SKILL / MCP / OpenAPI" as artifact
+rectangle "Existing gateway\nMCP wrapper\nor local sidecar" as gateway
+rectangle "Actlane policy bundle" as policy
+rectangle "Policy decision" as decision
+rectangle "Real tools\nGitHub / CI / sandbox / memory" as tools
+rectangle "Audit record" as audit
+
+agent --> artifact : follows generated contract
+agent --> gateway : tool-call
+gateway --> policy : evaluate
+policy --> decision : allow / deny / mutate / approval
+decision --> gateway : safe decision
+gateway --> tools : allowed or mutated call
+decision --> audit
+
+note bottom of policy
+Generated from the same source manifests.
+This layer is optional after generation mode works.
+end note
+@enduml

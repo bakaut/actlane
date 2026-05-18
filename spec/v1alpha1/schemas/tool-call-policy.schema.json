@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://actlane.dev/schemas/v1alpha1/tool-call-policy.schema.json",
+  "title": "Actlane ToolCallPolicy",
+  "type": "object",
+  "required": ["apiVersion", "kind", "metadata", "spec"],
+  "properties": {
+    "apiVersion": { "const": "actlane.dev/v1alpha1" },
+    "kind": { "const": "ToolCallPolicy" },
+    "metadata": {
+      "type": "object",
+      "required": ["name"],
+      "properties": { "name": { "type": "string" } },
+      "additionalProperties": true
+    },
+    "spec": {
+      "type": "object",
+      "properties": {
+        "allow": { "type": "array", "items": { "type": "object" } },
+        "deny": { "type": "array", "items": { "type": "object" } },
+        "mutate": { "type": "array", "items": { "type": "object" } },
+        "requiresApproval": { "type": "array", "items": { "type": "object" } },
+        "audit": { "type": "object" }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": false
+}
