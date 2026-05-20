@@ -19,7 +19,7 @@ on:
         description: Create or update release as draft
         required: true
         type: boolean
-        default: true
+        default: false
       prerelease:
         description: Mark release as prerelease
         required: true
@@ -90,6 +90,11 @@ jobs:
     runs-on: ubuntu-latest
     needs: build
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - name: Download Build Artifacts
         uses: actions/download-artifact@v4
         with:
@@ -111,15 +116,22 @@ jobs:
           PRERELEASE: ${{ inputs.prerelease }}
         run: |
           args=()
+          edit_args=()
           if [[ "$DRAFT" == "true" ]]; then
             args+=(--draft)
+            edit_args+=(--draft)
+          else
+            edit_args+=(--draft=false)
           fi
           if [[ "$PRERELEASE" == "true" ]]; then
             args+=(--prerelease)
+            edit_args+=(--prerelease)
+          else
+            edit_args+=(--prerelease=false)
           fi
 
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release edit "$TAG" --title "$RELEASE_NAME" "${args[@]}"
+            gh release edit "$TAG" --title "$RELEASE_NAME" "${edit_args[@]}"
           else
             gh release create "$TAG" --title "$RELEASE_NAME" --notes "Manual Actlane CLI build." "${args[@]}"
           fi
