@@ -105,3 +105,5 @@ Star the repo if your team also struggles with scattered agent prompts, MCP conf
 Open an issue if you want Actlane to generate packs for a specific target such as Codex, Claude, OpenCode, or CLI agents.
 
 Use the `Try Actlane on my setup` issue template. The first real adapters should be driven by actual user setups, not guesses.
+
+![alt text](diagrams/svg/actlane-overview.svg)
