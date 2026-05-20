@@ -1,8 +1,8 @@
 # Actlane Status
 
-Status: pre-alpha / RFC / no production CLI yet.
+Status: pre-alpha / working CLI MVP / no production security guarantees.
 
-Actlane is currently a design and specification repository. It contains the problem statement, product thesis, proposed repository structure, diagrams, and early specification notes.
+Actlane started as a design and specification repository. It now also contains a narrow Go CLI MVP for one OpenCode capability.
 
 ## What Exists
 
@@ -12,36 +12,40 @@ Actlane is currently a design and specification repository. It contains the prob
 - Early `spec/v1alpha1` notes.
 - Documentation for the first intended pack: `safe-gitops`.
 - Hand-written `safe-gitops` pack artifacts and examples.
-- Placeholder package boundaries with no implementation code.
+- Working Go CLI MVP in `packages/cli`.
+- `validate`, `generate --target opencode`, `--check`, `--frozen-lockfile`, and schema inspection commands.
+- First executable MVP pack: `packs/github-draft-pr-opencode`.
+- Generated OpenCode command, agent instructions, config snippet, policy bundle, and `actlane.lock`.
+- Manual GitHub Actions release workflow for Linux, macOS, and Windows CLI artifacts.
 
 ## What Does Not Exist Yet
 
-- No production CLI.
+- No production-ready CLI contract.
 - No runtime service.
 - No MCP gateway.
 - No hosted registry.
 - No marketplace.
 - No production security guarantees.
+- No apply/remove lifecycle for existing projects.
+- No generated MCP, Codex, Claude, or multi-target adapters in the working CLI.
 
 ## Intended Next Step
 
-Complete Phase 0:
+Stabilize the Phase 1 MVP:
 
 ```text
-README.md
-STATUS.md
-MANIFESTO.md
-ROADMAP.md
-CONTRIBUTING.md
-SECURITY.md
-LICENSE
-docs/
-diagrams/
+packages/cli
+packs/github-draft-pr-opencode
+spec/v1alpha1/schemas
+.github/workflows/manual-build-cli.yml
 ```
 
-Then add the first concrete no-code example pack:
+Current validation path:
 
-```text
-packs/safe-gitops/
-examples/create-safe-draft-pr/
+```bash
+cd packages/cli
+go test ./...
+go run ./cmd/actlane validate ../../packs/github-draft-pr-opencode
+go run ./cmd/actlane generate ../../packs/github-draft-pr-opencode --target opencode --check
+go run ./cmd/actlane generate ../../packs/github-draft-pr-opencode --target opencode --frozen-lockfile
 ```

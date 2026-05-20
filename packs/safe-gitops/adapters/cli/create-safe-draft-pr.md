@@ -1,6 +1,6 @@
 # CLI Adapter Sketch: create-safe-draft-pr
 
-Status: Phase 0 placeholder. No CLI exists yet.
+Status: Phase 0 placeholder from before the Go CLI MVP. This adapter is not implemented by the current OpenCode-only CLI.
 
 Future command shape:
 

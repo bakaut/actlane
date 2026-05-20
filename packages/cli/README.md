@@ -1,14 +1,23 @@
 # Actlane CLI
 
-Status: not implemented.
+Status: Phase 1 MVP implementation.
 
-Planned Phase 1 commands:
+Implemented MVP commands:
 
-```text
-actlane validate
-actlane generate --target mcp
-actlane generate --target agents
-actlane generate --target policy
+```bash
+go run ./cmd/actlane version
+go run ./cmd/actlane validate ../../packs/github-draft-pr-opencode
+go run ./cmd/actlane generate ../../packs/github-draft-pr-opencode --target opencode
+go run ./cmd/actlane generate ../../packs/github-draft-pr-opencode --target opencode --check
+go run ./cmd/actlane generate ../../packs/github-draft-pr-opencode --target opencode --frozen-lockfile
+go run ./cmd/actlane schema list
+go run ./cmd/actlane schema print capability
 ```
 
-Do not document installation commands until this package contains working code.
+The MVP supports only the OpenCode target.
+
+The source of truth for Actlane JSON Schemas is outside this Go module:
+
+```text
+../../spec/v1alpha1/schemas/
+```

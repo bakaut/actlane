@@ -1,6 +1,6 @@
 # Actlane Generator
 
-Status: not implemented.
+Status: implemented inside `packages/cli/internal/generator` for the first OpenCode MVP target.
 
 Planned responsibility:
 
@@ -10,4 +10,4 @@ Planned responsibility:
 - write deterministic output;
 - create `actlane.lock`.
 
-Phase 0 generated artifacts are hand-written expected outputs.
+The current MVP generator supports only `packs/github-draft-pr-opencode` and `--target opencode`.

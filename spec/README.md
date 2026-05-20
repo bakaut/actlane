@@ -2,7 +2,7 @@
 
 This directory contains the proposed Actlane specification.
 
-Status: pre-alpha / RFC. The schema files are intentionally minimal and exist to make the Phase 0 examples reviewable before a real CLI exists.
+Status: pre-alpha. The schema files are intentionally minimal and now support the first OpenCode CLI MVP while remaining draft v1alpha1 contracts.
 
 ## Versions
 
@@ -19,4 +19,4 @@ The spec describes:
 - optional runtime bindings;
 - capability packs.
 
-Runtime enforcement, package distribution, and CLI behavior are planned later phases.
+Runtime enforcement and package distribution are planned later phases. The current CLI behavior is limited to validation and OpenCode generation for the first MVP pack.

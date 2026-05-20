@@ -1,0 +1,27 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "agent": {
+    "github-draft-pr": {
+      "description": "Prepare safe GitHub draft pull requests from reviewed changes.",
+      "prompt": "Follow the generated github-draft-pr instructions and create only draft pull requests after explicit confirmation.",
+      "tools": {
+        "edit": true,
+        "write": true
+      }
+    }
+  },
+  "command": {
+    "create-github-draft-pr": {
+      "agent": "github-draft-pr",
+      "description": "Prepare a safe GitHub draft PR",
+      "template": "Prepare a GitHub draft PR using the generated github-draft-pr capability contract. Refuse secrets, force draft=true, require confirmation before mutation, and report policy decision."
+    }
+  },
+  "instructions": [
+    ".actlane/generated/opencode/instructions/github-draft-pr.md"
+  ],
+  "permission": {
+    "bash": "ask",
+    "edit": "ask"
+  }
+}

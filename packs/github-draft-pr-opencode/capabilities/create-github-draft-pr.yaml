@@ -1,0 +1,61 @@
+$schema: https://actlane.ru/schemas/v1alpha1/capability.schema.json
+apiVersion: actlane.ru/v1alpha1
+kind: Capability
+metadata:
+  name: create-github-draft-pr
+  title: Create GitHub Draft PR
+  description: Safely prepare a GitHub draft pull request from reviewed changes.
+spec:
+  whenToUse: Use after changes are reviewed and the user asks to prepare a GitHub draft PR.
+  targets:
+    - opencode
+  inputs:
+    repo:
+      type: string
+      required: true
+    baseBranch:
+      type: string
+      required: true
+    branch:
+      type: string
+      required: true
+    title:
+      type: string
+      required: true
+    summary:
+      type: string
+      required: true
+    files:
+      type: array
+      items:
+        type: string
+      required: true
+    confirmed:
+      type: boolean
+      required: true
+  outputs:
+    prUrl:
+      type: string
+    branch:
+      type: string
+    policyDecision:
+      type: string
+    summary:
+      type: string
+  policies:
+    - github-draft-pr-policy
+  toolFlow:
+    - tool: git.status
+      purpose: inspect changed files
+    - tool: tests.run
+      purpose: run project test command when configured
+    - tool: github.create_branch
+      purpose: create protected branch
+    - tool: github.commit_files
+      purpose: commit reviewed files
+    - tool: github.create_pull_request
+      purpose: create draft pull request
+  reporting:
+    includeChangedFiles: true
+    includePolicyDecision: true
+    includePrUrl: true

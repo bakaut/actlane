@@ -5,13 +5,20 @@
   "type": "object",
   "required": ["apiVersion", "kind", "metadata", "spec"],
   "properties": {
+    "$schema": { "type": "string" },
     "apiVersion": { "const": "actlane.ru/v1alpha1" },
     "kind": { "const": "ToolCallPolicy" },
     "metadata": {
       "type": "object",
       "required": ["name"],
-      "properties": { "name": { "type": "string" } },
-      "additionalProperties": true
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
+        },
+        "description": { "type": "string" }
+      },
+      "additionalProperties": false
     },
     "spec": {
       "type": "object",
@@ -22,7 +29,7 @@
         "requiresApproval": { "type": "array", "items": { "type": "object" } },
         "audit": { "type": "object" }
       },
-      "additionalProperties": true
+      "additionalProperties": false
     }
   },
   "additionalProperties": false

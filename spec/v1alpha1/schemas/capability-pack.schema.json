@@ -5,26 +5,48 @@
   "type": "object",
   "required": ["apiVersion", "kind", "metadata", "spec"],
   "properties": {
+    "$schema": { "type": "string" },
     "apiVersion": { "const": "actlane.ru/v1alpha1" },
     "kind": { "const": "CapabilityPack" },
     "metadata": {
       "type": "object",
       "required": ["name", "version"],
       "properties": {
-        "name": { "type": "string" },
-        "version": { "type": "string" }
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
+        },
+        "version": { "type": "string" },
+        "description": { "type": "string" }
       },
-      "additionalProperties": true
+      "additionalProperties": false
     },
     "spec": {
       "type": "object",
+      "required": ["capabilities", "policies", "targets"],
       "properties": {
-        "capabilities": { "type": "array", "items": { "type": "string" } },
-        "policies": { "type": "array", "items": { "type": "string" } },
-        "targets": { "type": "array", "items": { "type": "string" } },
-        "adoptionProfile": { "type": "string" }
+        "capabilities": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string" }
+        },
+        "policies": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string" }
+        },
+        "targetProfiles": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "targets": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "const": "opencode" }
+        },
+        "adoptionProfile": { "type": "object" }
       },
-      "additionalProperties": true
+      "additionalProperties": false
     }
   },
   "additionalProperties": false

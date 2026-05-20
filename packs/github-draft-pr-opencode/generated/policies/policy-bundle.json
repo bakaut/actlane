@@ -1,0 +1,29 @@
+{
+  "pack": "github-draft-pr-opencode",
+  "version": "0.1.0-alpha.1",
+  "target": "opencode",
+  "capabilities": [
+    "create-github-draft-pr"
+  ],
+  "decisions": [
+    "allow",
+    "deny",
+    "mutate",
+    "requires-approval"
+  ],
+  "rules": {
+    "branchPrefix": "actlane/",
+    "forbiddenPaths": [
+      "**/*credential*",
+      "**/*secret*",
+      "**/*token*",
+      "**/id_ed25519",
+      "**/id_rsa",
+      ".env",
+      ".env.*"
+    ],
+    "forceDraft": true,
+    "maxDiffBytes": 120000,
+    "maxFiles": 20
+  }
+}

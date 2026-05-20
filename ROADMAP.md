@@ -28,5 +28,5 @@ Phase 0 is complete when:
 - One concrete pack exists: `safe-gitops`.
 - One concrete workflow exists: `create-safe-draft-pr`.
 - Example generated artifacts exist, even if hand-written.
-- `STATUS.md` says pre-alpha / RFC / no production CLI yet.
+- `STATUS.md` says pre-alpha / RFC, with any working CLI scope clearly marked.
 - Call to action is clear: star, open issue, request target/runtime.

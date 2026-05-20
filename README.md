@@ -2,7 +2,7 @@
 
 MCP gives agents hands. Actlane defines the safe lane for every action.
 
-Actlane is a pre-alpha RFC for portable, policy-aware capability packs for AI agents. It is not a production CLI, hosted service, MCP gateway, or agent framework yet.
+Actlane is a pre-alpha project for portable, policy-aware capability packs for AI agents. A first Go CLI MVP now exists for one OpenCode capability, but Actlane is not a production security control, hosted service, MCP gateway, or agent framework yet.
 
 ## The Problem
 
@@ -32,16 +32,22 @@ audit metadata
 
 ## First Practical Focus
 
-The first pack is:
+The first RFC pack is:
 
 ```text
 safe-gitops
 ```
 
-The first workflow is:
+The first working CLI MVP pack is:
 
 ```text
-create-safe-draft-pr
+github-draft-pr-opencode
+```
+
+The first generated workflow is:
+
+```text
+create-github-draft-pr
 ```
 
 The minimal proof:
@@ -49,11 +55,10 @@ The minimal proof:
 ```text
 one actlane.yaml
 one actlane.lock
-generated AGENTS.md
-generated SKILL.md
-generated MCP metadata
+generated OpenCode config snippet
+generated OpenCode command
+generated OpenCode agent instructions
 generated policy bundle
-allow / deny / mutate examples
 ```
 
 ## What Actlane Is Not
@@ -66,14 +71,25 @@ allow / deny / mutate examples
 
 ## Current Status
 
-This repository is currently documentation-first:
+This repository is currently pre-alpha with a narrow working CLI MVP:
 
 - manifesto;
 - roadmap;
 - proposed folder structure;
 - PlantUML diagrams;
 - early v1alpha1 spec notes;
-- no production CLI yet.
+- Go CLI MVP in `packages/cli`;
+- OpenCode-only generator for `packs/github-draft-pr-opencode`;
+- manual GitHub Actions release workflow for CLI artifacts.
+
+Try the MVP locally:
+
+```bash
+cd packages/cli
+go test ./...
+go run ./cmd/actlane validate ../../packs/github-draft-pr-opencode
+go run ./cmd/actlane generate ../../packs/github-draft-pr-opencode --target opencode --check
+```
 
 See [STATUS.md](STATUS.md).
 
@@ -81,13 +97,12 @@ See [STATUS.md](STATUS.md).
 
 ```text
 docs/      concept, architecture, adoption, runtime, and pack docs
-spec/      proposed v1alpha1 specification
-packs/     Phase 0 safe-gitops pack example
+spec/      v1alpha1 schema source of truth
+packs/     Phase 0 examples and the OpenCode CLI MVP pack
 examples/  minimal and create-safe-draft-pr expected outputs
 diagrams/  PlantUML sources and rendered SVGs
 assets/    placeholder brand and image assets
-packages/  planned package boundaries, no implementation yet
-raw/       source research / exported design conversation
+packages/  Go CLI MVP and future package boundaries
 ```
 
 ## Start Here

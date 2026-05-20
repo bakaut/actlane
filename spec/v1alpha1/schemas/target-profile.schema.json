@@ -5,21 +5,26 @@
   "type": "object",
   "required": ["apiVersion", "kind", "metadata", "spec"],
   "properties": {
+    "$schema": { "type": "string" },
     "apiVersion": { "const": "actlane.ru/v1alpha1" },
     "kind": { "const": "TargetProfile" },
     "metadata": {
       "type": "object",
       "required": ["name"],
-      "properties": { "name": { "type": "string" } },
-      "additionalProperties": true
+      "properties": {
+        "name": { "const": "opencode" }
+      },
+      "additionalProperties": false
     },
     "spec": {
       "type": "object",
-      "required": ["targets"],
+      "required": ["target", "output"],
       "properties": {
-        "targets": { "type": "array", "items": { "type": "object" } }
+        "target": { "const": "opencode" },
+        "output": { "type": "object" },
+        "install": { "type": "object" }
       },
-      "additionalProperties": true
+      "additionalProperties": false
     }
   },
   "additionalProperties": false

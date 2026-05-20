@@ -5,31 +5,87 @@
   "type": "object",
   "required": ["apiVersion", "kind", "metadata", "spec"],
   "properties": {
+    "$schema": { "type": "string" },
     "apiVersion": { "const": "actlane.ru/v1alpha1" },
     "kind": { "const": "Capability" },
     "metadata": {
       "type": "object",
       "required": ["name"],
       "properties": {
-        "name": { "type": "string" },
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
+        },
+        "title": { "type": "string" },
         "description": { "type": "string" }
       },
-      "additionalProperties": true
+      "patternProperties": {
+        "^x-": true
+      },
+      "additionalProperties": false
     },
     "spec": {
       "type": "object",
-      "required": ["whenToUse", "inputs", "outputs", "policies"],
+      "required": ["whenToUse", "targets", "inputs", "outputs", "policies"],
       "properties": {
-        "whenToUse": { "type": "string" },
-        "inputs": { "type": "object" },
-        "outputs": { "type": "object" },
-        "policies": { "type": "array", "items": { "type": "string" } },
-        "toolFlow": { "type": "array", "items": { "type": "object" } },
-        "targets": { "type": "array", "items": { "type": "string" } },
-        "reporting": { "type": "object" }
+        "whenToUse": { "type": "string", "minLength": 1 },
+        "targets": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "const": "opencode" }
+        },
+        "inputs": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": { "$ref": "#/$defs/field" }
+        },
+        "outputs": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": { "$ref": "#/$defs/field" }
+        },
+        "policies": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string" }
+        },
+        "toolFlow": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["tool", "purpose"],
+            "properties": {
+              "tool": { "type": "string" },
+              "purpose": { "type": "string" }
+            },
+            "additionalProperties": false
+          }
+        },
+        "reporting": {
+          "type": "object",
+          "additionalProperties": { "type": "boolean" }
+        }
       },
-      "additionalProperties": true
+      "patternProperties": {
+        "^x-": true
+      },
+      "additionalProperties": false
     }
   },
-  "additionalProperties": false
+  "additionalProperties": false,
+  "$defs": {
+    "field": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["string", "integer", "number", "boolean", "array", "object"]
+        },
+        "required": { "type": "boolean" },
+        "items": { "$ref": "#/$defs/field" }
+      },
+      "additionalProperties": false
+    }
+  }
 }

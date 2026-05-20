@@ -1,0 +1,17 @@
+$schema: https://actlane.ru/schemas/v1alpha1/target-profile.schema.json
+apiVersion: actlane.ru/v1alpha1
+kind: TargetProfile
+metadata:
+  name: opencode
+spec:
+  target: opencode
+  output:
+    root: generated/opencode
+    configSnippet: opencode.snippet.jsonc
+    commands: commands/
+    agents: agents/
+    instructions: instructions/
+  install:
+    mode: manual-copy
+    commandPath: .opencode/commands/create-github-draft-pr.md
+    agentPath: .opencode/agents/github-draft-pr.md

@@ -1,6 +1,6 @@
 # Contributing To Actlane
 
-Actlane is currently an RFC-stage repository. The most useful contributions are clear examples, target requests, spec feedback, and corrections to confusing documentation.
+Actlane is currently a pre-alpha repository with a narrow Go CLI MVP. The most useful contributions are clear examples, target requests, spec feedback, CLI test cases, and corrections to confusing documentation.
 
 ## Good First Contributions
 
@@ -8,6 +8,7 @@ Actlane is currently an RFC-stage repository. The most useful contributions are 
 - Request a target runtime: Codex, Claude, OpenCode, or CLI agents.
 - Open a `Try Actlane on my setup` issue with your current files and desired generated artifact.
 - Improve the `safe-gitops` example.
+- Improve the `github-draft-pr-opencode` MVP pack.
 - Add policy examples for allow, deny, mutate, and requires-approval.
 - Point out where the docs overpromise implementation that does not exist yet.
 
@@ -32,4 +33,15 @@ Phase 0 documents should be:
 
 ## Development Status
 
-There is no production CLI yet. Implementation contributions should wait until the Phase 0 examples and pack shape are clear enough to generate from.
+There is a working CLI MVP in `packages/cli`, but it is not production-ready.
+
+Before opening implementation changes, run:
+
+```bash
+cd packages/cli
+go test ./...
+go run ./cmd/actlane validate ../../packs/github-draft-pr-opencode
+go run ./cmd/actlane generate ../../packs/github-draft-pr-opencode --target opencode --check
+```
+
+Keep new implementation work scoped to the current MVP unless the roadmap explicitly calls for broader target or runtime work.
