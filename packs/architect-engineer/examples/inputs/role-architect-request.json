@@ -1,0 +1,13 @@
+{
+  "role": "architect",
+  "task": "Design the Codex architect mode and prepare engineer handoff.",
+  "repo": "/Users/bakaut/pers/actline",
+  "contextPrepareRef": "/context/prepare",
+  "constraints": [
+    "Codex target only",
+    "one architect agent",
+    "no production code",
+    "no commits or PRs"
+  ]
+}
+

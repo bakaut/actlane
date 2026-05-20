@@ -1,0 +1,29 @@
+lockfileVersion: 1
+status: phase-0-placeholder
+note: This lockfile is hand-written to show intended shape before a CLI exists.
+pack:
+  name: architect-engineer
+  version: 0.1.0-rfc
+  digest: phase0-placeholder
+spec:
+  version: v1alpha1
+generator:
+  version: none
+  reason: no production CLI yet
+capabilities:
+  architect-engineer-handoff:
+    digest: phase0-placeholder
+policies:
+  architect-boundary-policy:
+    digest: phase0-placeholder
+generatedFiles:
+  - generated/agents/AGENTS.generated.md
+  - generated/agents/skills.generated.md
+  - generated/mcp/tools.json
+  - generated/codex/AGENTS.md
+  - generated/policies/policy-bundle.json
+ownedBlocks:
+  - id: architect-engineer.architect
+    start: "<!-- actlane:start architect-engineer.architect -->"
+    end: "<!-- actlane:end architect-engineer.architect -->"
+

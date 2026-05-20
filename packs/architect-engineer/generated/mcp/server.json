@@ -1,0 +1,8 @@
+{
+  "name": "architect-engineer",
+  "status": "phase-0-expected-output",
+  "tools": ["codex_architect_handoff"],
+  "prompts": ["context-prepare", "architect"],
+  "resources": ["architect-engineer-summary"]
+}
+

@@ -1,0 +1,17 @@
+{
+  "status": "phase-0-expected-output",
+  "pack": "architect-engineer",
+  "version": "0.1.0-rfc",
+  "capabilities": ["architect-engineer-handoff"],
+  "role": "architect",
+  "rules": {
+    "loadBeforePlanning": "/context/prepare",
+    "mustSeparateSections": ["facts", "assumptions", "decisions", "risks", "openQuestions"],
+    "mustProduce": ["boundaries", "contracts", "flow", "riskAnalysis", "engineerHandoff"],
+    "mayWrite": ["repoMarkdownDecisions", "mcpSummaryMetadata"],
+    "mustNotWrite": ["productionCode"],
+    "mustNotMutateRepoState": ["commits", "branches", "pullRequests", "mergeRequests"],
+    "requiresExplicitConfirmation": ["architectureBoundaryChange", "publicContractChange"]
+  }
+}
+

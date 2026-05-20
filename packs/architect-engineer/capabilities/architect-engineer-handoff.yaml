@@ -1,0 +1,72 @@
+apiVersion: actlane.ru/v1alpha1
+kind: Capability
+metadata:
+  name: architect-engineer-handoff
+  description: Run Codex in architect mode and produce an engineer handoff.
+spec:
+  whenToUse: Use when the user requests role:architect or asks Codex to prepare architecture work for an engineer.
+  inputs:
+    task:
+      type: string
+      required: true
+    repo:
+      type: string
+      required: true
+    contextPrepareRef:
+      type: string
+      required: true
+      default: /context/prepare
+    constraints:
+      type: array
+      required: false
+    confirmedArchitectureChange:
+      type: boolean
+      required: false
+      default: false
+  outputs:
+    facts:
+      type: array
+    assumptions:
+      type: array
+    decisions:
+      type: array
+    risks:
+      type: array
+    openQuestions:
+      type: array
+    boundaries:
+      type: array
+    contracts:
+      type: array
+    flow:
+      type: string
+    engineerHandoff:
+      type: string
+    durableDecisionRefs:
+      type: array
+    mcpSummaryRefs:
+      type: array
+  policies:
+    - architect-boundary-policy
+  toolFlow:
+    - tool: codex.load_context_prepare
+      purpose: load /context/prepare before planning
+    - tool: codex.architect_agent
+      purpose: analyze facts, assumptions, decisions, risks, and open questions
+    - tool: repo.write_markdown_decision
+      purpose: persist durable architecture decisions
+    - tool: mcp.index_summary
+      purpose: index concise architecture summaries for later retrieval
+    - tool: codex.engineer_handoff
+      purpose: produce implementation task for engineer
+  targets:
+    - agents-md
+    - skill-md
+    - mcp
+    - codex
+  reporting:
+    includePolicyDecision: true
+    includeDurableDecisionRefs: true
+    includeMcpSummaryRefs: true
+    includeEngineerHandoff: true
+

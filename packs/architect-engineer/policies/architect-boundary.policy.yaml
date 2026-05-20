@@ -1,0 +1,41 @@
+apiVersion: actlane.ru/v1alpha1
+kind: ToolCallPolicy
+metadata:
+  name: architect-boundary-policy
+spec:
+  allow:
+    - action: architect-engineer-handoff
+      when:
+        role: architect
+  deny:
+    - reason: Architect mode must not write production code.
+      productionCodeWrites: true
+    - reason: Architect mode must not create commits, branches, PRs, or MRs.
+      repositoryStateMutation: true
+    - reason: Architect mode must not silently change architecture.
+      architectureChangeWithoutConfirmation: true
+  mutate:
+    - field: role
+      value: architect
+      reason: This pack exposes exactly one Codex agent role.
+    - field: contextPrepareRef
+      value: /context/prepare
+      reason: Architect planning must start from prepared context.
+  requiresApproval:
+    - architectureBoundaryChange: true
+      reason: Boundary changes alter the engineer contract.
+    - publicContractChange: true
+      reason: Contract changes can affect downstream implementation and users.
+  audit:
+    include:
+      - task
+      - repo
+      - facts
+      - assumptions
+      - decisions
+      - risks
+      - openQuestions
+      - durableDecisionRefs
+      - mcpSummaryRefs
+      - engineerHandoff
+
