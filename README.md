@@ -98,11 +98,10 @@ raw/       source research / exported design conversation
 - [docs/01-concept.md](docs/01-concept.md)
 - [docs/02-architecture.md](docs/02-architecture.md)
 
-## Call To Action
+## We need your voice
 
 Star the repo if your team also struggles with scattered agent prompts, MCP configs, skills, and policies.
 
 Open an issue if you want Actlane to generate packs for a specific target such as Codex, Claude, OpenCode, or CLI agents.
 
 Use the `Try Actlane on my setup` issue template. The first real adapters should be driven by actual user setups, not guesses.
-# actlane

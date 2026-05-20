@@ -1,11 +1,11 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://actlane.dev/schemas/v1alpha1/adoption-profile.schema.json",
+  "$id": "https://actlane.ru/schemas/v1alpha1/adoption-profile.schema.json",
   "title": "Actlane AdoptionProfile",
   "type": "object",
   "required": ["apiVersion", "kind", "metadata", "spec"],
   "properties": {
-    "apiVersion": { "const": "actlane.dev/v1alpha1" },
+    "apiVersion": { "const": "actlane.ru/v1alpha1" },
     "kind": { "const": "AdoptionProfile" },
     "metadata": {
       "type": "object",

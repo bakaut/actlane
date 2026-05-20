@@ -1,4 +1,4 @@
-apiVersion: actlane.dev/v1alpha1
+apiVersion: actlane.ru/v1alpha1
 kind: RuntimeBinding
 metadata:
   name: optional-local-policy-check

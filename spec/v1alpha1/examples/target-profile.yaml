@@ -1,4 +1,4 @@
-apiVersion: actlane.dev/v1alpha1
+apiVersion: actlane.ru/v1alpha1
 kind: TargetProfile
 metadata:
   name: safe-gitops-default-targets

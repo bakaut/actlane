@@ -1,4 +1,4 @@
-apiVersion: actlane.dev/v1alpha1
+apiVersion: actlane.ru/v1alpha1
 kind: AdoptionProfile
 metadata:
   name: brownfield-safe
