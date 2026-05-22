@@ -11,11 +11,11 @@ spec:
   guidance:
     sources:
       - name: base
-        path: files/prompts/BASE.md
+        path: files/prompts/BASE.MD
         role: base-instructions
 
       - name: actlane
-        path: files/prompts/ACTLANE.md
+        path: files/prompts/ACTLANE.MD
         role: actlane-instructions
 
       - name: project

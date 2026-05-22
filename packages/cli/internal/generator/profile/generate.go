@@ -189,6 +189,9 @@ func readPackSource(packRoot, source string) ([]byte, error) {
 	if err := ensureInsideRoot(packRoot, sourcePath); err != nil {
 		return nil, fmt.Errorf("invalid pack source path %q: %w", source, err)
 	}
+	if err := ensureExactPath(packRoot, sourcePath); err != nil {
+		return nil, fmt.Errorf("invalid pack source path %q: %w", source, err)
+	}
 	data, err := os.ReadFile(sourcePath)
 	if err != nil {
 		return nil, err
@@ -206,6 +209,9 @@ func profileSourcePath(packRoot, capabilityPath, source string) (string, error) 
 	if err := ensureInsideRoot(packRoot, sourcePath); err != nil {
 		return "", fmt.Errorf("invalid profile source path %q: %w", source, err)
 	}
+	if err := ensureExactPath(packRoot, sourcePath); err != nil {
+		return "", fmt.Errorf("invalid profile source path %q: %w", source, err)
+	}
 	return sourcePath, nil
 }
 
@@ -216,6 +222,35 @@ func ensureInsideRoot(root, child string) error {
 	}
 	if rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
 		return fmt.Errorf("path escapes pack root")
+	}
+	return nil
+}
+
+func ensureExactPath(root, child string) error {
+	rel, err := filepath.Rel(root, child)
+	if err != nil {
+		return err
+	}
+	current := root
+	for _, part := range strings.Split(rel, string(filepath.Separator)) {
+		if part == "." || part == "" {
+			continue
+		}
+		entries, err := os.ReadDir(current)
+		if err != nil {
+			return err
+		}
+		found := false
+		for _, entry := range entries {
+			if entry.Name() == part {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return fmt.Errorf("path component %q does not match filesystem casing", part)
+		}
+		current = filepath.Join(current, part)
 	}
 	return nil
 }
