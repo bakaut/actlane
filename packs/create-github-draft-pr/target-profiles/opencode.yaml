@@ -28,9 +28,9 @@ spec:
   generate:
     config: true
     instructions: true
-    agents: false
-    commands: false
-    skills: false
+    agents: true
+    commands: true
+    skills: true
     mcp: true
 
   opencode:

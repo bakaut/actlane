@@ -7,7 +7,11 @@ import (
 )
 
 var schemaFiles = map[string]string{
-	"capability": "capability.schema.json",
+	"capability":       "capability.schema.json",
+	"capability-pack":  "capability-pack.schema.json",
+	"mcp-binding":      "mcp-binding.schema.json",
+	"target-profile":   "target-profile.schema.json",
+	"tool-call-policy": "tool-call-policy.schema.json",
 }
 
 func Read(name string) (string, error) {

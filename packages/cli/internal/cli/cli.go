@@ -60,7 +60,7 @@ func runGenerate(args []string, stdout, stderr io.Writer) int {
 	}
 
 	packDir := args[0]
-	opts := profile.Options{Target: "opencode", OutDir: filepath.Join(packDir, "generated")}
+	opts := profile.Options{Target: "opencode", OutDir: packDir}
 	for i := 1; i < len(args); i++ {
 		switch args[i] {
 		case "--target":
@@ -120,13 +120,14 @@ func runSchema(args []string, stdout, stderr io.Writer) int {
 	if len(args) == 1 && args[0] == "list" {
 		fmt.Fprintln(stdout, "capability https://actlane.ru/schemas/v1alpha1/capability.schema.json")
 		fmt.Fprintln(stdout, "capability-pack https://actlane.ru/schemas/v1alpha1/capability-pack.schema.json")
+		fmt.Fprintln(stdout, "mcp-binding https://actlane.ru/schemas/v1alpha1/mcp-binding.schema.json")
 		fmt.Fprintln(stdout, "tool-call-policy https://actlane.ru/schemas/v1alpha1/tool-call-policy.schema.json")
 		fmt.Fprintln(stdout, "target-profile https://actlane.ru/schemas/v1alpha1/target-profile.schema.json")
 		fmt.Fprintln(stdout, "adoption-profile https://actlane.ru/schemas/v1alpha1/adoption-profile.schema.json")
 		return 0
 	}
-	if len(args) == 2 && args[0] == "print" && args[1] == "capability" {
-		content, err := schema.Read("capability")
+	if len(args) == 2 && args[0] == "print" {
+		content, err := schema.Read(args[1])
 		if err != nil {
 			fmt.Fprintf(stderr, "schema print failed: %v\n", err)
 			return 1

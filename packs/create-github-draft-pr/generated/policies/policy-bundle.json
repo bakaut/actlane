@@ -1,0 +1,53 @@
+{
+  "pack": "github-draft-pr-pack",
+  "version": "0.1.0-alpha.1",
+  "target": "opencode",
+  "capabilities": [
+    "create-github-draft-pr"
+  ],
+  "decisions": [
+    "allow",
+    "deny",
+    "mutate",
+    "requires-approval"
+  ],
+  "rules": {
+    "approval": {
+      "required": true,
+      "reason": "mutating-git-operation"
+    },
+    "audit": {
+      "level": "full",
+      "include": [
+        "originalInput",
+        "mutatedInput",
+        "decision",
+        "policyRefs",
+        "result"
+      ]
+    },
+    "branchPrefix": "gpt/",
+    "capabilities": [
+      "create-github-draft-pr"
+    ],
+    "confirmation": {
+      "field": "confirmed",
+      "mustBe": true
+    },
+    "defaults": {
+      "draft": true,
+      "timeoutSeconds": 60
+    },
+    "forbidPaths": [
+      ".env",
+      "secrets/**",
+      ".github/workflows/prod-*"
+    ],
+    "maxDiffKb": 200,
+    "maxFiles": 20,
+    "repoAllowlist": [
+      "bakaut/development",
+      "bakaut/builder"
+    ]
+  }
+}

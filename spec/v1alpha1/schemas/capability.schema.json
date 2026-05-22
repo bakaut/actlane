@@ -17,7 +17,11 @@
           "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
         },
         "title": { "type": "string" },
-        "description": { "type": "string" }
+        "description": { "type": "string" },
+        "labels": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        }
       },
       "patternProperties": {
         "^x-": true
@@ -26,8 +30,67 @@
     },
     "spec": {
       "type": "object",
-      "required": ["whenToUse", "targets", "inputs", "outputs", "policies"],
       "properties": {
+        "intent": {
+          "type": "object",
+          "properties": {
+            "type": { "type": "string" },
+            "whenToUse": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "whenNotToUse": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          },
+          "additionalProperties": false
+        },
+        "interface": {
+          "type": "object",
+          "properties": {
+            "input": { "type": "object" },
+            "output": { "type": "object" }
+          },
+          "additionalProperties": false
+        },
+        "policyRef": { "$ref": "#/$defs/localRef" },
+        "executionRef": { "$ref": "#/$defs/localRef" },
+        "workflowHints": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["step", "purpose"],
+            "properties": {
+              "step": { "type": "string" },
+              "purpose": { "type": "string" }
+            },
+            "additionalProperties": false
+          }
+        },
+        "projections": {
+          "type": "object",
+          "properties": {
+            "mcp": {
+              "type": "object",
+              "properties": {
+                "enabled": { "type": "boolean" },
+                "toolName": { "type": "string" }
+              },
+              "additionalProperties": false
+            },
+            "opencode": {
+              "type": "object",
+              "properties": {
+                "enabled": { "type": "boolean" },
+                "command": { "type": "string" },
+                "agent": { "type": "string" }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
         "whenToUse": { "type": "string", "minLength": 1 },
         "targets": {
           "type": "array",
@@ -233,6 +296,15 @@
         },
         "required": { "type": "boolean" },
         "items": { "$ref": "#/$defs/field" }
+      },
+      "additionalProperties": false
+    }
+    ,
+    "localRef": {
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name": { "type": "string" }
       },
       "additionalProperties": false
     }

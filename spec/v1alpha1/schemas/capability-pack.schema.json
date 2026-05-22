@@ -19,12 +19,44 @@
         "version": { "type": "string" },
         "description": { "type": "string" }
       },
-      "additionalProperties": false
+      "additionalProperties": true
     },
     "spec": {
       "type": "object",
       "required": ["capabilities", "policies", "targets"],
       "properties": {
+        "guidance": {
+          "type": "object",
+          "properties": {
+            "sources": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["name", "path"],
+                "properties": {
+                  "name": { "type": "string" },
+                  "path": { "type": "string" },
+                  "role": { "type": "string" }
+                },
+                "additionalProperties": false
+              }
+            },
+            "compose": {
+              "type": "object",
+              "properties": {
+                "enabled": { "type": "boolean" },
+                "output": { "type": "string" },
+                "strategy": { "type": "string" },
+                "order": {
+                  "type": "array",
+                  "items": { "type": "string" }
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
         "capabilities": {
           "type": "array",
           "minItems": 1,
@@ -36,6 +68,10 @@
           "items": { "type": "string" }
         },
         "targetProfiles": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "mcpBindings": {
           "type": "array",
           "items": { "type": "string" }
         },

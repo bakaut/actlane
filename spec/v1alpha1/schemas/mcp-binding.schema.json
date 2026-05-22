@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://actlane.ru/schemas/v1alpha1/mcp-binding.schema.json",
+  "title": "Actlane MCPBinding",
+  "type": "object",
+  "required": ["apiVersion", "kind", "metadata", "spec"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "apiVersion": { "const": "actlane.ru/v1alpha1" },
+    "kind": { "const": "MCPBinding" },
+    "metadata": {
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
+        },
+        "title": { "type": "string" },
+        "description": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "spec": {
+      "type": "object",
+      "required": ["capabilityRef", "mcpservers", "requiredTools"],
+      "properties": {
+        "capabilityRef": { "$ref": "#/$defs/localRef" },
+        "mcpservers": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "transport", "command"],
+            "properties": {
+              "name": { "type": "string" },
+              "provider": { "type": "string" },
+              "source": { "type": "string" },
+              "transport": { "type": "string" },
+              "command": {
+                "type": "array",
+                "items": { "type": "string" }
+              },
+              "args": {
+                "type": "array",
+                "items": { "type": "string" }
+              },
+              "env": { "type": "object" }
+            },
+            "additionalProperties": false
+          }
+        },
+        "requiredTools": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "server"],
+            "properties": {
+              "name": { "type": "string" },
+              "server": { "type": "string" },
+              "toolset": { "type": "string" },
+              "requiredScopes": {
+                "type": "array",
+                "items": { "type": "string" }
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "strategy": {
+          "type": "object",
+          "properties": {
+            "type": { "type": "string" },
+            "handler": { "type": "string" }
+          },
+          "additionalProperties": false
+        },
+        "generatedTool": {
+          "type": "object",
+          "properties": {
+            "name": { "type": "string" },
+            "description": { "type": "string" }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "localRef": {
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name": { "type": "string" }
+      },
+      "additionalProperties": false
+    }
+  }
+}

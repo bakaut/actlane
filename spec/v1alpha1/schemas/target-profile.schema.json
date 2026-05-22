@@ -27,9 +27,10 @@
           "type": "string",
           "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
         },
+        "scope": { "type": "string" },
         "output": {
           "type": "object",
-          "required": ["root", "config"],
+          "required": ["root"],
           "properties": {
             "root": { "type": "string", "minLength": 1 },
             "config": { "type": "string", "minLength": 1 }
@@ -50,7 +51,64 @@
           },
           "additionalProperties": false
         },
-        "install": { "type": "object" }
+        "install": { "type": "object" },
+        "generate": {
+          "type": "object",
+          "properties": {
+            "config": { "type": "boolean" },
+            "instructions": { "type": "boolean" },
+            "agents": { "type": "boolean" },
+            "commands": { "type": "boolean" },
+            "skills": { "type": "boolean" },
+            "mcp": { "type": "boolean" }
+          },
+          "additionalProperties": false
+        },
+        "opencode": {
+          "type": "object",
+          "properties": {
+            "config": {
+              "type": "object",
+              "properties": {
+                "filename": { "type": "string" },
+                "schema": { "type": "string" },
+                "instructions": {
+                  "type": "array",
+                  "items": { "type": "string" }
+                },
+                "permission": { "type": "object" },
+                "mcp": {
+                  "type": "object",
+                  "properties": {
+                    "serverName": { "type": "string" },
+                    "type": { "type": "string" },
+                    "command": {
+                      "type": "array",
+                      "items": { "type": "string" }
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "additionalProperties": false
+            },
+            "files": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["targetPath", "generatedPath"],
+                "properties": {
+                  "targetPath": { "type": "string" },
+                  "generatedPath": { "type": "string" },
+                  "owned": { "type": "boolean" },
+                  "ownedBlock": { "type": "boolean" }
+                },
+                "additionalProperties": false
+              }
+            }
+          },
+          "additionalProperties": false
+        }
       },
       "additionalProperties": false
     }

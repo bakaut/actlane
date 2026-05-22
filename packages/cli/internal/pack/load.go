@@ -61,6 +61,21 @@ func Load(root string) (*LoadedPack, error) {
 		loaded.Policies = append(loaded.Policies, policy)
 	}
 
+	for _, rel := range manifest.Spec.MCPBindings {
+		path := filepath.Join(abs, rel)
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			return nil, fmt.Errorf("read mcp binding %s: %w", rel, err)
+		}
+		var binding MCPBinding
+		if err := yaml.Unmarshal(raw, &binding); err != nil {
+			return nil, fmt.Errorf("parse mcp binding %s: %w", rel, err)
+		}
+		binding.Path = path
+		binding.Raw = raw
+		loaded.MCPBindings = append(loaded.MCPBindings, binding)
+	}
+
 	for _, rel := range manifest.Spec.TargetProfiles {
 		path := filepath.Join(abs, rel)
 		raw, err := os.ReadFile(path)

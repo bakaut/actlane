@@ -23,9 +23,70 @@
     "spec": {
       "type": "object",
       "properties": {
+        "match": {
+          "type": "object",
+          "properties": {
+            "capabilities": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          },
+          "additionalProperties": false
+        },
         "allow": { "type": "array", "items": { "type": "object" } },
         "deny": { "type": "array", "items": { "type": "object" } },
-        "mutate": { "type": "array", "items": { "type": "object" } },
+        "mutate": {
+          "type": "object",
+          "properties": {
+            "defaults": { "type": "object" },
+            "ensure": {
+              "type": "object",
+              "properties": {
+                "branchPrefix": { "type": "string" }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "validate": {
+          "type": "object",
+          "properties": {
+            "confirmation": {
+              "type": "object",
+              "properties": {
+                "field": { "type": "string" },
+                "mustBe": {}
+              },
+              "additionalProperties": false
+            },
+            "repoAllowlist": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "forbidPaths": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "limits": {
+              "type": "object",
+              "properties": {
+                "maxFiles": { "type": "integer" },
+                "maxDiffKb": { "type": "integer" }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "approval": {
+          "type": "object",
+          "properties": {
+            "required": { "type": "boolean" },
+            "reason": { "type": "string" }
+          },
+          "additionalProperties": false
+        },
         "requiresApproval": { "type": "array", "items": { "type": "object" } },
         "audit": { "type": "object" }
       },

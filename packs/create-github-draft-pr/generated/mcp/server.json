@@ -1,0 +1,26 @@
+{
+  "mcp": {
+    "github": {
+      "command": [
+        "docker",
+        "run",
+        "-i",
+        "--rm",
+        "-e",
+        "GITHUB_PERSONAL_ACCESS_TOKEN",
+        "-e",
+        "GITHUB_TOOLS",
+        "ghcr.io/github/github-mcp-server"
+      ],
+      "environment": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": {
+          "fromEnv": "GITHUB_PERSONAL_ACCESS_TOKEN"
+        },
+        "GITHUB_TOOLS": "create_branch,push_files,create_pull_request"
+      },
+      "provider": "official-github-mcp",
+      "source": "https://github.com/github/github-mcp-server",
+      "transport": "stdio"
+    }
+  }
+}

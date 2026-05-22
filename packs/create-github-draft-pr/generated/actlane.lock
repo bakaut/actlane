@@ -1,0 +1,54 @@
+{
+  "lockfileVersion": 1,
+  "pack": "github-draft-pr-pack",
+  "version": "0.1.0-alpha.1",
+  "target": "opencode",
+  "generator": "actlane-go-profile-0.1.0-alpha.1",
+  "sourceDigests": {
+    "actlane.yaml": "2d1a9d763da70262a6ab500841c0f3a4de3bba4112d909fb1e8cb09a18310775",
+    "capabilities/create-github-draft-pr.yaml": "4a46b36db8f28c2c2a45bc7b5296efbb873d9d5a7c28ac9898ea9c41483fde53",
+    "files/prompts/ACTLANE.md": "268baae9d37ee82400962a3b9e94b066fd9a2a29788e6d2750e95bfba9a5944d",
+    "files/prompts/AGENTS.md": "8c658d13483c50bd076b34a58ca14e20910a4a0e01c720938301c1936b9178d2",
+    "files/prompts/BASE.md": "bf0423d7f692447c167ee7b691dc66aac7523f8353ab40a9536a22e3a0fdfac0",
+    "mcp/bindings/github-mcp-draft-pr.yaml": "25fe360e73b9929d90c42c2d5040e0f257af7f59a8fb682047c40904d685292d",
+    "policies/github-draft-pr.policy.yaml": "97a348deb9773da6eef74017047a522509627d6a31017d7d099d50287958fbee",
+    "target-profiles/opencode.yaml": "3bb394970b2e1bfab62d2398d1f7523c994b4afc9c2a880da7191c60865e3724"
+  },
+  "generatedFiles": [
+    {
+      "path": "generated/mcp/server.json",
+      "sha256": "37cf153eabe96b8a6ce28b1e2fc34c7275da698a0f86e530ad24b7cea2e183c8"
+    },
+    {
+      "path": "generated/mcp/tools.json",
+      "sha256": "fc7683963029e8c26979aa4f368f23aadccad8c9ea2010fd34fec6ebae1722f1"
+    },
+    {
+      "path": "generated/opencode/.opencode/agents/github-draft-pr.md",
+      "sha256": "b3aaa26de3c24937be36e342119805c7a6f1c713835666df90c5c0bdaef036b5"
+    },
+    {
+      "path": "generated/opencode/.opencode/commands/create-github-draft-pr.md",
+      "sha256": "37f4c70ef4f22c1f11a7d03f2d2a933af8aed414ee3efd42d0d36300d45651d0"
+    },
+    {
+      "path": "generated/opencode/.opencode/skills/create-github-draft-pr/SKILL.md",
+      "sha256": "f2581bf24a4468bf8103479e0536bba74f38479de0957bcd1bde9612d8c13f11"
+    },
+    {
+      "path": "generated/opencode/AGENTS.md",
+      "sha256": "109392918cc28da54e7a09c6714611fb30a82156ff48d282559e3f2c7f2b995b"
+    },
+    {
+      "path": "generated/opencode/opencode.jsonc",
+      "sha256": "8c1a00991673d59e38ae45c7e1cb289cdd0bccaab34b1cf1e437d63a6d81ef94"
+    },
+    {
+      "path": "generated/policies/policy-bundle.json",
+      "sha256": "af2f9a6feac84f69c1090b2677a9547a8cac1c8891fd45aa1258b71d3bca21fa"
+    }
+  ],
+  "metadata": {
+    "schema": "actlane.ru/v1alpha1"
+  }
+}

@@ -31,19 +31,18 @@ func TestGenerateOpenCodeWritesOnlyGeneratedOutput(t *testing.T) {
 	}
 
 	assertExists(t, filepath.Join(packDir, "generated/opencode/opencode.jsonc"))
-	assertExists(t, filepath.Join(packDir, "generated/opencode/AGENT.MD"))
 	assertExists(t, filepath.Join(packDir, "generated/opencode/AGENTS.md"))
-	assertExists(t, filepath.Join(packDir, "generated/opencode/SKILLS.MD"))
-	assertExists(t, filepath.Join(packDir, "generated/opencode/.opencode/commands/create-github-draft-pr.md"))
-	assertExists(t, filepath.Join(packDir, "generated/opencode/.opencode/agents/github-draft-pr.md"))
-	assertExists(t, filepath.Join(packDir, "generated/opencode/.opencode/skills/create-github-draft-pr/SKILL.md"))
 	assertExists(t, filepath.Join(packDir, "generated/mcp/tools.json"))
 	assertExists(t, filepath.Join(packDir, "generated/mcp/server.json"))
 	assertExists(t, filepath.Join(packDir, "generated/policies/policy-bundle.json"))
 	assertExists(t, filepath.Join(packDir, "generated/actlane.lock"))
+	assertExists(t, filepath.Join(packDir, "generated/opencode/.opencode/commands/create-github-draft-pr.md"))
+	assertExists(t, filepath.Join(packDir, "generated/opencode/.opencode/agents/github-draft-pr.md"))
+	assertExists(t, filepath.Join(packDir, "generated/opencode/.opencode/skills/create-github-draft-pr/SKILL.md"))
 	assertNotExists(t, filepath.Join(packDir, ".opencode"))
 	assertNotExists(t, filepath.Join(packDir, "generated/opencode/opencode.snippet.jsonc"))
 	assertNotExists(t, filepath.Join(packDir, "generated/AGENT.md"))
+	assertNotExists(t, filepath.Join(packDir, "generated/opencode/AGENT.MD"))
 	assertNotExists(t, filepath.Join(packDir, "generated/SKILLS.md"))
 
 	snippet := readFile(t, filepath.Join(packDir, "generated/opencode/opencode.jsonc"))
@@ -55,42 +54,66 @@ func TestGenerateOpenCodeWritesOnlyGeneratedOutput(t *testing.T) {
 		`"mcp":`,
 		`"github":`,
 		`"type": "local"`,
-		`"environment":`,
+		`"enabled": true`,
+		`"docker"`,
 		`"ghcr.io/github/github-mcp-server"`,
-		`"GITHUB_TOOLS": "create_branch,create_pull_request,push_files"`,
+		`"GITHUB_PERSONAL_ACCESS_TOKEN": "{env:GITHUB_PERSONAL_ACCESS_TOKEN}"`,
+		`"GITHUB_TOOLS": "create_branch,push_files,create_pull_request"`,
 	} {
 		if !strings.Contains(snippet, want) {
 			t.Fatalf("generated snippet missing %q:\n%s", want, snippet)
 		}
 	}
 
-	skills := readFile(t, filepath.Join(packDir, "generated/opencode/SKILLS.MD"))
+	instructions := readFile(t, filepath.Join(packDir, "generated/opencode/AGENTS.md"))
 	for _, want := range []string{
-		"create-github-draft-pr",
-		"Restrictions",
-		"Declared MCP tools",
-		"github.create_pull_request",
+		"Base Agent Instructions",
+		"Actlane Instructions",
+		"System prompt",
+		"Create draft pull requests only",
 	} {
-		if !strings.Contains(skills, want) {
-			t.Fatalf("generated SKILLS.md missing %q:\n%s", want, skills)
+		if !strings.Contains(instructions, want) {
+			t.Fatalf("generated AGENTS.md missing %q:\n%s", want, instructions)
 		}
 	}
 
-	agent := readFile(t, filepath.Join(packDir, "generated/opencode/AGENT.MD"))
+	command := readFile(t, filepath.Join(packDir, "generated/opencode/.opencode/commands/create-github-draft-pr.md"))
 	for _, want := range []string{
-		"<!-- actlane:generated capability=create-github-draft-pr target=opencode -->",
-		"Inspect the current project",
-		"Refuse to modify existing project-owned files",
-		"<!-- actlane:start create-github-draft-pr.<block-id> -->",
+		`agent: "github-draft-pr"`,
+		"Run capability `create-github-draft-pr`",
+		"`github_create_pull_request`",
+	} {
+		if !strings.Contains(command, want) {
+			t.Fatalf("generated OpenCode command missing %q:\n%s", want, command)
+		}
+	}
+
+	agent := readFile(t, filepath.Join(packDir, "generated/opencode/.opencode/agents/github-draft-pr.md"))
+	for _, want := range []string{
+		"mode: primary",
+		"permission:",
+		"actlane:inspect:create-github-draft-pr",
 	} {
 		if !strings.Contains(agent, want) {
-			t.Fatalf("generated AGENT.MD missing %q:\n%s", want, agent)
+			t.Fatalf("generated OpenCode agent missing %q:\n%s", want, agent)
+		}
+	}
+
+	skill := readFile(t, filepath.Join(packDir, "generated/opencode/.opencode/skills/create-github-draft-pr/SKILL.md"))
+	for _, want := range []string{
+		"name: \"create-github-draft-pr\"",
+		"compatibility: opencode",
+		"execution_ref: \"github-mcp-draft-pr\"",
+	} {
+		if !strings.Contains(skill, want) {
+			t.Fatalf("generated OpenCode skill missing %q:\n%s", want, skill)
 		}
 	}
 
 	mcpTools := readFile(t, filepath.Join(packDir, "generated/mcp/tools.json"))
 	for _, want := range []string{
-		`"serverSource": "https://github.com/github/github-mcp-server"`,
+		`"binding": "github-mcp-draft-pr"`,
+		`"generatedTool": "create_github_draft_pr"`,
 		`"name": "create_branch"`,
 		`"name": "push_files"`,
 		`"name": "create_pull_request"`,
@@ -105,9 +128,9 @@ func TestGenerateOpenCodeWritesOnlyGeneratedOutput(t *testing.T) {
 		`"command": [`,
 		`"ghcr.io/github/github-mcp-server"`,
 		`"GITHUB_PERSONAL_ACCESS_TOKEN"`,
-		`"{env:GITHUB_PERSONAL_ACCESS_TOKEN}"`,
-		`"GITHUB_TOOLS": "create_branch,create_pull_request,push_files"`,
-		`"type": "local"`,
+		`"fromEnv": "GITHUB_PERSONAL_ACCESS_TOKEN"`,
+		`"GITHUB_TOOLS": "create_branch,push_files,create_pull_request"`,
+		`"transport": "stdio"`,
 		`"environment":`,
 	} {
 		if !strings.Contains(mcpServer, want) {
@@ -177,7 +200,7 @@ func TestFrozenLockfileDetectsProfileSourceDrift(t *testing.T) {
 		t.Fatalf("generate failed: %s", stderr.String())
 	}
 
-	sourcePath := filepath.Join(packDir, "capabilities/AGENTS.md")
+	sourcePath := filepath.Join(packDir, "files/prompts/AGENTS.md")
 	content := readFile(t, sourcePath)
 	if err := os.WriteFile(sourcePath, []byte(content+"\nDrift marker.\n"), 0o644); err != nil {
 		t.Fatal(err)
