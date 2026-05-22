@@ -45,20 +45,42 @@ func mcpServerConfig(bindings []pack.MCPBinding) map[string]any {
 func mcpToolBindings(bindings []pack.MCPBinding) []map[string]any {
 	var tools []map[string]any
 	for _, binding := range bindings {
-		for _, tool := range binding.Spec.RequiredTools {
+		for _, tool := range generatedTools(binding) {
 			tools = append(tools, map[string]any{
+				"binding":       binding.Metadata.Name,
+				"capability":    binding.Spec.CapabilityRef.Name,
+				"generatedTool": tool.Name,
+				"mode":          tool.Mode,
+				"description":   tool.Description,
+			})
+		}
+		for _, tool := range binding.Spec.RequiredTools {
+			record := map[string]any{
 				"binding":        binding.Metadata.Name,
 				"capability":     binding.Spec.CapabilityRef.Name,
-				"generatedTool":  binding.Spec.GeneratedTool.Name,
 				"name":           tool.Name,
 				"server":         tool.Server,
 				"toolset":        tool.Toolset,
 				"requiredScopes": tool.RequiredScopes,
-			})
+			}
+			if binding.Spec.GeneratedTool.Name != "" {
+				record["generatedTool"] = binding.Spec.GeneratedTool.Name
+			}
+			tools = append(tools, record)
 		}
 	}
 	sort.Slice(tools, func(i, j int) bool {
 		return fmt.Sprint(tools[i]["name"]) < fmt.Sprint(tools[j]["name"])
 	})
 	return tools
+}
+
+func generatedTools(binding pack.MCPBinding) []pack.MCPGeneratedTool {
+	if len(binding.Spec.GeneratedTools) > 0 {
+		return binding.Spec.GeneratedTools
+	}
+	if binding.Spec.GeneratedTool.Name != "" {
+		return []pack.MCPGeneratedTool{binding.Spec.GeneratedTool}
+	}
+	return nil
 }

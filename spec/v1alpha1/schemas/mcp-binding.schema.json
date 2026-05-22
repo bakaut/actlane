@@ -78,9 +78,22 @@
           "type": "object",
           "properties": {
             "name": { "type": "string" },
-            "description": { "type": "string" }
+            "description": { "type": "string" },
+            "mode": { "type": "string" }
           },
           "additionalProperties": false
+        },
+        "generatedTools": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "description": { "type": "string" },
+              "mode": { "type": "string" }
+            },
+            "additionalProperties": false
+          }
         }
       },
       "additionalProperties": false

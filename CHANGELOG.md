@@ -16,6 +16,9 @@
 - Updated the Go generator to emit the official OpenCode project layout under `generated/opencode`, including `.opencode/commands/*.md`, `.opencode/agents/*.md`, and `.opencode/skills/<name>/SKILL.md`.
 - Changed OpenCode MCP config rendering to translate real `mcp/bindings/*.yaml` servers into `opencode.jsonc`.
 - Refactored the profile generator into target-specific and shared files so OpenCode rendering is isolated from generic generation, lockfile, MCP, policy, and path logic.
+- Added `actlane mcp serve --pack <pack>` with MCP `tools/list` and `tools/call` support for audit/enforce policy validation and mutation.
+- Moved the `actlane-safe-gitops` local MCP server contract into `mcp/bindings/actlane-safe-gitops.yaml`.
+- Updated the Actlane MCP enforce response to act as a security gate by returning mutated input plus downstream GitHub MCP `next` calls when policy allows execution.
 
 ## [0.1.0-alpha.1] - 2026-05-21
 

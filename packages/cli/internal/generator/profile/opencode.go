@@ -164,6 +164,7 @@ func renderOpenCodeCommand(capability pack.Capability, bindings []pack.MCPBindin
 	}
 	b.WriteString("---\n\n")
 	b.WriteString("Run capability `" + capability.Metadata.Name + "` for $ARGUMENTS.\n\n")
+	writeGateFlow(&b)
 	writeCapabilityUse(&b, capability, bindings)
 	return ensureTrailingNewline(b.String())
 }
@@ -186,6 +187,7 @@ func renderOpenCodeAgent(capability pack.Capability, targetProfile pack.TargetPr
 	b.WriteString("- Record marker `actlane:inspect:" + capability.Metadata.Name + "` in working notes.\n")
 	b.WriteString("- Require explicit user confirmation before mutating tools.\n")
 	b.WriteString("- Stop when policy denies the request or required MCP tools are unavailable.\n\n")
+	writeGateFlow(&b)
 	writeCapabilityUse(&b, capability, bindings)
 	return ensureTrailingNewline(b.String())
 }
@@ -202,8 +204,17 @@ func renderOpenCodeSkill(capability pack.Capability, bindings []pack.MCPBinding)
 		b.WriteString("  execution_ref: " + yamlScalar(capability.Spec.ExecutionRef.Name) + "\n")
 	}
 	b.WriteString("---\n\n")
+	writeGateFlow(&b)
 	writeCapabilityUse(&b, capability, bindings)
 	return ensureTrailingNewline(b.String())
+}
+
+func writeGateFlow(b *strings.Builder) {
+	b.WriteString("Security gate flow:\n\n")
+	b.WriteString("- Call `create_github_draft_pr_enforce` before any downstream GitHub MCP tool.\n")
+	b.WriteString("- If the gate returns `allowed: false` or `isError: true`, stop and report the policy reasons.\n")
+	b.WriteString("- If the gate returns `allowed: true`, use `mutatedInput` and the returned `next` calls for downstream MCP execution.\n")
+	b.WriteString("- Do not use original input for downstream MCP calls after mutation.\n\n")
 }
 
 func writeCapabilityUse(b *strings.Builder, capability pack.Capability, bindings []pack.MCPBinding) {
@@ -259,6 +270,11 @@ func openCodeToolNames(bindings []pack.MCPBinding, capability pack.Capability) [
 	for _, binding := range bindings {
 		if binding.Spec.CapabilityRef.Name != capability.Metadata.Name {
 			continue
+		}
+		for _, tool := range generatedTools(binding) {
+			if tool.Name != "" {
+				names = append(names, "`"+tool.Name+"`")
+			}
 		}
 		for _, tool := range binding.Spec.RequiredTools {
 			if tool.Server == "" || tool.Name == "" {

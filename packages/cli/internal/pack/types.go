@@ -311,11 +311,12 @@ type MCPBinding struct {
 }
 
 type MCPBindingSpec struct {
-	CapabilityRef LocalRef           `yaml:"capabilityRef"`
-	Servers       []MCPRuntimeServer `yaml:"mcpservers"`
-	RequiredTools []MCPToolBinding   `yaml:"requiredTools"`
-	Strategy      MCPBindingStrategy `yaml:"strategy"`
-	GeneratedTool MCPGeneratedTool   `yaml:"generatedTool"`
+	CapabilityRef  LocalRef           `yaml:"capabilityRef"`
+	Servers        []MCPRuntimeServer `yaml:"mcpservers"`
+	RequiredTools  []MCPToolBinding   `yaml:"requiredTools"`
+	Strategy       MCPBindingStrategy `yaml:"strategy"`
+	GeneratedTool  MCPGeneratedTool   `yaml:"generatedTool"`
+	GeneratedTools []MCPGeneratedTool `yaml:"generatedTools"`
 }
 
 type MCPRuntimeServer struct {
@@ -336,6 +337,7 @@ type MCPBindingStrategy struct {
 type MCPGeneratedTool struct {
 	Name        string `yaml:"name"`
 	Description string `yaml:"description"`
+	Mode        string `yaml:"mode"`
 }
 
 type LoadedPack struct {

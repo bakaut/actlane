@@ -46,16 +46,6 @@ spec:
         edit: ask
         skill: allow
 
-      mcp:
-        serverName: actlane-safe-gitops
-        type: local
-        command:
-          - actlane
-          - mcp
-          - serve
-          - --pack
-          - ./actlane.yaml
-
     files:
       - targetPath: AGENTS.md
         generatedPath: generated/opencode/AGENTS.md

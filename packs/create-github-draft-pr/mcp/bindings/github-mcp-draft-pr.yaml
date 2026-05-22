@@ -51,7 +51,3 @@ spec:
   strategy:
     type: builtin
     handler: actlane.github.createDraftPr
-
-  generatedTool:
-    name: create_github_draft_pr
-    description: Create a safe GitHub draft pull request with Actlane policy checks.

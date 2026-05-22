@@ -52,9 +52,11 @@ func TestGenerateOpenCodeWritesOnlyGeneratedOutput(t *testing.T) {
 		`"bash": "ask"`,
 		`"skill": "allow"`,
 		`"mcp":`,
+		`"actlane-safe-gitops":`,
 		`"github":`,
 		`"type": "local"`,
 		`"enabled": true`,
+		`"actlane"`,
 		`"docker"`,
 		`"ghcr.io/github/github-mcp-server"`,
 		`"GITHUB_PERSONAL_ACCESS_TOKEN": "{env:GITHUB_PERSONAL_ACCESS_TOKEN}"`,
@@ -113,7 +115,9 @@ func TestGenerateOpenCodeWritesOnlyGeneratedOutput(t *testing.T) {
 	mcpTools := readFile(t, filepath.Join(packDir, "generated/mcp/tools.json"))
 	for _, want := range []string{
 		`"binding": "github-mcp-draft-pr"`,
-		`"generatedTool": "create_github_draft_pr"`,
+		`"binding": "actlane-safe-gitops"`,
+		`"generatedTool": "create_github_draft_pr_audit"`,
+		`"generatedTool": "create_github_draft_pr_enforce"`,
 		`"name": "create_branch"`,
 		`"name": "push_files"`,
 		`"name": "create_pull_request"`,
@@ -135,6 +139,41 @@ func TestGenerateOpenCodeWritesOnlyGeneratedOutput(t *testing.T) {
 	} {
 		if !strings.Contains(mcpServer, want) {
 			t.Fatalf("generated MCP server config missing %q:\n%s", want, mcpServer)
+		}
+	}
+}
+
+func TestMCPServeListsAndCallsPolicyTools(t *testing.T) {
+	packDir := copyPackToTemp(t)
+	stdin := strings.NewReader(strings.Join([]string{
+		`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}`,
+		`{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}`,
+		`{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"create_github_draft_pr_audit","arguments":{"repo":"bakaut/development","baseBranch":"main","branch":"feature","title":"Test","summary":"Test","files":["README.md"],"confirmed":true}}}`,
+		`{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"create_github_draft_pr_enforce","arguments":{"repo":"unknown/repo","baseBranch":"main","branch":"feature","title":"Test","summary":"Test","files":[".env"],"confirmed":false}}}`,
+		"",
+	}, "\n"))
+	var stdout, stderr bytes.Buffer
+
+	code := MainWithIO([]string{"mcp", "serve", "--pack", packDir}, stdin, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("mcp serve failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	output := stdout.String()
+	for _, want := range []string{
+		`"name":"create_github_draft_pr_audit"`,
+		`"name":"create_github_draft_pr_enforce"`,
+		`\"policyDecision\": \"allow\"`,
+		`\"branch\": \"gpt/feature\"`,
+		`\"next\":`,
+		`\"tool\": \"github_create_branch\"`,
+		`\"tool\": \"github_push_files\"`,
+		`\"tool\": \"github_create_pull_request\"`,
+		`\"policyDecision\": \"deny\"`,
+		`"isError":true`,
+		`file is forbidden: .env`,
+	} {
+		if !strings.Contains(output, want) {
+			t.Fatalf("mcp output missing %q:\n%s", want, output)
 		}
 	}
 }
