@@ -1,7 +1,0 @@
-{
-  "decision": "deny",
-  "reasons": ["Path .env is forbidden by block-secrets policy."],
-  "mutations": [],
-  "auditId": "phase0-deny-example",
-  "policyRefs": ["block-secrets"]
-}

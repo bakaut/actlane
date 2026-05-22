@@ -10,4 +10,4 @@ Planned responsibility:
 - write deterministic output;
 - create `actlane.lock`.
 
-The current MVP generator supports only `packs/github-draft-pr-opencode` and `--target opencode`.
+The current MVP generator supports only `packs/create-github-draft-pr` and `--target opencode`.

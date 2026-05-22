@@ -35,14 +35,16 @@ type Capability struct {
 }
 
 type CapabilitySpec struct {
-	WhenToUse string           `yaml:"whenToUse"`
-	Targets   []string         `yaml:"targets"`
-	Inputs    map[string]Field `yaml:"inputs"`
-	Outputs   map[string]Field `yaml:"outputs"`
-	Policies  []string         `yaml:"policies"`
-	ToolFlow  []ToolFlowStep   `yaml:"toolFlow"`
-	Reporting map[string]bool  `yaml:"reporting"`
-	Extra     map[string]any   `yaml:",inline"`
+	WhenToUse string                       `yaml:"whenToUse"`
+	Targets   []string                     `yaml:"targets"`
+	Inputs    map[string]Field             `yaml:"inputs"`
+	Outputs   map[string]Field             `yaml:"outputs"`
+	Policies  []string                     `yaml:"policies"`
+	ToolFlow  []ToolFlowStep               `yaml:"toolFlow"`
+	MCP       MCPSpec                      `yaml:"mcp"`
+	Profiles  map[string]CapabilityProfile `yaml:"profiles"`
+	Reporting map[string]bool              `yaml:"reporting"`
+	Extra     map[string]any               `yaml:",inline"`
 }
 
 type Field struct {
@@ -54,6 +56,77 @@ type Field struct {
 type ToolFlowStep struct {
 	Tool    string `yaml:"tool"`
 	Purpose string `yaml:"purpose"`
+}
+
+type MCPSpec struct {
+	Servers []MCPServerBinding `yaml:"servers"`
+	Tools   []MCPToolBinding   `yaml:"tools"`
+	Prompts []MCPPrompt        `yaml:"prompts"`
+}
+
+type MCPServerBinding struct {
+	Name    string            `yaml:"name"`
+	Source  string            `yaml:"source"`
+	Type    string            `yaml:"type"`
+	Command []string          `yaml:"command"`
+	Env     map[string]string `yaml:"environment"`
+	URL     string            `yaml:"url"`
+	Headers map[string]string `yaml:"headers"`
+	OAuth   any               `yaml:"oauth"`
+	Timeout int               `yaml:"timeout"`
+	Enabled *bool             `yaml:"enabled"`
+}
+
+type MCPToolBinding struct {
+	Name           string   `yaml:"name"`
+	Server         string   `yaml:"server"`
+	Toolset        string   `yaml:"toolset"`
+	Description    string   `yaml:"description"`
+	RequiredScopes []string `yaml:"requiredScopes"`
+}
+
+type MCPPrompt struct {
+	Name        string `yaml:"name"`
+	Description string `yaml:"description"`
+}
+
+type CapabilityProfile struct {
+	Files  []GeneratedFile `yaml:"files"`
+	Config map[string]any  `yaml:"config"`
+}
+
+type GeneratedFile struct {
+	Path    string `yaml:"path"`
+	Source  string `yaml:"source"`
+	Content string `yaml:"content"`
+}
+
+type TargetProfile struct {
+	Document `yaml:",inline"`
+	Spec     TargetProfileSpec `yaml:"spec"`
+	Path     string            `yaml:"-"`
+	Raw      []byte            `yaml:"-"`
+}
+
+type TargetProfileSpec struct {
+	Target     string                  `yaml:"target"`
+	Output     TargetProfileOutput     `yaml:"output"`
+	Transforms TargetProfileTransforms `yaml:"transforms"`
+	Install    map[string]any          `yaml:"install"`
+}
+
+type TargetProfileOutput struct {
+	Root   string `yaml:"root"`
+	Config string `yaml:"config"`
+}
+
+type TargetProfileTransforms struct {
+	MCP TargetProfileMCPTransform `yaml:"mcp"`
+}
+
+type TargetProfileMCPTransform struct {
+	Enabled   bool   `yaml:"enabled"`
+	ConfigKey string `yaml:"configKey"`
 }
 
 type Policy struct {
@@ -90,10 +163,11 @@ type PolicyAudit struct {
 }
 
 type LoadedPack struct {
-	Root         string
-	ManifestPath string
-	Manifest     CapabilityPack
-	ManifestRaw  []byte
-	Capabilities []Capability
-	Policies     []Policy
+	Root           string
+	ManifestPath   string
+	Manifest       CapabilityPack
+	ManifestRaw    []byte
+	Capabilities   []Capability
+	Policies       []Policy
+	TargetProfiles []TargetProfile
 }

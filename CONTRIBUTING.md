@@ -8,7 +8,7 @@ Actlane is currently a pre-alpha repository with a narrow Go CLI MVP. The most u
 - Request a target runtime: Codex, Claude, OpenCode, or CLI agents.
 - Open a `Try Actlane on my setup` issue with your current files and desired generated artifact.
 - Improve the `safe-gitops` example.
-- Improve the `github-draft-pr-opencode` MVP pack.
+- Improve the `create-github-draft-pr` MVP pack.
 - Add policy examples for allow, deny, mutate, and requires-approval.
 - Point out where the docs overpromise implementation that does not exist yet.
 
@@ -40,8 +40,8 @@ Before opening implementation changes, run:
 ```bash
 cd packages/cli
 go test ./...
-go run ./cmd/actlane validate ../../packs/github-draft-pr-opencode
-go run ./cmd/actlane generate ../../packs/github-draft-pr-opencode --target opencode --check
+go run ./cmd/actlane validate ../../packs/create-github-draft-pr
+go run ./cmd/actlane generate ../../packs/create-github-draft-pr --target opencode --check
 ```
 
 Keep new implementation work scoped to the current MVP unless the roadmap explicitly calls for broader target or runtime work.

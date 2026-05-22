@@ -20,9 +20,34 @@ func Validate(loaded *LoadedPack) error {
 	if len(loaded.Manifest.Spec.Capabilities) == 0 {
 		return fmt.Errorf("CapabilityPack spec.capabilities is required")
 	}
+	if len(loaded.Manifest.Spec.TargetProfiles) == 0 {
+		return fmt.Errorf("CapabilityPack spec.targetProfiles is required")
+	}
+	targetProfiles := map[string]bool{}
+	for _, targetProfile := range loaded.TargetProfiles {
+		if targetProfile.APIVersion != "actlane.ru/v1alpha1" {
+			return fmt.Errorf("target profile %s apiVersion must be actlane.ru/v1alpha1", targetProfile.Metadata.Name)
+		}
+		if targetProfile.Kind != "TargetProfile" {
+			return fmt.Errorf("target profile %s kind must be TargetProfile", targetProfile.Metadata.Name)
+		}
+		if targetProfile.Metadata.Name == "" {
+			return fmt.Errorf("target profile metadata.name is required")
+		}
+		if targetProfile.Spec.Target == "" {
+			return fmt.Errorf("target profile %s spec.target is required", targetProfile.Metadata.Name)
+		}
+		if targetProfile.Spec.Output.Root == "" {
+			return fmt.Errorf("target profile %s spec.output.root is required", targetProfile.Metadata.Name)
+		}
+		if targetProfile.Spec.Output.Config == "" {
+			return fmt.Errorf("target profile %s spec.output.config is required", targetProfile.Metadata.Name)
+		}
+		targetProfiles[targetProfile.Spec.Target] = true
+	}
 	for _, target := range loaded.Manifest.Spec.Targets {
-		if target != "opencode" {
-			return fmt.Errorf("unsupported target %q; supported target: opencode", target)
+		if !targetProfiles[target] {
+			return fmt.Errorf("target %q has no target profile", target)
 		}
 	}
 
@@ -57,8 +82,11 @@ func Validate(loaded *LoadedPack) error {
 			return fmt.Errorf("capability %s spec.targets is required", capability.Metadata.Name)
 		}
 		for _, target := range capability.Spec.Targets {
-			if target != "opencode" {
-				return fmt.Errorf("capability %s unsupported target %q; supported target: opencode", capability.Metadata.Name, target)
+			if !targetProfiles[target] {
+				return fmt.Errorf("capability %s target %q has no target profile", capability.Metadata.Name, target)
+			}
+			if _, ok := capability.Spec.Profiles[target]; !ok {
+				return fmt.Errorf("capability %s missing spec.profiles.%s", capability.Metadata.Name, target)
 			}
 		}
 		if len(capability.Spec.Inputs) == 0 {

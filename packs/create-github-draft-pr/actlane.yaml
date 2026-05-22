@@ -1,0 +1,47 @@
+$schema: https://actlane.ru/schemas/v1alpha1/capability-pack.schema.json
+apiVersion: actlane.ru/v1alpha1
+kind: CapabilityPack
+
+metadata:
+  name: github-draft-pr-pack
+  version: 0.1.0-alpha.1
+  description: Project-local OpenCode capability pack for safe GitHub draft pull requests.
+
+spec:
+  guidance:
+    sources:
+      - name: base
+        path: files/prompts/BASE.md
+        role: base-instructions
+
+      - name: actlane
+        path: files/prompts/ACTLANE.md
+        role: actlane-instructions
+
+      - name: project
+        path: files/prompts/AGENTS.md
+        role: project-instructions
+
+    compose:
+      enabled: true
+      output: generated/opencode/AGENTS.md
+      strategy: concatenate
+      order:
+        - base
+        - actlane
+        - project
+
+  capabilities:
+    - capabilities/create-github-draft-pr.yaml
+
+  policies:
+    - policies/github-draft-pr.policy.yaml
+
+  mcpBindings:
+    - mcp/bindings/github-mcp-draft-pr.yaml
+
+  targetProfiles:
+    - target-profiles/opencode.yaml
+
+  targets:
+    - opencode

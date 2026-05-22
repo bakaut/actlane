@@ -14,7 +14,7 @@ Actlane started as a design and specification repository. It now also contains a
 - Hand-written `safe-gitops` pack artifacts and examples.
 - Working Go CLI MVP in `packages/cli`.
 - `validate`, `generate --target opencode`, `--check`, `--frozen-lockfile`, and schema inspection commands.
-- First executable MVP pack: `packs/github-draft-pr-opencode`.
+- First executable MVP pack: `packs/create-github-draft-pr`.
 - Generated OpenCode command, agent instructions, config snippet, policy bundle, and `actlane.lock`.
 - Manual GitHub Actions release workflow for Linux, macOS, and Windows CLI artifacts.
 
@@ -35,7 +35,7 @@ Stabilize the Phase 1 MVP:
 
 ```text
 packages/cli
-packs/github-draft-pr-opencode
+packs/create-github-draft-pr
 spec/v1alpha1/schemas
 .github/workflows/manual-build-cli.yml
 ```
@@ -45,7 +45,7 @@ Current validation path:
 ```bash
 cd packages/cli
 go test ./...
-go run ./cmd/actlane validate ../../packs/github-draft-pr-opencode
-go run ./cmd/actlane generate ../../packs/github-draft-pr-opencode --target opencode --check
-go run ./cmd/actlane generate ../../packs/github-draft-pr-opencode --target opencode --frozen-lockfile
+go run ./cmd/actlane validate ../../packs/create-github-draft-pr
+go run ./cmd/actlane generate ../../packs/create-github-draft-pr --target opencode --check
+go run ./cmd/actlane generate ../../packs/create-github-draft-pr --target opencode --frozen-lockfile
 ```

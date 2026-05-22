@@ -32,7 +32,10 @@
         "targets": {
           "type": "array",
           "minItems": 1,
-          "items": { "const": "opencode" }
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
+          }
         },
         "inputs": {
           "type": "object",
@@ -60,6 +63,152 @@
             },
             "additionalProperties": false
           }
+        },
+        "mcp": {
+          "type": "object",
+          "properties": {
+            "servers": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["name", "type"],
+                "properties": {
+                  "name": { "type": "string" },
+                  "source": { "type": "string" },
+                  "type": { "enum": ["local", "remote"] },
+                  "enabled": { "type": "boolean" },
+                  "command": {
+                    "type": "array",
+                    "items": { "type": "string" }
+                  },
+                  "environment": {
+                    "type": "object",
+                    "additionalProperties": { "type": "string" }
+                  },
+                  "url": { "type": "string" },
+                  "headers": {
+                    "type": "object",
+                    "additionalProperties": { "type": "string" }
+                  },
+                  "oauth": {
+                    "oneOf": [
+                      { "type": "object" },
+                      { "const": false }
+                    ]
+                  },
+                  "timeout": { "type": "integer", "minimum": 1 }
+                },
+                "additionalProperties": false,
+                "allOf": [
+                  {
+                    "if": {
+                      "properties": { "type": { "const": "local" } },
+                      "required": ["type"]
+                    },
+                    "then": { "required": ["command"] }
+                  },
+                  {
+                    "if": {
+                      "properties": { "type": { "const": "remote" } },
+                      "required": ["type"]
+                    },
+                    "then": { "required": ["url"] }
+                  }
+                ]
+              }
+            },
+            "tools": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["name", "server"],
+                "properties": {
+                  "name": { "type": "string" },
+                  "server": { "type": "string" },
+                  "toolset": { "type": "string" },
+                  "description": { "type": "string" },
+                  "requiredScopes": {
+                    "type": "array",
+                    "items": { "type": "string" }
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "prompts": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["name"],
+                "properties": {
+                  "name": { "type": "string" },
+                  "description": { "type": "string" }
+                },
+                "additionalProperties": false
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        "profiles": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": {
+            "type": "object",
+            "required": ["config", "files"],
+            "properties": {
+              "config": {
+                "type": "object"
+              },
+              "files": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "object",
+                  "required": ["path", "source"],
+                  "properties": {
+                    "path": { "type": "string", "minLength": 1 },
+                    "source": { "type": "string", "minLength": 1 }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            },
+            "additionalProperties": false
+          },
+          "propertyNames": {
+            "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
+          }
+        },
+        "opencode": {
+          "type": "object",
+          "deprecated": true,
+          "properties": {
+            "profile": {
+              "type": "object",
+              "required": ["config", "files"],
+              "properties": {
+                "config": {
+                  "type": "object"
+                },
+                "files": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "object",
+                    "required": ["path", "content"],
+                    "properties": {
+                      "path": { "type": "string", "minLength": 1 },
+                      "content": { "type": "string" }
+                    },
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
         },
         "reporting": {
           "type": "object",

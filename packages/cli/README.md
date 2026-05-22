@@ -6,10 +6,10 @@ Implemented MVP commands:
 
 ```bash
 go run ./cmd/actlane version
-go run ./cmd/actlane validate ../../packs/github-draft-pr-opencode
-go run ./cmd/actlane generate ../../packs/github-draft-pr-opencode --target opencode
-go run ./cmd/actlane generate ../../packs/github-draft-pr-opencode --target opencode --check
-go run ./cmd/actlane generate ../../packs/github-draft-pr-opencode --target opencode --frozen-lockfile
+go run ./cmd/actlane validate ../../packs/create-github-draft-pr
+go run ./cmd/actlane generate ../../packs/create-github-draft-pr --target opencode
+go run ./cmd/actlane generate ../../packs/create-github-draft-pr --target opencode --check
+go run ./cmd/actlane generate ../../packs/create-github-draft-pr --target opencode --frozen-lockfile
 go run ./cmd/actlane schema list
 go run ./cmd/actlane schema print capability
 ```

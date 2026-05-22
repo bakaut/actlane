@@ -41,7 +41,7 @@ safe-gitops
 The first working CLI MVP pack is:
 
 ```text
-github-draft-pr-opencode
+create-github-draft-pr
 ```
 
 The first generated workflow is:
@@ -79,7 +79,7 @@ This repository is currently pre-alpha with a narrow working CLI MVP:
 - PlantUML diagrams;
 - early v1alpha1 spec notes;
 - Go CLI MVP in `packages/cli`;
-- OpenCode-only generator for `packs/github-draft-pr-opencode`;
+- OpenCode-only generator for `packs/create-github-draft-pr`;
 - manual GitHub Actions release workflow for CLI artifacts.
 
 Try the MVP locally:
@@ -87,8 +87,8 @@ Try the MVP locally:
 ```bash
 cd packages/cli
 go test ./...
-go run ./cmd/actlane validate ../../packs/github-draft-pr-opencode
-go run ./cmd/actlane generate ../../packs/github-draft-pr-opencode --target opencode --check
+go run ./cmd/actlane validate ../../packs/create-github-draft-pr
+go run ./cmd/actlane generate ../../packs/create-github-draft-pr --target opencode --check
 ```
 
 See [STATUS.md](STATUS.md).

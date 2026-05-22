@@ -12,7 +12,10 @@
       "type": "object",
       "required": ["name"],
       "properties": {
-        "name": { "const": "opencode" }
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
+        }
       },
       "additionalProperties": false
     },
@@ -20,8 +23,33 @@
       "type": "object",
       "required": ["target", "output"],
       "properties": {
-        "target": { "const": "opencode" },
-        "output": { "type": "object" },
+        "target": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
+        },
+        "output": {
+          "type": "object",
+          "required": ["root", "config"],
+          "properties": {
+            "root": { "type": "string", "minLength": 1 },
+            "config": { "type": "string", "minLength": 1 }
+          },
+          "additionalProperties": false
+        },
+        "transforms": {
+          "type": "object",
+          "properties": {
+            "mcp": {
+              "type": "object",
+              "properties": {
+                "enabled": { "type": "boolean" },
+                "configKey": { "type": "string" }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
         "install": { "type": "object" }
       },
       "additionalProperties": false

@@ -1,0 +1,78 @@
+$schema: https://actlane.ru/schemas/v1alpha1/target-profile.schema.json
+apiVersion: actlane.ru/v1alpha1
+kind: TargetProfile
+
+metadata:
+  name: opencode
+
+spec:
+  target: opencode
+  scope: project
+
+  output:
+    root: generated/opencode
+
+  install:
+    mode: manual-copy
+    scope: project
+    requireExplicitApply: true
+    requireDiffPreview: true
+
+    projectPaths:
+      config: opencode.jsonc
+      agentsDir: .opencode/agents
+      commandsDir: .opencode/commands
+      skillsDir: .opencode/skills
+      instructionsFile: AGENTS.md
+
+  generate:
+    config: true
+    instructions: true
+    agents: false
+    commands: false
+    skills: false
+    mcp: true
+
+  opencode:
+    config:
+      filename: opencode.jsonc
+      schema: https://opencode.ai/config.json
+
+      instructions:
+        - AGENTS.md
+
+      permission:
+        bash: ask
+        edit: ask
+        skill: allow
+
+      mcp:
+        serverName: actlane-safe-gitops
+        type: local
+        command:
+          - actlane
+          - mcp
+          - serve
+          - --pack
+          - ./actlane.yaml
+
+    files:
+      - targetPath: AGENTS.md
+        generatedPath: generated/opencode/AGENTS.md
+        ownedBlock: true
+
+      - targetPath: opencode.jsonc
+        generatedPath: generated/opencode/opencode.jsonc
+        owned: true
+
+      - targetPath: .opencode/commands/create-github-draft-pr.md
+        generatedPath: generated/opencode/.opencode/commands/create-github-draft-pr.md
+        owned: true
+
+      - targetPath: .opencode/agents/github-draft-pr.md
+        generatedPath: generated/opencode/.opencode/agents/github-draft-pr.md
+        owned: true
+
+      - targetPath: .opencode/skills/create-github-draft-pr/SKILL.md
+        generatedPath: generated/opencode/.opencode/skills/create-github-draft-pr/SKILL.md
+        owned: true

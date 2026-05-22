@@ -1,0 +1,50 @@
+$schema: https://actlane.ru/schemas/v1alpha1/tool-call-policy.schema.json
+apiVersion: actlane.ru/v1alpha1
+kind: ToolCallPolicy
+
+metadata:
+  name: github-draft-pr-policy
+  title: GitHub Draft PR Safety Policy
+
+spec:
+  match:
+    capabilities:
+      - create-github-draft-pr
+
+  mutate:
+    defaults:
+      draft: true
+      timeoutSeconds: 60
+    ensure:
+      branchPrefix: gpt/
+
+  validate:
+    confirmation:
+      field: confirmed
+      mustBe: true
+
+    repoAllowlist:
+      - bakaut/development
+      - bakaut/builder
+
+    forbidPaths:
+      - ".env"
+      - "secrets/**"
+      - ".github/workflows/prod-*"
+
+    limits:
+      maxFiles: 20
+      maxDiffKb: 200
+
+  approval:
+    required: true
+    reason: mutating-git-operation
+
+  audit:
+    level: full
+    include:
+      - originalInput
+      - mutatedInput
+      - decision
+      - policyRefs
+      - result

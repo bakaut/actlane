@@ -61,5 +61,20 @@ func Load(root string) (*LoadedPack, error) {
 		loaded.Policies = append(loaded.Policies, policy)
 	}
 
+	for _, rel := range manifest.Spec.TargetProfiles {
+		path := filepath.Join(abs, rel)
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			return nil, fmt.Errorf("read target profile %s: %w", rel, err)
+		}
+		var targetProfile TargetProfile
+		if err := yaml.Unmarshal(raw, &targetProfile); err != nil {
+			return nil, fmt.Errorf("parse target profile %s: %w", rel, err)
+		}
+		targetProfile.Path = path
+		targetProfile.Raw = raw
+		loaded.TargetProfiles = append(loaded.TargetProfiles, targetProfile)
+	}
+
 	return loaded, nil
 }

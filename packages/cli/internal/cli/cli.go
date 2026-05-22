@@ -5,7 +5,7 @@ import (
 	"io"
 	"path/filepath"
 
-	"github.com/actlane/actlane/packages/cli/internal/generator/opencode"
+	"github.com/actlane/actlane/packages/cli/internal/generator/profile"
 	"github.com/actlane/actlane/packages/cli/internal/pack"
 	"github.com/actlane/actlane/packages/cli/internal/schema"
 )
@@ -55,12 +55,12 @@ func runValidate(args []string, stdout, stderr io.Writer) int {
 
 func runGenerate(args []string, stdout, stderr io.Writer) int {
 	if len(args) < 1 {
-		fmt.Fprintln(stderr, "usage: actlane generate <pack> --target opencode [--out <dir>] [--check] [--frozen-lockfile]")
+		fmt.Fprintln(stderr, "usage: actlane generate <pack> --target <target> [--out <dir>] [--check] [--frozen-lockfile]")
 		return 2
 	}
 
 	packDir := args[0]
-	opts := opencode.Options{Target: "opencode", OutDir: filepath.Join(packDir, "generated")}
+	opts := profile.Options{Target: "opencode", OutDir: filepath.Join(packDir, "generated")}
 	for i := 1; i < len(args); i++ {
 		switch args[i] {
 		case "--target":
@@ -90,11 +90,6 @@ func runGenerate(args []string, stdout, stderr io.Writer) int {
 		}
 	}
 
-	if opts.Target != "opencode" {
-		fmt.Fprintf(stderr, "unsupported target %q; supported target: opencode\n", opts.Target)
-		return 1
-	}
-
 	loaded, err := pack.Load(packDir)
 	if err != nil {
 		fmt.Fprintf(stderr, "generate failed: %v\n", err)
@@ -104,7 +99,7 @@ func runGenerate(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "generate failed: %v\n", err)
 		return 1
 	}
-	result, err := opencode.Generate(loaded, opts)
+	result, err := profile.Generate(loaded, opts)
 	if err != nil {
 		fmt.Fprintf(stderr, "generate failed: %v\n", err)
 		return 1
@@ -117,7 +112,7 @@ func runGenerate(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stdout, "lockfile is current")
 		return 0
 	}
-	fmt.Fprintf(stdout, "generated opencode target: %d files\n", len(result.Files))
+	fmt.Fprintf(stdout, "generated %s target: %d files\n", opts.Target, len(result.Files))
 	return 0
 }
 

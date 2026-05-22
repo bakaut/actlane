@@ -1,7 +1,0 @@
-{
-  "name": "safe-gitops",
-  "status": "phase-0-expected-output",
-  "tools": ["create_safe_draft_pr", "run_project_tests"],
-  "prompts": ["create-safe-draft-pr"],
-  "resources": ["safe-gitops-policy"]
-}
