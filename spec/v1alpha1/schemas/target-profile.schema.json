@@ -64,6 +64,33 @@
           },
           "additionalProperties": false
         },
+        "codex": {
+          "type": "object",
+          "properties": {
+            "config": {
+              "type": "object",
+              "properties": {
+                "filename": { "type": "string" }
+              },
+              "additionalProperties": false
+            },
+            "files": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["targetPath", "generatedPath"],
+                "properties": {
+                  "targetPath": { "type": "string" },
+                  "generatedPath": { "type": "string" },
+                  "owned": { "type": "boolean" },
+                  "ownedBlock": { "type": "boolean" }
+                },
+                "additionalProperties": false
+              }
+            }
+          },
+          "additionalProperties": false
+        },
         "opencode": {
           "type": "object",
           "properties": {

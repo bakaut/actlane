@@ -3,12 +3,21 @@ package profile
 import "github.com/actlane/actlane/packages/cli/internal/pack"
 
 type policyBundle struct {
-	Pack         string         `json:"pack"`
-	Version      string         `json:"version"`
-	Target       string         `json:"target"`
-	Capabilities []string       `json:"capabilities"`
-	Decisions    []string       `json:"decisions"`
-	Rules        map[string]any `json:"rules"`
+	Pack         string                   `json:"pack"`
+	Version      string                   `json:"version"`
+	Target       string                   `json:"target"`
+	Capabilities []string                 `json:"capabilities"`
+	Decisions    []string                 `json:"decisions"`
+	Rules        map[string]any           `json:"rules"`
+	MCPBindings  []policyBundleMCPBinding `json:"mcpBindings"`
+}
+
+type policyBundleMCPBinding struct {
+	Name           string                  `json:"name"`
+	Capability     string                  `json:"capability"`
+	Handler        string                  `json:"handler"`
+	GeneratedTools []pack.MCPGeneratedTool `json:"generatedTools,omitempty"`
+	RequiredTools  []pack.MCPToolBinding   `json:"requiredTools,omitempty"`
 }
 
 func collectRules(policies []pack.Policy) map[string]any {
@@ -46,4 +55,18 @@ func collectRules(policies []pack.Policy) map[string]any {
 		}
 	}
 	return rules
+}
+
+func policyBundleMCPBindings(bindings []pack.MCPBinding) []policyBundleMCPBinding {
+	out := make([]policyBundleMCPBinding, 0, len(bindings))
+	for _, binding := range bindings {
+		out = append(out, policyBundleMCPBinding{
+			Name:           binding.Metadata.Name,
+			Capability:     binding.Spec.CapabilityRef.Name,
+			Handler:        binding.Spec.Strategy.Handler,
+			GeneratedTools: generatedTools(binding),
+			RequiredTools:  binding.Spec.RequiredTools,
+		})
+	}
+	return out
 }

@@ -72,12 +72,19 @@ func guidanceSources(loaded *pack.LoadedPack) []string {
 	return sources
 }
 
-func buildLockfile(loaded *pack.LoadedPack, files map[string][]byte, target string) lockfile {
+func lockfilePath(target string) string {
+	return "generated/" + target + "/actlane.lock"
+}
+
+func buildLockfile(loaded *pack.LoadedPack, files map[string][]byte, target, lockPath string) lockfile {
 	sourceDigests := map[string]string{
 		"actlane.yaml": digest(loaded.ManifestRaw),
 	}
 	for _, capability := range loaded.Capabilities {
 		sourceDigests[relToRoot(loaded.Root, capability.Path)] = digest(capability.Raw)
+	}
+	for _, skill := range loaded.Skills {
+		sourceDigests[relToRoot(loaded.Root, skill.Path)] = digest(skill.Raw)
 	}
 	for _, policy := range loaded.Policies {
 		sourceDigests[relToRoot(loaded.Root, policy.Path)] = digest(policy.Raw)
@@ -98,7 +105,7 @@ func buildLockfile(loaded *pack.LoadedPack, files map[string][]byte, target stri
 
 	paths := make([]string, 0, len(files))
 	for path := range files {
-		if path != lockfilePath {
+		if path != lockPath {
 			paths = append(paths, path)
 		}
 	}

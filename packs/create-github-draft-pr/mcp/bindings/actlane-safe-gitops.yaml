@@ -21,8 +21,8 @@ spec:
       args:
         - mcp
         - serve
-        - --pack
-        - ./actlane.yaml
+        - --policy-bundle
+        - ./policies/policy-bundle.json
 
   requiredTools: []
 

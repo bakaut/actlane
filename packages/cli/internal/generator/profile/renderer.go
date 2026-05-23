@@ -12,6 +12,8 @@ type TargetRenderer interface {
 
 func rendererFor(target string) (TargetRenderer, error) {
 	switch target {
+	case "codex":
+		return codexRenderer{}, nil
 	case "opencode":
 		return openCodeRenderer{}, nil
 	default:

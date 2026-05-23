@@ -51,6 +51,9 @@ func targetConfigPath(targetProfile pack.TargetProfile) (string, error) {
 	if targetProfile.Spec.Output.Config != "" {
 		return targetOutputPath(targetProfile, targetProfile.Spec.Output.Config)
 	}
+	if filename := targetProfile.Spec.Codex.Config.Filename; filename != "" {
+		return targetOutputPath(targetProfile, filename)
+	}
 	if filename := targetProfile.Spec.OpenCode.Config.Filename; filename != "" {
 		return targetOutputPath(targetProfile, filename)
 	}

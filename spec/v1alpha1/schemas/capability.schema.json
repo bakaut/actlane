@@ -79,6 +79,14 @@
               },
               "additionalProperties": false
             },
+            "codex": {
+              "type": "object",
+              "properties": {
+                "enabled": { "type": "boolean" },
+                "skill": { "type": "string" }
+              },
+              "additionalProperties": false
+            },
             "opencode": {
               "type": "object",
               "properties": {
@@ -228,12 +236,17 @@
                 "minItems": 1,
                 "items": {
                   "type": "object",
-                  "required": ["path", "source"],
+                  "required": ["path"],
                   "properties": {
                     "path": { "type": "string", "minLength": 1 },
-                    "source": { "type": "string", "minLength": 1 }
+                    "source": { "type": "string", "minLength": 1 },
+                    "skillContract": { "type": "string", "minLength": 1 }
                   },
-                  "additionalProperties": false
+                  "additionalProperties": false,
+                  "oneOf": [
+                    { "required": ["source"] },
+                    { "required": ["skillContract"] }
+                  ]
                 }
               }
             },

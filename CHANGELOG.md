@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased - 2026-05-23
+## Unreleased - 2026-05-24
 
 ### Changed
 
@@ -19,8 +19,14 @@
 - Added `actlane mcp serve --pack <pack>` with MCP `tools/list` and `tools/call` support for audit/enforce policy validation and mutation.
 - Moved the `actlane-safe-gitops` local MCP server contract into `mcp/bindings/actlane-safe-gitops.yaml`.
 - Updated the Actlane MCP enforce response to act as a security gate by returning mutated input plus downstream GitHub MCP `next` calls when policy allows execution.
-- Updated OpenCode generation to include a self-contained runtime pack under `generated/opencode` so `actlane mcp serve --pack ./actlane.yaml` can load local capabilities, policies, MCP bindings, target profile, and prompt sources after install.
+- Updated OpenCode generation to use target-local `policies/policy-bundle.json` for safe-gitops runtime data.
 - Updated pack loading so CLI commands accept both a pack directory and a direct `actlane.yaml` manifest path.
+- Added Codex target generation for `create-github-draft-pr`, including `AGENTS.md`, a project-local Codex skill, and a Codex MCP config snippet.
+- Moved target-specific lockfiles and policy bundles under `generated/<target>/` so OpenCode and Codex generation can coexist without overwriting each other's drift state.
+- Removed generated agent/skill/command prose from Go renderers; target agent files are now emitted only from explicit `spec.profiles.<target>.files` entries in capability YAML.
+- Changed `actlane-safe-gitops` generated MCP startup from `--pack ./actlane.yaml` to `--policy-bundle ./policies/policy-bundle.json`; the policy bundle now carries policy rules plus generated and downstream MCP tool bindings needed by the local gate.
+- Removed obsolete runtime-pack files from generated target profiles; generated targets no longer include `actlane.yaml`, raw capability YAML, raw policy YAML, MCP binding YAML, target-profile YAML, or copied prompt sources.
+- Added `kind: SkillContract` loading and rendering so generated Codex/OpenCode `SKILL.md` files are translated from YAML DSL instead of copied from profile-specific Markdown sources.
 
 ## [0.1.0-alpha.1] - 2026-05-21
 

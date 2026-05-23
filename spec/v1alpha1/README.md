@@ -15,6 +15,7 @@ generated AGENTS.md / SKILL.md / MCP metadata / CLI/Codex/Claude/OpenCode config
 - [Capability](kinds/capability.md)
 - [ToolCallPolicy](kinds/tool-call-policy.md)
 - [TargetProfile](kinds/target-profile.md)
+- [SkillContract](kinds/skill-contract.md)
 - [AdoptionProfile](kinds/adoption-profile.md)
 - [RuntimeBinding](kinds/runtime-binding.md)
 - [CapabilityPack](kinds/capability-pack.md)

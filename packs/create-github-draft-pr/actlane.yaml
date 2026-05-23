@@ -5,7 +5,7 @@ kind: CapabilityPack
 metadata:
   name: github-draft-pr-pack
   version: 0.1.0-alpha.1
-  description: Project-local OpenCode capability pack for safe GitHub draft pull requests.
+  description: Project-local agent capability pack for safe GitHub draft pull requests.
 
 spec:
   guidance:
@@ -24,7 +24,7 @@ spec:
 
     compose:
       enabled: true
-      output: generated/opencode/AGENTS.md
+      output: AGENTS.md
       strategy: concatenate
       order:
         - base
@@ -34,6 +34,9 @@ spec:
   capabilities:
     - capabilities/create-github-draft-pr.yaml
 
+  skills:
+    - skills/create-github-draft-pr.yaml
+
   policies:
     - policies/github-draft-pr.policy.yaml
 
@@ -42,7 +45,9 @@ spec:
     - mcp/bindings/github-mcp-draft-pr.yaml
 
   targetProfiles:
+    - target-profiles/codex.yaml
     - target-profiles/opencode.yaml
 
   targets:
+    - codex
     - opencode

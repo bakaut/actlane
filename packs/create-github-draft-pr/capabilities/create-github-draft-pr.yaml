@@ -82,7 +82,7 @@ spec:
 
   workflowHints:
     - step: inspect-project
-      purpose: Inspect current repository, existing agent files, and OpenCode config before mutation.
+      purpose: Inspect current repository, existing agent files, and target agent config before mutation.
     - step: run-tests
       purpose: Run project test command when configured by the user or project.
     - step: create-branch
@@ -98,6 +98,10 @@ spec:
       enabled: true
       toolName: create_github_draft_pr
 
+    codex:
+      enabled: true
+      skill: create-github-draft-pr
+
     opencode:
       enabled: true
       command: create-github-draft-pr
@@ -107,3 +111,22 @@ spec:
     includeChangedFiles: true
     includePolicyDecision: true
     includePrUrl: true
+
+  profiles:
+    codex:
+      config: {}
+      files:
+        - path: .codex/skills/create-github-draft-pr/SKILL.md
+          skillContract: create-github-draft-pr
+
+    opencode:
+      config: {}
+      files:
+        - path: .opencode/commands/create-github-draft-pr.md
+          source: create-github-draft-pr.opencode.command.md
+
+        - path: .opencode/agents/github-draft-pr.md
+          source: create-github-draft-pr.opencode.agent.md
+
+        - path: .opencode/skills/create-github-draft-pr/SKILL.md
+          skillContract: create-github-draft-pr

@@ -8,11 +8,12 @@ This pack defines one Actlane capability:
 create-github-draft-pr
 ```
 
-It generates only OpenCode artifacts and a policy bundle. It does not install into `.opencode/` and does not require MCP, GitHub credentials, or runtime enforcement.
+It generates OpenCode and Codex artifacts plus target-local policy bundles. It does not install into `.opencode/`, `.codex/`, or `~/.codex/config.toml`; generated files stay under `generated/<target>/` for review and explicit apply.
 
 CI-friendly verification:
 
 ```bash
 actlane validate packs/create-github-draft-pr
 actlane generate packs/create-github-draft-pr --target opencode --check
+actlane generate packs/create-github-draft-pr --target codex --check
 ```

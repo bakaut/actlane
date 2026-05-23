@@ -1,0 +1,46 @@
+$schema: https://actlane.ru/schemas/v1alpha1/target-profile.schema.json
+apiVersion: actlane.ru/v1alpha1
+kind: TargetProfile
+
+metadata:
+  name: codex
+
+spec:
+  target: codex
+  scope: project
+
+  output:
+    root: generated/codex
+    config: codex.config.toml
+
+  install:
+    mode: manual-copy
+    scope: project
+    requireExplicitApply: true
+    requireDiffPreview: true
+
+    projectPaths:
+      configSnippet: codex.config.toml
+      skillsDir: .codex/skills
+      instructionsFile: AGENTS.md
+
+  generate:
+    config: true
+    instructions: true
+    agents: false
+    commands: false
+    skills: true
+    mcp: true
+
+  codex:
+    config:
+      filename: codex.config.toml
+
+    files:
+      - targetPath: AGENTS.md
+        generatedPath: generated/codex/AGENTS.md
+        ownedBlock: true
+
+      - targetPath: .codex/skills/create-github-draft-pr/SKILL.md
+        generatedPath: generated/codex/.codex/skills/create-github-draft-pr/SKILL.md
+        owned: true

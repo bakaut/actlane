@@ -15,6 +15,37 @@ type Server struct {
 	loaded *pack.LoadedPack
 }
 
+type PolicyBundle struct {
+	Pack         string             `json:"pack"`
+	Version      string             `json:"version"`
+	Target       string             `json:"target"`
+	Capabilities []string           `json:"capabilities"`
+	Decisions    []string           `json:"decisions"`
+	Rules        PolicyBundleRules  `json:"rules"`
+	MCPBindings  []BundleMCPBinding `json:"mcpBindings"`
+}
+
+type PolicyBundleRules struct {
+	Capabilities  []string                `json:"capabilities"`
+	Defaults      map[string]any          `json:"defaults"`
+	BranchPrefix  string                  `json:"branchPrefix"`
+	Confirmation  pack.PolicyConfirmation `json:"confirmation"`
+	RepoAllowlist []string                `json:"repoAllowlist"`
+	ForbidPaths   []string                `json:"forbidPaths"`
+	MaxFiles      int                     `json:"maxFiles"`
+	MaxDiffKB     int                     `json:"maxDiffKb"`
+	Approval      pack.PolicyApproval     `json:"approval"`
+	Audit         pack.PolicyAudit        `json:"audit"`
+}
+
+type BundleMCPBinding struct {
+	Name           string                  `json:"name"`
+	Capability     string                  `json:"capability"`
+	Handler        string                  `json:"handler"`
+	GeneratedTools []pack.MCPGeneratedTool `json:"generatedTools"`
+	RequiredTools  []pack.MCPToolBinding   `json:"requiredTools"`
+}
+
 type request struct {
 	JSONRPC string          `json:"jsonrpc"`
 	ID      any             `json:"id,omitempty"`
@@ -70,6 +101,60 @@ type nextCall struct {
 
 func New(loaded *pack.LoadedPack) *Server {
 	return &Server{loaded: loaded}
+}
+
+func NewFromPolicyBundle(bundle PolicyBundle) *Server {
+	capabilities := bundle.Rules.Capabilities
+	if len(capabilities) == 0 {
+		capabilities = bundle.Capabilities
+	}
+	loaded := &pack.LoadedPack{
+		Manifest: pack.CapabilityPack{
+			Document: pack.Document{
+				Metadata: pack.Metadata{
+					Name:    bundle.Pack,
+					Version: bundle.Version,
+				},
+			},
+		},
+		Policies: []pack.Policy{{
+			Document: pack.Document{
+				Metadata: pack.Metadata{Name: "policy-bundle"},
+			},
+			Spec: pack.PolicySpec{
+				Match: pack.PolicyMatch{Capabilities: capabilities},
+				Mutate: pack.PolicyMutateSpec{
+					Defaults: bundle.Rules.Defaults,
+					Ensure:   pack.PolicyEnsure{BranchPrefix: bundle.Rules.BranchPrefix},
+				},
+				Validate: pack.PolicyValidate{
+					Confirmation:  bundle.Rules.Confirmation,
+					RepoAllowlist: bundle.Rules.RepoAllowlist,
+					ForbidPaths:   bundle.Rules.ForbidPaths,
+					Limits: pack.PolicyLimits{
+						MaxFiles:  bundle.Rules.MaxFiles,
+						MaxDiffKB: bundle.Rules.MaxDiffKB,
+					},
+				},
+				Approval: bundle.Rules.Approval,
+				Audit:    bundle.Rules.Audit,
+			},
+		}},
+	}
+	for _, binding := range bundle.MCPBindings {
+		loaded.MCPBindings = append(loaded.MCPBindings, pack.MCPBinding{
+			Document: pack.Document{
+				Metadata: pack.Metadata{Name: binding.Name},
+			},
+			Spec: pack.MCPBindingSpec{
+				CapabilityRef:  pack.LocalRef{Name: binding.Capability},
+				Strategy:       pack.MCPBindingStrategy{Handler: binding.Handler},
+				GeneratedTools: binding.GeneratedTools,
+				RequiredTools:  binding.RequiredTools,
+			},
+		})
+	}
+	return New(loaded)
 }
 
 func (s *Server) Serve(r io.Reader, w io.Writer) error {

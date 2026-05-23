@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -45,10 +46,11 @@ func MainWithIO(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 
 func runMCP(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	if len(args) < 1 || args[0] != "serve" {
-		fmt.Fprintln(stderr, "usage: actlane mcp serve --pack <pack>")
+		fmt.Fprintln(stderr, "usage: actlane mcp serve (--policy-bundle <policy-bundle.json> | --pack <pack>)")
 		return 2
 	}
 	packDir := "."
+	policyBundlePath := ""
 	for i := 1; i < len(args); i++ {
 		switch args[i] {
 		case "--pack":
@@ -58,10 +60,34 @@ func runMCP(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 				return 2
 			}
 			packDir = args[i]
+		case "--policy-bundle":
+			i++
+			if i >= len(args) {
+				fmt.Fprintln(stderr, "--policy-bundle requires a value")
+				return 2
+			}
+			policyBundlePath = args[i]
 		default:
 			fmt.Fprintf(stderr, "unknown mcp serve flag %q\n", args[i])
 			return 2
 		}
+	}
+	if policyBundlePath != "" {
+		data, err := os.ReadFile(policyBundlePath)
+		if err != nil {
+			fmt.Fprintf(stderr, "mcp serve failed: read policy bundle: %v\n", err)
+			return 1
+		}
+		var bundle mcpserver.PolicyBundle
+		if err := json.Unmarshal(data, &bundle); err != nil {
+			fmt.Fprintf(stderr, "mcp serve failed: parse policy bundle: %v\n", err)
+			return 1
+		}
+		if err := mcpserver.NewFromPolicyBundle(bundle).Serve(stdin, stdout); err != nil {
+			fmt.Fprintf(stderr, "mcp serve failed: %v\n", err)
+			return 1
+		}
+		return 0
 	}
 	loaded, err := pack.Load(packDir)
 	if err != nil {
@@ -165,6 +191,7 @@ func runSchema(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stdout, "capability https://actlane.ru/schemas/v1alpha1/capability.schema.json")
 		fmt.Fprintln(stdout, "capability-pack https://actlane.ru/schemas/v1alpha1/capability-pack.schema.json")
 		fmt.Fprintln(stdout, "mcp-binding https://actlane.ru/schemas/v1alpha1/mcp-binding.schema.json")
+		fmt.Fprintln(stdout, "skill-contract https://actlane.ru/schemas/v1alpha1/skill-contract.schema.json")
 		fmt.Fprintln(stdout, "tool-call-policy https://actlane.ru/schemas/v1alpha1/tool-call-policy.schema.json")
 		fmt.Fprintln(stdout, "target-profile https://actlane.ru/schemas/v1alpha1/target-profile.schema.json")
 		fmt.Fprintln(stdout, "adoption-profile https://actlane.ru/schemas/v1alpha1/adoption-profile.schema.json")

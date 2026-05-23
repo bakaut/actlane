@@ -1,0 +1,158 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://actlane.ru/schemas/v1alpha1/skill-contract.schema.json",
+  "title": "Actlane SkillContract",
+  "type": "object",
+  "required": ["apiVersion", "kind", "metadata", "spec"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "apiVersion": { "const": "actlane.ru/v1alpha1" },
+    "kind": { "const": "SkillContract" },
+    "metadata": {
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
+        },
+        "version": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "labels": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "spec": {
+      "type": "object",
+      "required": ["activation", "profiles", "body"],
+      "properties": {
+        "activation": {
+          "type": "object",
+          "properties": {
+            "mode": { "type": "string" },
+            "whenToUse": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "whenNotToUse": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "directInvocation": {
+              "type": "object",
+              "properties": {
+                "aliases": {
+                  "type": "array",
+                  "items": { "type": "string" }
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "instructions": {
+          "type": "object",
+          "properties": {
+            "beforeCall": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "afterCall": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "onDeny": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          },
+          "additionalProperties": false
+        },
+        "interface": {
+          "type": "object",
+          "properties": {
+            "input": { "type": "object" },
+            "output": { "type": "object" }
+          },
+          "additionalProperties": false
+        },
+        "tools": {
+          "type": "object",
+          "properties": {
+            "required": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "mcp": {
+              "type": "object",
+              "properties": {
+                "securityGate": { "type": "string" },
+                "downstream": {
+                  "type": "array",
+                  "items": { "type": "string" }
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "profiles": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": {
+            "type": "object",
+            "required": ["name", "compatibility"],
+            "properties": {
+              "name": { "type": "string" },
+              "description": { "type": "string" },
+              "compatibility": { "type": "string" },
+              "metadata": {
+                "type": "object",
+                "additionalProperties": { "type": "string" }
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "body": {
+          "type": "object",
+          "properties": {
+            "securityGateFlow": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "workflow": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["step", "purpose"],
+                "properties": {
+                  "step": { "type": "string" },
+                  "purpose": { "type": "string" }
+                },
+                "additionalProperties": false
+              }
+            },
+            "requiredInputs": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "mcpTools": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

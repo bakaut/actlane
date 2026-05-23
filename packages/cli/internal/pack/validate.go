@@ -40,7 +40,7 @@ func Validate(loaded *LoadedPack) error {
 		if targetProfile.Spec.Output.Root == "" {
 			return fmt.Errorf("target profile %s spec.output.root is required", targetProfile.Metadata.Name)
 		}
-		if targetProfile.Spec.Output.Config == "" && targetProfile.Spec.OpenCode.Config.Filename == "" {
+		if targetProfile.Spec.Output.Config == "" && targetProfile.Spec.Codex.Config.Filename == "" && targetProfile.Spec.OpenCode.Config.Filename == "" {
 			return fmt.Errorf("target profile %s spec.output.config is required", targetProfile.Metadata.Name)
 		}
 		targetProfiles[targetProfile.Spec.Target] = true
@@ -79,6 +79,23 @@ func Validate(loaded *LoadedPack) error {
 		bindings[binding.Metadata.Name] = true
 	}
 
+	skills := map[string]bool{}
+	for _, skill := range loaded.Skills {
+		if skill.APIVersion != "actlane.ru/v1alpha1" {
+			return fmt.Errorf("skill contract %s apiVersion must be actlane.ru/v1alpha1", skill.Metadata.Name)
+		}
+		if skill.Kind != "SkillContract" {
+			return fmt.Errorf("skill contract %s kind must be SkillContract", skill.Metadata.Name)
+		}
+		if !kebabName.MatchString(skill.Metadata.Name) {
+			return fmt.Errorf("skill contract metadata.name must be kebab-case")
+		}
+		if len(skill.Spec.Profiles) == 0 {
+			return fmt.Errorf("skill contract %s spec.profiles is required", skill.Metadata.Name)
+		}
+		skills[skill.Metadata.Name] = true
+	}
+
 	for _, capability := range loaded.Capabilities {
 		if capability.APIVersion != "actlane.ru/v1alpha1" {
 			return fmt.Errorf("capability %s apiVersion must be actlane.ru/v1alpha1", capability.Metadata.Name)
@@ -99,7 +116,7 @@ func Validate(loaded *LoadedPack) error {
 			if !targetProfiles[target] {
 				return fmt.Errorf("capability %s target %q has no target profile", capability.Metadata.Name, target)
 			}
-			if _, ok := capability.Spec.Profiles[target]; !ok && !capability.Spec.Projections.OpenCode.Enabled {
+			if _, ok := capability.Spec.Profiles[target]; !ok && !capabilityProjectionEnabled(capability, target) {
 				return fmt.Errorf("capability %s missing spec.profiles.%s", capability.Metadata.Name, target)
 			}
 		}
@@ -120,6 +137,13 @@ func Validate(loaded *LoadedPack) error {
 		if capability.Spec.ExecutionRef.Name != "" && !bindings[capability.Spec.ExecutionRef.Name] {
 			return fmt.Errorf("capability %s references missing mcp binding %s", capability.Metadata.Name, capability.Spec.ExecutionRef.Name)
 		}
+		for target, profile := range capability.Spec.Profiles {
+			for _, file := range profile.Files {
+				if file.SkillContract != "" && !skills[file.SkillContract] {
+					return fmt.Errorf("capability %s profile %s references missing skill contract %s", capability.Metadata.Name, target, file.SkillContract)
+				}
+			}
+		}
 	}
 
 	return nil
@@ -130,10 +154,24 @@ func capabilityTargets(capability Capability) []string {
 		return capability.Spec.Targets
 	}
 	targets := []string{}
+	if capability.Spec.Projections.Codex.Enabled {
+		targets = append(targets, "codex")
+	}
 	if capability.Spec.Projections.OpenCode.Enabled {
 		targets = append(targets, "opencode")
 	}
 	return targets
+}
+
+func capabilityProjectionEnabled(capability Capability, target string) bool {
+	switch target {
+	case "codex":
+		return capability.Spec.Projections.Codex.Enabled
+	case "opencode":
+		return capability.Spec.Projections.OpenCode.Enabled
+	default:
+		return false
+	}
 }
 
 func capabilityPolicies(capability Capability) []string {

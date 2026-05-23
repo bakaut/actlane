@@ -12,8 +12,6 @@ import (
 	"github.com/actlane/actlane/packages/cli/internal/pack"
 )
 
-const lockfilePath = "generated/actlane.lock"
-
 type Options struct {
 	Target         string
 	OutDir         string
@@ -38,11 +36,12 @@ func Generate(loaded *pack.LoadedPack, opts Options) (*Result, error) {
 	if err != nil {
 		return nil, err
 	}
-	files[lockfilePath] = mustJSON(buildLockfile(loaded, files, opts.Target))
+	lockPath := lockfilePath(opts.Target)
+	files[lockPath] = mustJSON(buildLockfile(loaded, files, opts.Target, lockPath))
 
 	result := &Result{Files: files}
 	if opts.Check || opts.FrozenLockfile {
-		if err := compareExisting(opts.OutDir, files, opts.FrozenLockfile); err != nil {
+		if err := compareExisting(opts.OutDir, files, opts.FrozenLockfile, lockPath); err != nil {
 			return nil, err
 		}
 		return result, nil
@@ -64,30 +63,35 @@ func render(loaded *pack.LoadedPack, targetProfile pack.TargetProfile, target st
 		return nil, err
 	}
 	files := map[string][]byte{}
-	if err := renderGuidance(files, loaded); err != nil {
+	if err := renderGuidance(files, loaded, targetProfile); err != nil {
 		return nil, err
 	}
 	if err := renderer.Render(files, loaded, capability, targetProfile); err != nil {
 		return nil, err
 	}
-	if err := renderCapabilityProfile(files, loaded.Root, capability, targetProfile, target); err != nil {
+	if err := renderCapabilityProfile(files, loaded, capability, targetProfile, target); err != nil {
 		return nil, err
 	}
 	if targetProfile.Spec.Generate.MCP {
 		renderMCPBindingArtifacts(files, loaded)
 	}
-	files["generated/policies/policy-bundle.json"] = mustJSON(policyBundle{
+	files[targetPolicyBundlePath(target)] = mustJSON(policyBundle{
 		Pack:         loaded.Manifest.Metadata.Name,
 		Version:      loaded.Manifest.Metadata.Version,
 		Target:       target,
 		Capabilities: []string{capability.Metadata.Name},
 		Decisions:    []string{"allow", "deny", "mutate", "requires-approval"},
 		Rules:        rules,
+		MCPBindings:  policyBundleMCPBindings(loaded.MCPBindings),
 	})
 	return files, nil
 }
 
-func renderGuidance(files map[string][]byte, loaded *pack.LoadedPack) error {
+func targetPolicyBundlePath(target string) string {
+	return filepath.ToSlash(filepath.Join("generated", target, "policies", "policy-bundle.json"))
+}
+
+func renderGuidance(files map[string][]byte, loaded *pack.LoadedPack, targetProfile pack.TargetProfile) error {
 	compose := loaded.Manifest.Spec.Guidance.Compose
 	if !compose.Enabled {
 		return nil
@@ -114,11 +118,15 @@ func renderGuidance(files map[string][]byte, loaded *pack.LoadedPack) error {
 		}
 		b.Write(data)
 	}
-	files[filepath.ToSlash(compose.Output)] = []byte(strings.TrimRight(b.String(), "\n") + "\n")
+	outputPath, err := targetOutputPath(targetProfile, compose.Output)
+	if err != nil {
+		return fmt.Errorf("invalid guidance compose output %q: %w", compose.Output, err)
+	}
+	files[filepath.ToSlash(outputPath)] = []byte(strings.TrimRight(b.String(), "\n") + "\n")
 	return nil
 }
 
-func renderCapabilityProfile(files map[string][]byte, packRoot string, capability pack.Capability, targetProfile pack.TargetProfile, target string) error {
+func renderCapabilityProfile(files map[string][]byte, loaded *pack.LoadedPack, capability pack.Capability, targetProfile pack.TargetProfile, target string) error {
 	profile, ok := capability.Spec.Profiles[target]
 	if !ok {
 		return nil
@@ -138,8 +146,11 @@ func renderCapabilityProfile(files map[string][]byte, packRoot string, capabilit
 		files[configPath] = mustJSON(cloneStringAnyMap(profile.Config))
 	}
 	for _, file := range profile.Files {
-		if file.Source == "" {
-			return fmt.Errorf("capability %s profile file %q must declare source", capability.Metadata.Name, file.Path)
+		if file.Source == "" && file.SkillContract == "" {
+			return fmt.Errorf("capability %s profile file %q must declare source or skillContract", capability.Metadata.Name, file.Path)
+		}
+		if file.Source != "" && file.SkillContract != "" {
+			return fmt.Errorf("capability %s profile file %q must use source or skillContract, not both", capability.Metadata.Name, file.Path)
 		}
 		if file.Content != "" {
 			return fmt.Errorf("capability %s profile file %q must use source instead of inline content", capability.Metadata.Name, file.Path)
@@ -151,13 +162,132 @@ func renderCapabilityProfile(files map[string][]byte, packRoot string, capabilit
 		if _, exists := files[rel]; exists {
 			return fmt.Errorf("duplicate generated profile file path %q", file.Path)
 		}
-		content, err := readProfileSource(packRoot, capability.Path, file.Source)
+		if file.SkillContract != "" {
+			content, err := renderSkillContract(loaded, capability, target, file.SkillContract)
+			if err != nil {
+				return err
+			}
+			files[rel] = content
+			continue
+		}
+		content, err := readProfileSource(loaded.Root, capability.Path, file.Source)
 		if err != nil {
 			return err
 		}
 		files[rel] = content
 	}
 	return nil
+}
+
+func renderSkillContract(loaded *pack.LoadedPack, capability pack.Capability, target, name string) ([]byte, error) {
+	skill, ok := skillContractFor(loaded, name)
+	if !ok {
+		return nil, fmt.Errorf("missing skill contract %s", name)
+	}
+	profile, ok := skill.Spec.Profiles[target]
+	if !ok {
+		return nil, fmt.Errorf("skill contract %s missing spec.profiles.%s", name, target)
+	}
+	if profile.Name == "" {
+		profile.Name = skill.Metadata.Name
+	}
+	if profile.Description == "" {
+		profile.Description = skill.Metadata.Description
+	}
+	if profile.Compatibility == "" {
+		profile.Compatibility = target
+	}
+	metadata := cloneStringMap(profile.Metadata)
+	if metadata["capability"] == "" {
+		metadata["capability"] = capability.Metadata.Name
+	}
+	if metadata["execution_ref"] == "" && capability.Spec.ExecutionRef.Name != "" {
+		metadata["execution_ref"] = capability.Spec.ExecutionRef.Name
+	}
+
+	var b strings.Builder
+	b.WriteString("---\n")
+	b.WriteString("name: " + jsonString(profile.Name) + "\n")
+	b.WriteString("description: " + jsonString(profile.Description) + "\n")
+	b.WriteString("compatibility: " + profile.Compatibility + "\n")
+	if len(metadata) > 0 {
+		b.WriteString("metadata:\n")
+		for _, key := range sortedStringKeys(metadata) {
+			b.WriteString("  " + key + ": " + jsonString(metadata[key]) + "\n")
+		}
+	}
+	b.WriteString("---\n\n")
+
+	writeListSection(&b, "Security gate flow:", skill.Spec.Body.SecurityGateFlow, false)
+	if profile.Description != "" {
+		b.WriteString(profile.Description + "\n\n")
+	}
+	writeListSection(&b, "When to use:", skill.Spec.Activation.WhenToUse, false)
+	writeListSection(&b, "When not to use:", skill.Spec.Activation.WhenNotToUse, false)
+	writeWorkflowSection(&b, skill.Spec.Body.Workflow)
+	writeListSection(&b, "Required inputs:", skill.Spec.Body.RequiredInputs, false)
+	writeListSection(&b, "MCP tools:", skill.Spec.Body.MCPTools, true)
+
+	return []byte(strings.TrimRight(b.String(), "\n") + "\n"), nil
+}
+
+func skillContractFor(loaded *pack.LoadedPack, name string) (pack.SkillContract, bool) {
+	for _, skill := range loaded.Skills {
+		if skill.Metadata.Name == name {
+			return skill, true
+		}
+	}
+	return pack.SkillContract{}, false
+}
+
+func writeListSection(b *strings.Builder, heading string, values []string, code bool) {
+	if len(values) == 0 {
+		return
+	}
+	b.WriteString(heading + "\n\n")
+	for _, value := range values {
+		if code {
+			value = "`" + value + "`"
+		}
+		b.WriteString("- " + value + "\n")
+	}
+	b.WriteString("\n")
+}
+
+func writeWorkflowSection(b *strings.Builder, workflow []pack.WorkflowHint) {
+	if len(workflow) == 0 {
+		return
+	}
+	b.WriteString("Workflow:\n\n")
+	for _, step := range workflow {
+		b.WriteString("- `" + step.Step + "`: " + step.Purpose + "\n")
+	}
+	b.WriteString("\n")
+}
+
+func sortedStringKeys(values map[string]string) []string {
+	keys := make([]string, 0, len(values))
+	for key := range values {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
+func cloneStringMap(source map[string]string) map[string]string {
+	clone := make(map[string]string, len(source))
+	for key, value := range source {
+		clone[key] = value
+	}
+	return clone
+}
+
+func jsonString(value string) string {
+	data, err := json.Marshal(value)
+	if err != nil {
+		panic(err)
+	}
+	return string(data)
 }
 
 func cloneStringAnyMap(source map[string]any) map[string]any {
@@ -255,7 +385,17 @@ func ensureExactPath(root, child string) error {
 	return nil
 }
 
-func compareExisting(outDir string, files map[string][]byte, frozen bool) error {
+func compareExisting(outDir string, files map[string][]byte, frozen bool, lockPath string) error {
+	if frozen {
+		existing, err := os.ReadFile(filepath.Join(outDir, lockPath))
+		if err != nil {
+			return fmt.Errorf("lockfile is missing or unreadable: %w", err)
+		}
+		if !bytes.Equal(existing, files[lockPath]) {
+			return fmt.Errorf("lockfile would change")
+		}
+		return nil
+	}
 	paths := make([]string, 0, len(files))
 	for path := range files {
 		paths = append(paths, path)
@@ -264,15 +404,9 @@ func compareExisting(outDir string, files map[string][]byte, frozen bool) error 
 	for _, rel := range paths {
 		existing, err := os.ReadFile(filepath.Join(outDir, rel))
 		if err != nil {
-			if frozen && rel == lockfilePath {
-				return fmt.Errorf("lockfile is missing or unreadable: %w", err)
-			}
 			return fmt.Errorf("generated output is stale: %s is missing", rel)
 		}
 		if !bytes.Equal(existing, files[rel]) {
-			if frozen && rel == lockfilePath {
-				return fmt.Errorf("lockfile would change")
-			}
 			return fmt.Errorf("generated output is stale: %s differs", rel)
 		}
 	}

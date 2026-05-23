@@ -22,6 +22,7 @@ type CapabilityPack struct {
 
 type PackSpec struct {
 	Capabilities    []string       `yaml:"capabilities"`
+	Skills          []string       `yaml:"skills"`
 	Policies        []string       `yaml:"policies"`
 	MCPBindings     []string       `yaml:"mcpBindings"`
 	Targets         []string       `yaml:"targets"`
@@ -102,6 +103,7 @@ type WorkflowHint struct {
 
 type CapabilityProjections struct {
 	MCP      CapabilityMCPProjection      `yaml:"mcp"`
+	Codex    CapabilityCodexProjection    `yaml:"codex"`
 	OpenCode CapabilityOpenCodeProjection `yaml:"opencode"`
 }
 
@@ -114,6 +116,11 @@ type CapabilityOpenCodeProjection struct {
 	Enabled bool   `yaml:"enabled"`
 	Command string `yaml:"command"`
 	Agent   string `yaml:"agent"`
+}
+
+type CapabilityCodexProjection struct {
+	Enabled bool   `yaml:"enabled"`
+	Skill   string `yaml:"skill"`
 }
 
 type ToolFlowStep struct {
@@ -141,11 +148,11 @@ type MCPServerBinding struct {
 }
 
 type MCPToolBinding struct {
-	Name           string   `yaml:"name"`
-	Server         string   `yaml:"server"`
-	Toolset        string   `yaml:"toolset"`
-	Description    string   `yaml:"description"`
-	RequiredScopes []string `yaml:"requiredScopes"`
+	Name           string   `yaml:"name" json:"name"`
+	Server         string   `yaml:"server" json:"server"`
+	Toolset        string   `yaml:"toolset" json:"toolset"`
+	Description    string   `yaml:"description" json:"description,omitempty"`
+	RequiredScopes []string `yaml:"requiredScopes" json:"requiredScopes,omitempty"`
 }
 
 type MCPPrompt struct {
@@ -159,9 +166,73 @@ type CapabilityProfile struct {
 }
 
 type GeneratedFile struct {
-	Path    string `yaml:"path"`
-	Source  string `yaml:"source"`
-	Content string `yaml:"content"`
+	Path          string `yaml:"path"`
+	Source        string `yaml:"source"`
+	SkillContract string `yaml:"skillContract"`
+	Content       string `yaml:"content"`
+}
+
+type SkillContract struct {
+	Document `yaml:",inline"`
+	Spec     SkillContractSpec `yaml:"spec"`
+	Path     string            `yaml:"-"`
+	Raw      []byte            `yaml:"-"`
+}
+
+type SkillContractSpec struct {
+	Activation   SkillActivation         `yaml:"activation"`
+	Instructions SkillInstructions       `yaml:"instructions"`
+	Interface    SkillInterface          `yaml:"interface"`
+	Tools        SkillTools              `yaml:"tools"`
+	Profiles     map[string]SkillProfile `yaml:"profiles"`
+	Body         SkillBody               `yaml:"body"`
+	Extra        map[string]any          `yaml:",inline"`
+}
+
+type SkillActivation struct {
+	Mode             string                `yaml:"mode"`
+	WhenToUse        []string              `yaml:"whenToUse"`
+	WhenNotToUse     []string              `yaml:"whenNotToUse"`
+	DirectInvocation SkillDirectInvocation `yaml:"directInvocation"`
+}
+
+type SkillDirectInvocation struct {
+	Aliases []string `yaml:"aliases"`
+}
+
+type SkillInstructions struct {
+	BeforeCall []string `yaml:"beforeCall"`
+	AfterCall  []string `yaml:"afterCall"`
+	OnDeny     []string `yaml:"onDeny"`
+}
+
+type SkillInterface struct {
+	Input  map[string]any `yaml:"input"`
+	Output map[string]any `yaml:"output"`
+}
+
+type SkillTools struct {
+	Required []string `yaml:"required"`
+	MCP      SkillMCP `yaml:"mcp"`
+}
+
+type SkillMCP struct {
+	SecurityGate string   `yaml:"securityGate"`
+	Downstream   []string `yaml:"downstream"`
+}
+
+type SkillProfile struct {
+	Name          string            `yaml:"name"`
+	Description   string            `yaml:"description"`
+	Compatibility string            `yaml:"compatibility"`
+	Metadata      map[string]string `yaml:"metadata"`
+}
+
+type SkillBody struct {
+	SecurityGateFlow []string       `yaml:"securityGateFlow"`
+	Workflow         []WorkflowHint `yaml:"workflow"`
+	RequiredInputs   []string       `yaml:"requiredInputs"`
+	MCPTools         []string       `yaml:"mcpTools"`
 }
 
 type TargetProfile struct {
@@ -178,6 +249,7 @@ type TargetProfileSpec struct {
 	Transforms TargetProfileTransforms `yaml:"transforms"`
 	Install    TargetProfileInstall    `yaml:"install"`
 	Generate   TargetProfileGenerate   `yaml:"generate"`
+	Codex      TargetProfileCodex      `yaml:"codex"`
 	OpenCode   TargetProfileOpenCode   `yaml:"opencode"`
 }
 
@@ -206,6 +278,15 @@ type TargetProfileGenerate struct {
 type TargetProfileOpenCode struct {
 	Config TargetProfileOpenCodeConfig `yaml:"config"`
 	Files  []TargetProfileFile         `yaml:"files"`
+}
+
+type TargetProfileCodex struct {
+	Config TargetProfileCodexConfig `yaml:"config"`
+	Files  []TargetProfileFile      `yaml:"files"`
+}
+
+type TargetProfileCodexConfig struct {
+	Filename string `yaml:"filename"`
 }
 
 type TargetProfileOpenCodeConfig struct {
@@ -335,9 +416,9 @@ type MCPBindingStrategy struct {
 }
 
 type MCPGeneratedTool struct {
-	Name        string `yaml:"name"`
-	Description string `yaml:"description"`
-	Mode        string `yaml:"mode"`
+	Name        string `yaml:"name" json:"name"`
+	Description string `yaml:"description" json:"description"`
+	Mode        string `yaml:"mode" json:"mode"`
 }
 
 type LoadedPack struct {
@@ -346,6 +427,7 @@ type LoadedPack struct {
 	Manifest       CapabilityPack
 	ManifestRaw    []byte
 	Capabilities   []Capability
+	Skills         []SkillContract
 	Policies       []Policy
 	MCPBindings    []MCPBinding
 	TargetProfiles []TargetProfile
