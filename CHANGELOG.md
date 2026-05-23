@@ -19,6 +19,8 @@
 - Added `actlane mcp serve --pack <pack>` with MCP `tools/list` and `tools/call` support for audit/enforce policy validation and mutation.
 - Moved the `actlane-safe-gitops` local MCP server contract into `mcp/bindings/actlane-safe-gitops.yaml`.
 - Updated the Actlane MCP enforce response to act as a security gate by returning mutated input plus downstream GitHub MCP `next` calls when policy allows execution.
+- Updated OpenCode generation to include a self-contained runtime pack under `generated/opencode` so `actlane mcp serve --pack ./actlane.yaml` can load local capabilities, policies, MCP bindings, target profile, and prompt sources after install.
+- Updated pack loading so CLI commands accept both a pack directory and a direct `actlane.yaml` manifest path.
 
 ## [0.1.0-alpha.1] - 2026-05-21
 

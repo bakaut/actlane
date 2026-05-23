@@ -66,3 +66,39 @@ spec:
       - targetPath: .opencode/skills/create-github-draft-pr/SKILL.md
         generatedPath: generated/opencode/.opencode/skills/create-github-draft-pr/SKILL.md
         owned: true
+
+      - targetPath: actlane.yaml
+        generatedPath: generated/opencode/actlane.yaml
+        owned: true
+
+      - targetPath: capabilities/create-github-draft-pr.yaml
+        generatedPath: generated/opencode/capabilities/create-github-draft-pr.yaml
+        owned: true
+
+      - targetPath: policies/github-draft-pr.policy.yaml
+        generatedPath: generated/opencode/policies/github-draft-pr.policy.yaml
+        owned: true
+
+      - targetPath: mcp/bindings/actlane-safe-gitops.yaml
+        generatedPath: generated/opencode/mcp/bindings/actlane-safe-gitops.yaml
+        owned: true
+
+      - targetPath: mcp/bindings/github-mcp-draft-pr.yaml
+        generatedPath: generated/opencode/mcp/bindings/github-mcp-draft-pr.yaml
+        owned: true
+
+      - targetPath: target-profiles/opencode.yaml
+        generatedPath: generated/opencode/target-profiles/opencode.yaml
+        owned: true
+
+      - targetPath: files/prompts/BASE.MD
+        generatedPath: generated/opencode/files/prompts/BASE.MD
+        owned: true
+
+      - targetPath: files/prompts/ACTLANE.MD
+        generatedPath: generated/opencode/files/prompts/ACTLANE.MD
+        owned: true
+
+      - targetPath: files/prompts/AGENTS.md
+        generatedPath: generated/opencode/files/prompts/AGENTS.md
+        owned: true

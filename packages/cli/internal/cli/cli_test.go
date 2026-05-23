@@ -39,11 +39,24 @@ func TestGenerateOpenCodeWritesOnlyGeneratedOutput(t *testing.T) {
 	assertExists(t, filepath.Join(packDir, "generated/opencode/.opencode/commands/create-github-draft-pr.md"))
 	assertExists(t, filepath.Join(packDir, "generated/opencode/.opencode/agents/github-draft-pr.md"))
 	assertExists(t, filepath.Join(packDir, "generated/opencode/.opencode/skills/create-github-draft-pr/SKILL.md"))
+	assertExists(t, filepath.Join(packDir, "generated/opencode/actlane.yaml"))
+	assertExists(t, filepath.Join(packDir, "generated/opencode/capabilities/create-github-draft-pr.yaml"))
+	assertExists(t, filepath.Join(packDir, "generated/opencode/policies/github-draft-pr.policy.yaml"))
+	assertExists(t, filepath.Join(packDir, "generated/opencode/mcp/bindings/actlane-safe-gitops.yaml"))
+	assertExists(t, filepath.Join(packDir, "generated/opencode/mcp/bindings/github-mcp-draft-pr.yaml"))
+	assertExists(t, filepath.Join(packDir, "generated/opencode/target-profiles/opencode.yaml"))
 	assertNotExists(t, filepath.Join(packDir, ".opencode"))
 	assertNotExists(t, filepath.Join(packDir, "generated/opencode/opencode.snippet.jsonc"))
 	assertNotExists(t, filepath.Join(packDir, "generated/AGENT.md"))
 	assertNotExists(t, filepath.Join(packDir, "generated/opencode/AGENT.MD"))
 	assertNotExists(t, filepath.Join(packDir, "generated/SKILLS.md"))
+
+	stdout.Reset()
+	stderr.Reset()
+	code = Main([]string{"validate", filepath.Join(packDir, "generated/opencode")}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("generated OpenCode runtime pack should validate\nstdout:\n%s\nstderr:\n%s", stdout.String(), stderr.String())
+	}
 
 	snippet := readFile(t, filepath.Join(packDir, "generated/opencode/opencode.jsonc"))
 	for _, want := range []string{
@@ -175,6 +188,30 @@ func TestMCPServeListsAndCallsPolicyTools(t *testing.T) {
 		if !strings.Contains(output, want) {
 			t.Fatalf("mcp output missing %q:\n%s", want, output)
 		}
+	}
+}
+
+func TestMCPServeAcceptsPackManifestPath(t *testing.T) {
+	packDir := copyPackToTemp(t)
+	var stdout, stderr bytes.Buffer
+
+	code := Main([]string{"generate", packDir, "--target", "opencode"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("generate failed: %s", stderr.String())
+	}
+
+	stdin := strings.NewReader(strings.Join([]string{
+		`{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}`,
+		"",
+	}, "\n"))
+	stdout.Reset()
+	stderr.Reset()
+	code = MainWithIO([]string{"mcp", "serve", "--pack", filepath.Join(packDir, "generated/opencode/actlane.yaml")}, stdin, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("mcp serve with manifest path failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	if !strings.Contains(stdout.String(), `"name":"create_github_draft_pr_enforce"`) {
+		t.Fatalf("mcp serve with manifest path did not list enforce tool:\n%s", stdout.String())
 	}
 }
 

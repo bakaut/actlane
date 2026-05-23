@@ -17,7 +17,10 @@ func (openCodeRenderer) Render(files map[string][]byte, loaded *pack.LoadedPack,
 	if err := renderOpenCodeConfig(files, loaded, targetProfile); err != nil {
 		return err
 	}
-	return renderOpenCodeProfileFiles(files, loaded, capability, targetProfile)
+	if err := renderOpenCodeProfileFiles(files, loaded, capability, targetProfile); err != nil {
+		return err
+	}
+	return renderOpenCodeRuntimePack(files, loaded, targetProfile)
 }
 
 func renderOpenCodeConfig(files map[string][]byte, loaded *pack.LoadedPack, targetProfile pack.TargetProfile) error {
@@ -123,6 +126,59 @@ func renderOpenCodeProfileFiles(files map[string][]byte, loaded *pack.LoadedPack
 		}
 		files[rel] = []byte(content)
 	}
+	return nil
+}
+
+func renderOpenCodeRuntimePack(files map[string][]byte, loaded *pack.LoadedPack, targetProfile pack.TargetProfile) error {
+	root, err := cleanRelativePath(targetProfile.Spec.Output.Root)
+	if err != nil {
+		return err
+	}
+	if err := writeOpenCodeRuntimeSource(files, root, "actlane.yaml", loaded.ManifestRaw); err != nil {
+		return err
+	}
+	for _, capability := range loaded.Capabilities {
+		if err := writeOpenCodeRuntimeSource(files, root, relToRoot(loaded.Root, capability.Path), capability.Raw); err != nil {
+			return err
+		}
+	}
+	for _, policy := range loaded.Policies {
+		if err := writeOpenCodeRuntimeSource(files, root, relToRoot(loaded.Root, policy.Path), policy.Raw); err != nil {
+			return err
+		}
+	}
+	for _, binding := range loaded.MCPBindings {
+		if err := writeOpenCodeRuntimeSource(files, root, relToRoot(loaded.Root, binding.Path), binding.Raw); err != nil {
+			return err
+		}
+	}
+	for _, targetProfile := range loaded.TargetProfiles {
+		if err := writeOpenCodeRuntimeSource(files, root, relToRoot(loaded.Root, targetProfile.Path), targetProfile.Raw); err != nil {
+			return err
+		}
+	}
+	for _, source := range append(profileSources(loaded), guidanceSources(loaded)...) {
+		data, err := readPackSource(loaded.Root, relToRoot(loaded.Root, source))
+		if err != nil {
+			return err
+		}
+		if err := writeOpenCodeRuntimeSource(files, root, relToRoot(loaded.Root, source), data); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func writeOpenCodeRuntimeSource(files map[string][]byte, root, sourcePath string, data []byte) error {
+	cleaned, err := cleanRelativePath(sourcePath)
+	if err != nil {
+		return err
+	}
+	target := path.Join(root, cleaned)
+	if _, exists := files[target]; exists {
+		return fmt.Errorf("duplicate generated OpenCode runtime path %q", target)
+	}
+	files[target] = append([]byte{}, data...)
 	return nil
 }
 

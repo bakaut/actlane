@@ -13,8 +13,13 @@ func Load(root string) (*LoadedPack, error) {
 	if err != nil {
 		return nil, err
 	}
+	packRoot := abs
+	manifestPath := filepath.Join(packRoot, "actlane.yaml")
+	if info, err := os.Stat(abs); err == nil && !info.IsDir() {
+		packRoot = filepath.Dir(abs)
+		manifestPath = abs
+	}
 
-	manifestPath := filepath.Join(abs, "actlane.yaml")
 	manifestRaw, err := os.ReadFile(manifestPath)
 	if err != nil {
 		return nil, fmt.Errorf("read actlane.yaml: %w", err)
@@ -25,14 +30,14 @@ func Load(root string) (*LoadedPack, error) {
 	}
 
 	loaded := &LoadedPack{
-		Root:         abs,
+		Root:         packRoot,
 		ManifestPath: manifestPath,
 		Manifest:     manifest,
 		ManifestRaw:  manifestRaw,
 	}
 
 	for _, rel := range manifest.Spec.Capabilities {
-		path := filepath.Join(abs, rel)
+		path := filepath.Join(packRoot, rel)
 		raw, err := os.ReadFile(path)
 		if err != nil {
 			return nil, fmt.Errorf("read capability %s: %w", rel, err)
@@ -47,7 +52,7 @@ func Load(root string) (*LoadedPack, error) {
 	}
 
 	for _, rel := range manifest.Spec.Policies {
-		path := filepath.Join(abs, rel)
+		path := filepath.Join(packRoot, rel)
 		raw, err := os.ReadFile(path)
 		if err != nil {
 			return nil, fmt.Errorf("read policy %s: %w", rel, err)
@@ -62,7 +67,7 @@ func Load(root string) (*LoadedPack, error) {
 	}
 
 	for _, rel := range manifest.Spec.MCPBindings {
-		path := filepath.Join(abs, rel)
+		path := filepath.Join(packRoot, rel)
 		raw, err := os.ReadFile(path)
 		if err != nil {
 			return nil, fmt.Errorf("read mcp binding %s: %w", rel, err)
@@ -77,7 +82,7 @@ func Load(root string) (*LoadedPack, error) {
 	}
 
 	for _, rel := range manifest.Spec.TargetProfiles {
-		path := filepath.Join(abs, rel)
+		path := filepath.Join(packRoot, rel)
 		raw, err := os.ReadFile(path)
 		if err != nil {
 			return nil, fmt.Errorf("read target profile %s: %w", rel, err)
