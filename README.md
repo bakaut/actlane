@@ -2,146 +2,168 @@
 
 MCP gives agents hands. Actlane defines the safe lane for every action.
 
-Actlane is a pre-alpha project for portable, policy-aware capability packs for AI agents. A first Go CLI MVP now exists for one OpenCode capability, but Actlane is not a production security control, hosted service, MCP gateway, or agent framework yet.
+Actlane is a pre-alpha project for portable, policy-aware capability packs for AI agents. The current CLI MVP can import an existing OpenCode setup, normalize it into an Actlane pack, and generate target-specific artifacts for OpenCode and Codex.
 
-## The Problem
+Actlane is not a production security control, hosted service, MCP gateway, marketplace, or agent framework.
 
-AI-agent safety rules are scattered across prompts, `AGENTS.md`, `SKILL.md`, MCP tool schemas, CLI/Codex/Claude/OpenCode configs, agent configs, gateway policies, CI scripts, and human memory.
+## Why
+
+AI-agent safety rules are usually scattered across prompts, `AGENTS.md`, `SKILL.md`, MCP tool configs, OpenCode/Codex/Claude settings, CI scripts, gateway policies, and human memory.
 
 That makes one capability hard to move, review, reproduce, and safely remove.
 
-Actlane proposes one source of truth:
+Actlane proposes one portable source of truth:
 
 ```text
-actlane.yaml = desired capability contract
-actlane.lock = exact generated/applied state
+actlane.yaml = capability pack manifest
+actlane.lock = generated/applied state
 ```
 
-From that contract, Actlane can generate:
+From that source, Actlane can generate:
 
 ```text
 AGENTS.md
 SKILL.md
-MCP metadata
-CLI/Codex/Claude/OpenCode configs
-IDE / agent snippets
+OpenCode commands, agents, skills, and config
+Codex skills and MCP config snippets
+MCP server/tool metadata
 policy bundles
-contract tests
 audit metadata
 ```
 
-## First Practical Focus
-
-The first RFC pack is:
-
-```text
-safe-gitops
-```
-
-The first working CLI MVP pack is:
-
-```text
-create-github-draft-pr
-```
-
-The first generated workflow is:
-
-```text
-create-github-draft-pr
-```
-
-The minimal proof:
-
-```text
-one actlane.yaml
-one actlane.lock
-generated OpenCode config snippet
-generated OpenCode command
-generated OpenCode agent instructions
-generated policy bundle
-```
-
-## What Actlane Is Not
-
-- Not an agent.
-- Not an MCP gateway.
-- Not a hosted SaaS.
-- Not a marketplace-first project.
-- Not a replacement for `AGENTS.md`, `SKILL.md`, MCP, or agent frameworks.
-
-## Current Status
-
-This repository is currently pre-alpha with a narrow working CLI MVP:
-
-- manifesto;
-- roadmap;
-- proposed folder structure;
-- PlantUML diagrams;
-- early v1alpha1 spec notes;
-- Go CLI MVP in `packages/cli`;
-- OpenCode and Codex generator for `packs/create-github-draft-pr`;
-- brownfield OpenCode import into `.actlane/` plus pack create/inspect/install flow;
-- manual GitHub Actions release workflow for CLI artifacts.
-
-Try the MVP locally:
+## Install
 
 ```bash
 curl -fsSL https://actlane.ru/install.sh | sh
 actlane version
 ```
 
-Or run from source:
+Install options:
+
+```bash
+ACTLANE_VERSION=v0.2.0-alpha.1 ACTLANE_INSTALL_DIR="$HOME/.local/bin" sh -c "$(curl -fsSL https://actlane.ru/install.sh)"
+```
+
+Docker:
+
+```bash
+docker run --rm ghcr.io/actlane/actlane:0.2.0-alpha.1 version
+```
+
+## Quick Start
+
+Start from an existing OpenCode project:
+
+```bash
+actlane inspect
+actlane import
+actlane pack create
+```
+
+This creates:
+
+```text
+actlane-pack.zip
+```
+
+Generate Codex artifacts from the zip without keeping `.actlane/` in the project:
+
+```bash
+actlane generate --target codex
+```
+
+Actlane will use `./actlane-pack.zip` as the source when `.actlane/actlane.yaml` is not present.
+
+## Current CLI
+
+The current MVP supports:
+
+```bash
+actlane version
+actlane inspect
+actlane import
+actlane import report
+actlane pack create
+actlane pack inspect actlane-pack.zip
+actlane pack install actlane-pack.zip --target codex
+actlane validate <pack>
+actlane generate <pack> --target opencode
+actlane generate <pack> --target codex
+actlane generate --target codex
+actlane mcp serve --pack <pack>
+actlane schema list
+actlane schema print capability
+```
+
+`actlane import report`, `validate`, and `pack inspect` are review helpers. The shortest happy path is:
+
+```bash
+actlane inspect
+actlane import
+actlane pack create
+actlane generate --target codex
+```
+
+## What Exists
+
+- Go CLI in `packages/cli`.
+- v1alpha1 YAML contracts and JSON Schemas in `spec/v1alpha1`.
+- First working pack: `packs/create-github-draft-pr`.
+- OpenCode target generation.
+- Codex target generation.
+- Brownfield OpenCode import into Actlane contracts.
+- Import of OpenCode MCP servers and permission-derived MCP tool bindings.
+- Pack zip create/inspect/install flow.
+- Direct generation from `actlane-pack.zip`.
+- Local MCP policy gate prototype via `actlane mcp serve`.
+- Manual GitHub Actions workflows for CLI release artifacts and Docker image builds.
+
+## What Does Not Exist Yet
+
+- No production security guarantees.
+- No hosted registry.
+- No marketplace.
+- No full apply/remove lifecycle.
+- No Claude target implementation.
+- No stable `1.0` contract compatibility promise.
+
+## Run From Source
 
 ```bash
 cd packages/cli
 go test ./...
 go run ./cmd/actlane validate ../../packs/create-github-draft-pr
 go run ./cmd/actlane generate ../../packs/create-github-draft-pr --target opencode --check
+go run ./cmd/actlane generate ../../packs/create-github-draft-pr --target codex --check
 ```
-
-Run with Docker:
-
-```bash
-docker run --rm ghcr.io/actlane/actlane:0.2.0-alpha.1 version
-```
-
-Brownfield OpenCode import flow:
-
-```bash
-actlane inspect
-actlane import
-actlane import report
-actlane pack create
-```
-
-See [STATUS.md](STATUS.md).
 
 ## Repository Map
 
 ```text
 docs/      concept, architecture, adoption, runtime, and pack docs
 spec/      v1alpha1 schema source of truth
-packs/     Phase 0 examples and the OpenCode CLI MVP pack
-examples/  minimal and create-safe-draft-pr expected outputs
+packs/     working MVP pack and pack examples
+examples/  earlier examples and expected outputs
 diagrams/  PlantUML sources and rendered SVGs
 assets/    placeholder brand and image assets
-packages/  Go CLI MVP and future package boundaries
+packages/  Go CLI and future package boundaries
 ```
 
 ## Start Here
 
+- [STATUS.md](STATUS.md)
+- [CHANGELOG.md](CHANGELOG.md)
 - [MANIFESTO.md](MANIFESTO.md)
 - [ROADMAP.md](ROADMAP.md)
 - [docs/00-problem.md](docs/00-problem.md)
 - [docs/01-concept.md](docs/01-concept.md)
 - [docs/02-architecture.md](docs/02-architecture.md)
+- [docs/04-brownfield-adoption.md](docs/04-brownfield-adoption.md)
 
-## We need your voice
+## Feedback
 
-Star the repo if your team also struggles with scattered agent prompts, MCP configs, skills, and policies.
-
-Open an issue if you want Actlane to generate packs for a specific target such as Codex, Claude, OpenCode, or CLI agents.
+Open an issue if you want Actlane to import or generate packs for a specific agent runtime such as Codex, Claude, OpenCode, or CLI agents.
 
 Use the `Try Actlane on my setup` issue template. The first real adapters should be driven by actual user setups, not guesses.
 
-![alt text](diagrams/svg/actlane-overview.svg)
+![Actlane overview](diagrams/svg/actlane-overview.svg)
