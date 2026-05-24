@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-repo="${ACTLANE_REPO:-actlane/actlane}"
+repo="${ACTLANE_REPO:-bakaut/actlane}"
 version="${ACTLANE_VERSION:-latest}"
 install_dir="${ACTLANE_INSTALL_DIR:-/usr/local/bin}"
 binary_name="${ACTLANE_BINARY_NAME:-actlane}"
