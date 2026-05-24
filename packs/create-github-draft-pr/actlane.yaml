@@ -42,6 +42,7 @@ spec:
 
   agents:
     - agents/create-github-draft-pr.yaml
+    - subagents/create-github-draft-pr.yaml
 
   policies:
     - policies/github-draft-pr.policy.yaml
