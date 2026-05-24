@@ -7,6 +7,7 @@ import (
 )
 
 var schemaFiles = map[string]string{
+	"agent-contract":   "agent-contract.schema.json",
 	"capability":       "capability.schema.json",
 	"capability-pack":  "capability-pack.schema.json",
 	"command-contract": "command-contract.schema.json",

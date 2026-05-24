@@ -70,6 +70,10 @@
           "type": "array",
           "items": { "type": "string" }
         },
+        "agents": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
         "policies": {
           "type": "array",
           "minItems": 1,

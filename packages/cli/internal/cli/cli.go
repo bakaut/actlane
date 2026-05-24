@@ -188,6 +188,7 @@ func runGenerate(args []string, stdout, stderr io.Writer) int {
 
 func runSchema(args []string, stdout, stderr io.Writer) int {
 	if len(args) == 1 && args[0] == "list" {
+		fmt.Fprintln(stdout, "agent-contract https://actlane.ru/schemas/v1alpha1/agent-contract.schema.json")
 		fmt.Fprintln(stdout, "capability https://actlane.ru/schemas/v1alpha1/capability.schema.json")
 		fmt.Fprintln(stdout, "capability-pack https://actlane.ru/schemas/v1alpha1/capability-pack.schema.json")
 		fmt.Fprintln(stdout, "command-contract https://actlane.ru/schemas/v1alpha1/command-contract.schema.json")

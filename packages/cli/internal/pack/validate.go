@@ -52,6 +52,12 @@ func Validate(loaded *LoadedPack) error {
 			return fmt.Errorf("target %q has no target profile", target)
 		}
 	}
+	capabilities := map[string]bool{}
+	for _, capability := range loaded.Capabilities {
+		if capability.Metadata.Name != "" {
+			capabilities[capability.Metadata.Name] = true
+		}
+	}
 
 	policies := map[string]bool{}
 	for _, policy := range loaded.Policies {
@@ -111,6 +117,44 @@ func Validate(loaded *LoadedPack) error {
 	}
 
 	commands := map[string]bool{}
+	agents := map[string]bool{}
+	for _, agent := range loaded.Agents {
+		if agent.APIVersion != "actlane.ru/v1alpha1" {
+			return fmt.Errorf("agent contract %s apiVersion must be actlane.ru/v1alpha1", agent.Metadata.Name)
+		}
+		if agent.Kind != "AgentContract" {
+			return fmt.Errorf("agent contract %s kind must be AgentContract", agent.Metadata.Name)
+		}
+		if !kebabName.MatchString(agent.Metadata.Name) {
+			return fmt.Errorf("agent contract metadata.name must be kebab-case")
+		}
+		if agent.Metadata.Description == "" {
+			return fmt.Errorf("agent contract %s metadata.description is required", agent.Metadata.Name)
+		}
+		if agent.Spec.Mode != "primary" && agent.Spec.Mode != "subagent" {
+			return fmt.Errorf("agent contract %s spec.mode must be primary or subagent", agent.Metadata.Name)
+		}
+		if agent.Spec.Role.Summary == "" {
+			return fmt.Errorf("agent contract %s spec.role.summary is required", agent.Metadata.Name)
+		}
+		for _, capabilityName := range agent.Spec.Capabilities.Allowed {
+			if !capabilities[capabilityName] {
+				return fmt.Errorf("agent contract %s references missing capability %s", agent.Metadata.Name, capabilityName)
+			}
+		}
+		for _, skillName := range agent.Spec.Skills.Allowed {
+			if !skills[skillName] {
+				return fmt.Errorf("agent contract %s references missing skill %s", agent.Metadata.Name, skillName)
+			}
+		}
+		for target, projection := range agent.Spec.Projections {
+			if projection.Enabled && projection.Path == "" {
+				return fmt.Errorf("agent contract %s projection %s path is required", agent.Metadata.Name, target)
+			}
+		}
+		agents[agent.Metadata.Name] = true
+	}
+
 	for _, command := range loaded.Commands {
 		if command.APIVersion != "actlane.ru/v1alpha1" {
 			return fmt.Errorf("command contract %s apiVersion must be actlane.ru/v1alpha1", command.Metadata.Name)
@@ -140,6 +184,9 @@ func Validate(loaded *LoadedPack) error {
 			if projection.Enabled && projection.Path == "" {
 				return fmt.Errorf("command contract %s projection %s path is required", command.Metadata.Name, target)
 			}
+		}
+		if command.Spec.AgentRef.Name != "" && !agents[command.Spec.AgentRef.Name] {
+			return fmt.Errorf("command contract %s references missing agent %s", command.Metadata.Name, command.Spec.AgentRef.Name)
 		}
 		commands[command.Metadata.Name] = true
 	}
@@ -188,6 +235,9 @@ func Validate(loaded *LoadedPack) error {
 		if capability.Spec.Projections.OpenCode.Command != "" && !commands[capability.Spec.Projections.OpenCode.Command] {
 			return fmt.Errorf("capability %s references missing command contract %s", capability.Metadata.Name, capability.Spec.Projections.OpenCode.Command)
 		}
+		if capability.Spec.Projections.OpenCode.Agent != "" && !agents[capability.Spec.Projections.OpenCode.Agent] {
+			return fmt.Errorf("capability %s references missing agent contract %s", capability.Metadata.Name, capability.Spec.Projections.OpenCode.Agent)
+		}
 		for target, profile := range capability.Spec.Profiles {
 			for _, file := range profile.Files {
 				if file.SkillContract != "" && !skills[file.SkillContract] {
@@ -195,6 +245,9 @@ func Validate(loaded *LoadedPack) error {
 				}
 				if file.CommandContract != "" && !commands[file.CommandContract] {
 					return fmt.Errorf("capability %s profile %s references missing command contract %s", capability.Metadata.Name, target, file.CommandContract)
+				}
+				if file.AgentContract != "" && !agents[file.AgentContract] {
+					return fmt.Errorf("capability %s profile %s references missing agent contract %s", capability.Metadata.Name, target, file.AgentContract)
 				}
 			}
 		}

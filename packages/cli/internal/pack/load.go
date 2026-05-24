@@ -81,6 +81,21 @@ func Load(root string) (*LoadedPack, error) {
 		loaded.Commands = append(loaded.Commands, command)
 	}
 
+	for _, rel := range manifest.Spec.Agents {
+		path := filepath.Join(packRoot, rel)
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			return nil, fmt.Errorf("read agent contract %s: %w", rel, err)
+		}
+		var agent AgentContract
+		if err := yaml.Unmarshal(raw, &agent); err != nil {
+			return nil, fmt.Errorf("parse agent contract %s: %w", rel, err)
+		}
+		agent.Path = path
+		agent.Raw = raw
+		loaded.Agents = append(loaded.Agents, agent)
+	}
+
 	for _, rel := range manifest.Spec.Policies {
 		path := filepath.Join(packRoot, rel)
 		raw, err := os.ReadFile(path)

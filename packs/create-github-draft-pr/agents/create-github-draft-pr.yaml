@@ -1,0 +1,47 @@
+apiVersion: actlane.ru/v1alpha1
+kind: AgentContract
+
+metadata:
+  name: github-draft-pr
+  description: Specialized agent for preparing safe GitHub draft pull requests.
+
+spec:
+  scope: project
+  mode: subagent
+
+  role:
+    summary: Prepare GitHub draft pull requests through Actlane capabilities.
+
+  activation:
+    whenToUse:
+      - User asks to prepare a GitHub draft pull request.
+
+  capabilities:
+    allowed:
+      - create-github-draft-pr
+
+  skills:
+    allowed:
+      - create-github-draft-pr
+
+  tools:
+    strategy: capability-only
+    rawMcpTools:
+      default: deny
+
+  permissions:
+    bash: ask
+    edit: ask
+    skill: allow
+
+  output:
+    mustInclude:
+      - prUrl
+      - branch
+      - policyDecision
+      - summary
+
+  projections:
+    opencode:
+      enabled: true
+      path: .opencode/agents/github-draft-pr.md

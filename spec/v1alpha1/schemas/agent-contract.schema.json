@@ -1,0 +1,113 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://actlane.ru/schemas/v1alpha1/agent-contract.schema.json",
+  "title": "Actlane AgentContract",
+  "type": "object",
+  "required": ["apiVersion", "kind", "metadata", "spec"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "apiVersion": { "const": "actlane.ru/v1alpha1" },
+    "kind": { "const": "AgentContract" },
+    "metadata": {
+      "type": "object",
+      "required": ["name", "description"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
+        },
+        "description": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "spec": {
+      "type": "object",
+      "required": ["mode", "role", "projections"],
+      "properties": {
+        "scope": { "type": "string" },
+        "mode": { "enum": ["primary", "subagent"] },
+        "role": {
+          "type": "object",
+          "required": ["summary"],
+          "properties": {
+            "summary": { "type": "string", "minLength": 1 }
+          },
+          "additionalProperties": false
+        },
+        "activation": {
+          "type": "object",
+          "properties": {
+            "whenToUse": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          },
+          "additionalProperties": false
+        },
+        "capabilities": {
+          "type": "object",
+          "properties": {
+            "allowed": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          },
+          "additionalProperties": false
+        },
+        "skills": {
+          "type": "object",
+          "properties": {
+            "allowed": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          },
+          "additionalProperties": false
+        },
+        "tools": {
+          "type": "object",
+          "properties": {
+            "strategy": { "type": "string" },
+            "rawMcpTools": {
+              "type": "object",
+              "properties": {
+                "default": { "type": "string" }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "permissions": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "output": {
+          "type": "object",
+          "properties": {
+            "mustInclude": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          },
+          "additionalProperties": false
+        },
+        "projections": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "enabled": { "type": "boolean" },
+              "path": { "type": "string" },
+              "reason": { "type": "string" }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

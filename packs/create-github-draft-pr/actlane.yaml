@@ -40,6 +40,9 @@ spec:
   commands:
     - commands/create-github-draft-pr.yaml
 
+  agents:
+    - agents/create-github-draft-pr.yaml
+
   policies:
     - policies/github-draft-pr.policy.yaml
 

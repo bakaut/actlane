@@ -29,6 +29,7 @@
 - Added `kind: SkillContract` loading and rendering so generated Codex/OpenCode `SKILL.md` files are translated from YAML DSL instead of copied from profile-specific Markdown sources.
 - Restricted `SkillContract` to the portable skill-directory primitive: `SKILL.md` front matter/body plus optional `scripts/`, `references`, and `assets` resources.
 - Added `kind: CommandContract` loading, validation, schema support, and OpenCode command rendering from YAML instead of raw Markdown command sources.
+- Added `kind: AgentContract` loading, validation, schema support, and OpenCode agent rendering from YAML instead of raw Markdown agent sources.
 
 ## [0.1.0-alpha.1] - 2026-05-21
 

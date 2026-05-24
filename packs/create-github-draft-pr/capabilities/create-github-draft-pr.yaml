@@ -126,7 +126,7 @@ spec:
           commandContract: create-github-draft-pr
 
         - path: .opencode/agents/github-draft-pr.md
-          source: create-github-draft-pr.opencode.agent.md
+          agentContract: github-draft-pr
 
         - path: .opencode/skills/create-github-draft-pr/SKILL.md
           skillContract: create-github-draft-pr

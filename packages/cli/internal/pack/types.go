@@ -24,6 +24,7 @@ type PackSpec struct {
 	Capabilities    []string       `yaml:"capabilities"`
 	Skills          []string       `yaml:"skills"`
 	Commands        []string       `yaml:"commands"`
+	Agents          []string       `yaml:"agents"`
 	Policies        []string       `yaml:"policies"`
 	MCPBindings     []string       `yaml:"mcpBindings"`
 	Targets         []string       `yaml:"targets"`
@@ -171,6 +172,7 @@ type GeneratedFile struct {
 	Source          string `yaml:"source"`
 	SkillContract   string `yaml:"skillContract"`
 	CommandContract string `yaml:"commandContract"`
+	AgentContract   string `yaml:"agentContract"`
 	Content         string `yaml:"content"`
 }
 
@@ -248,6 +250,61 @@ type CommandSafety struct {
 }
 
 type CommandTarget struct {
+	Enabled bool   `yaml:"enabled"`
+	Path    string `yaml:"path"`
+	Reason  string `yaml:"reason"`
+}
+
+type AgentContract struct {
+	Document `yaml:",inline"`
+	Spec     AgentContractSpec `yaml:"spec"`
+	Path     string            `yaml:"-"`
+	Raw      []byte            `yaml:"-"`
+}
+
+type AgentContractSpec struct {
+	Scope        string                 `yaml:"scope"`
+	Mode         string                 `yaml:"mode"`
+	Role         AgentRole              `yaml:"role"`
+	Activation   AgentActivation        `yaml:"activation"`
+	Capabilities AgentCapabilityRefs    `yaml:"capabilities"`
+	Skills       AgentSkillRefs         `yaml:"skills"`
+	Tools        AgentTools             `yaml:"tools"`
+	Permissions  map[string]string      `yaml:"permissions"`
+	Output       AgentOutput            `yaml:"output"`
+	Projections  map[string]AgentTarget `yaml:"projections"`
+}
+
+type AgentRole struct {
+	Summary string `yaml:"summary"`
+}
+
+type AgentActivation struct {
+	WhenToUse []string `yaml:"whenToUse"`
+}
+
+type AgentCapabilityRefs struct {
+	Allowed []string `yaml:"allowed"`
+}
+
+type AgentSkillRefs struct {
+	Allowed []string `yaml:"allowed"`
+}
+
+type AgentTools struct {
+	Strategy    string           `yaml:"strategy"`
+	RawMCPTools AgentRawMCPTools `yaml:"rawMcpTools"`
+}
+
+type AgentRawMCPTools struct {
+	Default string `yaml:"default"`
+}
+
+type AgentOutput struct {
+	MustInclude []string `yaml:"mustInclude"`
+}
+
+type AgentTarget struct {
 	Enabled bool   `yaml:"enabled"`
 	Path    string `yaml:"path"`
 	Reason  string `yaml:"reason"`
@@ -447,6 +504,7 @@ type LoadedPack struct {
 	Capabilities   []Capability
 	Skills         []SkillContract
 	Commands       []CommandContract
+	Agents         []AgentContract
 	Policies       []Policy
 	MCPBindings    []MCPBinding
 	TargetProfiles []TargetProfile

@@ -146,8 +146,8 @@ func renderCapabilityProfile(files map[string][]byte, loaded *pack.LoadedPack, c
 		files[configPath] = mustJSON(cloneStringAnyMap(profile.Config))
 	}
 	for _, file := range profile.Files {
-		if file.Source == "" && file.SkillContract == "" && file.CommandContract == "" {
-			return fmt.Errorf("capability %s profile file %q must declare source, skillContract, or commandContract", capability.Metadata.Name, file.Path)
+		if file.Source == "" && file.SkillContract == "" && file.CommandContract == "" && file.AgentContract == "" {
+			return fmt.Errorf("capability %s profile file %q must declare source, skillContract, commandContract, or agentContract", capability.Metadata.Name, file.Path)
 		}
 		if countFileGenerators(file) != 1 {
 			return fmt.Errorf("capability %s profile file %q must use exactly one generator", capability.Metadata.Name, file.Path)
@@ -181,6 +181,14 @@ func renderCapabilityProfile(files map[string][]byte, loaded *pack.LoadedPack, c
 			files[rel] = content
 			continue
 		}
+		if file.AgentContract != "" {
+			content, err := renderAgentContract(loaded, target, file.AgentContract)
+			if err != nil {
+				return err
+			}
+			files[rel] = content
+			continue
+		}
 		content, err := readProfileSource(loaded.Root, capability.Path, file.Source)
 		if err != nil {
 			return err
@@ -199,6 +207,9 @@ func countFileGenerators(file pack.GeneratedFile) int {
 		count++
 	}
 	if file.CommandContract != "" {
+		count++
+	}
+	if file.AgentContract != "" {
 		count++
 	}
 	return count
@@ -297,6 +308,82 @@ func commandContractFor(loaded *pack.LoadedPack, name string) (pack.CommandContr
 		}
 	}
 	return pack.CommandContract{}, false
+}
+
+func renderAgentContract(loaded *pack.LoadedPack, target, name string) ([]byte, error) {
+	agent, ok := agentContractFor(loaded, name)
+	if !ok {
+		return nil, fmt.Errorf("missing agent contract %s", name)
+	}
+	projection, ok := agent.Spec.Projections[target]
+	if !ok || !projection.Enabled {
+		return nil, fmt.Errorf("agent contract %s missing enabled projection %s", name, target)
+	}
+	var b strings.Builder
+	b.WriteString("---\n")
+	b.WriteString("description: " + jsonString(agent.Metadata.Description) + "\n")
+	if agent.Spec.Mode != "" {
+		b.WriteString("mode: " + agent.Spec.Mode + "\n")
+	}
+	if len(agent.Spec.Permissions) > 0 {
+		b.WriteString("permission:\n")
+		for _, key := range sortedStringMapKeys(agent.Spec.Permissions) {
+			b.WriteString("  " + key + ": " + jsonString(agent.Spec.Permissions[key]) + "\n")
+		}
+	}
+	b.WriteString("---\n\n")
+	if agent.Spec.Role.Summary != "" {
+		b.WriteString(agent.Spec.Role.Summary + "\n\n")
+	}
+	if len(agent.Spec.Activation.WhenToUse) > 0 {
+		b.WriteString("When to use:\n\n")
+		for _, item := range agent.Spec.Activation.WhenToUse {
+			b.WriteString("- " + item + "\n")
+		}
+		b.WriteString("\n")
+	}
+	if len(agent.Spec.Capabilities.Allowed) > 0 || len(agent.Spec.Skills.Allowed) > 0 || agent.Spec.Tools.Strategy != "" || agent.Spec.Tools.RawMCPTools.Default != "" {
+		b.WriteString("Operational rules:\n\n")
+		for _, capability := range agent.Spec.Capabilities.Allowed {
+			b.WriteString("- Use capability `" + capability + "`.\n")
+		}
+		for _, skill := range agent.Spec.Skills.Allowed {
+			b.WriteString("- Use skill `" + skill + "`.\n")
+		}
+		if agent.Spec.Tools.Strategy != "" {
+			b.WriteString("- Tool strategy: `" + agent.Spec.Tools.Strategy + "`.\n")
+		}
+		if agent.Spec.Tools.RawMCPTools.Default != "" {
+			b.WriteString("- Raw MCP tools default: `" + agent.Spec.Tools.RawMCPTools.Default + "`.\n")
+		}
+		b.WriteString("\n")
+	}
+	if len(agent.Spec.Output.MustInclude) > 0 {
+		b.WriteString("Output must include:\n\n")
+		for _, item := range agent.Spec.Output.MustInclude {
+			b.WriteString("- " + item + "\n")
+		}
+		b.WriteString("\n")
+	}
+	return []byte(strings.TrimRight(b.String(), "\n") + "\n"), nil
+}
+
+func agentContractFor(loaded *pack.LoadedPack, name string) (pack.AgentContract, bool) {
+	for _, agent := range loaded.Agents {
+		if agent.Metadata.Name == name {
+			return agent, true
+		}
+	}
+	return pack.AgentContract{}, false
+}
+
+func sortedStringMapKeys(values map[string]string) []string {
+	keys := make([]string, 0, len(values))
+	for key := range values {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	return keys
 }
 
 func jsonString(value string) string {

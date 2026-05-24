@@ -101,9 +101,13 @@ func TestGenerateOpenCodeWritesOnlyGeneratedOutput(t *testing.T) {
 
 	agent := readFile(t, filepath.Join(packDir, "generated/opencode/.opencode/agents/github-draft-pr.md"))
 	for _, want := range []string{
-		"mode: primary",
+		"mode: subagent",
 		"permission:",
-		"actlane:inspect:create-github-draft-pr",
+		"Prepare GitHub draft pull requests through Actlane capabilities.",
+		"Use capability `create-github-draft-pr`.",
+		"Use skill `create-github-draft-pr`.",
+		"Raw MCP tools default: `deny`.",
+		"Output must include:",
 	} {
 		if !strings.Contains(agent, want) {
 			t.Fatalf("generated OpenCode agent missing %q:\n%s", want, agent)
@@ -131,6 +135,9 @@ func TestGenerateOpenCodeWritesOnlyGeneratedOutput(t *testing.T) {
 	}
 	if !strings.Contains(lockfile, "commands/create-github-draft-pr.yaml") {
 		t.Fatalf("generated lockfile should include command contract source digest:\n%s", lockfile)
+	}
+	if !strings.Contains(lockfile, "agents/create-github-draft-pr.yaml") {
+		t.Fatalf("generated lockfile should include agent contract source digest:\n%s", lockfile)
 	}
 
 	mcpTools := readFile(t, filepath.Join(packDir, "generated/mcp/tools.json"))

@@ -109,6 +109,9 @@ func buildLockfile(loaded *pack.LoadedPack, files map[string][]byte, target, loc
 	for _, command := range loaded.Commands {
 		sourceDigests[relToRoot(loaded.Root, command.Path)] = digest(command.Raw)
 	}
+	for _, agent := range loaded.Agents {
+		sourceDigests[relToRoot(loaded.Root, agent.Path)] = digest(agent.Raw)
+	}
 	for _, policy := range loaded.Policies {
 		sourceDigests[relToRoot(loaded.Root, policy.Path)] = digest(policy.Raw)
 	}
