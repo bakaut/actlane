@@ -23,6 +23,7 @@ type CapabilityPack struct {
 type PackSpec struct {
 	Capabilities    []string       `yaml:"capabilities"`
 	Skills          []string       `yaml:"skills"`
+	Commands        []string       `yaml:"commands"`
 	Policies        []string       `yaml:"policies"`
 	MCPBindings     []string       `yaml:"mcpBindings"`
 	Targets         []string       `yaml:"targets"`
@@ -166,10 +167,11 @@ type CapabilityProfile struct {
 }
 
 type GeneratedFile struct {
-	Path          string `yaml:"path"`
-	Source        string `yaml:"source"`
-	SkillContract string `yaml:"skillContract"`
-	Content       string `yaml:"content"`
+	Path            string `yaml:"path"`
+	Source          string `yaml:"source"`
+	SkillContract   string `yaml:"skillContract"`
+	CommandContract string `yaml:"commandContract"`
+	Content         string `yaml:"content"`
 }
 
 type SkillContract struct {
@@ -189,6 +191,66 @@ type SkillContractSpec struct {
 type SkillResource struct {
 	Source string `yaml:"source"`
 	Path   string `yaml:"path"`
+}
+
+type CommandContract struct {
+	Document `yaml:",inline"`
+	Spec     CommandContractSpec `yaml:"spec"`
+	Path     string              `yaml:"-"`
+	Raw      []byte              `yaml:"-"`
+}
+
+type CommandContractSpec struct {
+	Scope         string                   `yaml:"scope"`
+	Invocation    CommandInvocation        `yaml:"invocation"`
+	CapabilityRef LocalRef                 `yaml:"capabilityRef"`
+	SkillRef      CommandPathRef           `yaml:"skillRef"`
+	AgentRef      CommandAgentRef          `yaml:"agentRef"`
+	Arguments     CommandArguments         `yaml:"arguments"`
+	Prompt        CommandPrompt            `yaml:"prompt"`
+	Output        CommandOutput            `yaml:"output"`
+	Safety        CommandSafety            `yaml:"safety"`
+	Projections   map[string]CommandTarget `yaml:"projections"`
+}
+
+type CommandInvocation struct {
+	Slash   string   `yaml:"slash"`
+	Aliases []string `yaml:"aliases"`
+}
+
+type CommandPathRef struct {
+	Path string `yaml:"path"`
+}
+
+type CommandAgentRef struct {
+	Name     string `yaml:"name"`
+	Optional bool   `yaml:"optional"`
+}
+
+type CommandArguments struct {
+	Mode        string `yaml:"mode"`
+	Placeholder string `yaml:"placeholder"`
+	Description string `yaml:"description"`
+}
+
+type CommandPrompt struct {
+	Template string `yaml:"template"`
+}
+
+type CommandOutput struct {
+	Expected []string `yaml:"expected"`
+}
+
+type CommandSafety struct {
+	RequirePolicy         bool `yaml:"requirePolicy"`
+	RequireConfirmation   bool `yaml:"requireConfirmation"`
+	DoNotBypassCapability bool `yaml:"doNotBypassCapability"`
+}
+
+type CommandTarget struct {
+	Enabled bool   `yaml:"enabled"`
+	Path    string `yaml:"path"`
+	Reason  string `yaml:"reason"`
 }
 
 type TargetProfile struct {
@@ -384,6 +446,7 @@ type LoadedPack struct {
 	ManifestRaw    []byte
 	Capabilities   []Capability
 	Skills         []SkillContract
+	Commands       []CommandContract
 	Policies       []Policy
 	MCPBindings    []MCPBinding
 	TargetProfiles []TargetProfile

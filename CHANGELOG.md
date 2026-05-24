@@ -28,6 +28,7 @@
 - Removed obsolete runtime-pack files from generated target profiles; generated targets no longer include `actlane.yaml`, raw capability YAML, raw policy YAML, MCP binding YAML, target-profile YAML, or copied prompt sources.
 - Added `kind: SkillContract` loading and rendering so generated Codex/OpenCode `SKILL.md` files are translated from YAML DSL instead of copied from profile-specific Markdown sources.
 - Restricted `SkillContract` to the portable skill-directory primitive: `SKILL.md` front matter/body plus optional `scripts/`, `references`, and `assets` resources.
+- Added `kind: CommandContract` loading, validation, schema support, and OpenCode command rendering from YAML instead of raw Markdown command sources.
 
 ## [0.1.0-alpha.1] - 2026-05-21
 

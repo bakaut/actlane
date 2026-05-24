@@ -1,0 +1,121 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://actlane.ru/schemas/v1alpha1/command-contract.schema.json",
+  "title": "Actlane CommandContract",
+  "type": "object",
+  "required": ["apiVersion", "kind", "metadata", "spec"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "apiVersion": { "const": "actlane.ru/v1alpha1" },
+    "kind": { "const": "CommandContract" },
+    "metadata": {
+      "type": "object",
+      "required": ["name", "description"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
+        },
+        "title": { "type": "string" },
+        "description": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "spec": {
+      "type": "object",
+      "required": ["invocation", "capabilityRef", "prompt", "projections"],
+      "properties": {
+        "scope": { "type": "string" },
+        "invocation": {
+          "type": "object",
+          "required": ["slash"],
+          "properties": {
+            "slash": { "type": "string", "minLength": 1 },
+            "aliases": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          },
+          "additionalProperties": false
+        },
+        "capabilityRef": { "$ref": "#/$defs/localRef" },
+        "skillRef": {
+          "type": "object",
+          "properties": {
+            "path": { "type": "string" }
+          },
+          "additionalProperties": false
+        },
+        "agentRef": {
+          "type": "object",
+          "properties": {
+            "name": { "type": "string" },
+            "optional": { "type": "boolean" }
+          },
+          "additionalProperties": false
+        },
+        "arguments": {
+          "type": "object",
+          "properties": {
+            "mode": { "type": "string" },
+            "placeholder": { "type": "string" },
+            "description": { "type": "string" }
+          },
+          "additionalProperties": false
+        },
+        "prompt": {
+          "type": "object",
+          "required": ["template"],
+          "properties": {
+            "template": { "type": "string", "minLength": 1 }
+          },
+          "additionalProperties": false
+        },
+        "output": {
+          "type": "object",
+          "properties": {
+            "expected": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          },
+          "additionalProperties": false
+        },
+        "safety": {
+          "type": "object",
+          "properties": {
+            "requirePolicy": { "type": "boolean" },
+            "requireConfirmation": { "type": "boolean" },
+            "doNotBypassCapability": { "type": "boolean" }
+          },
+          "additionalProperties": false
+        },
+        "projections": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "enabled": { "type": "boolean" },
+              "path": { "type": "string" },
+              "reason": { "type": "string" }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "localRef": {
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name": { "type": "string" }
+      },
+      "additionalProperties": false
+    }
+  }
+}

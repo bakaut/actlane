@@ -66,6 +66,10 @@
           "type": "array",
           "items": { "type": "string" }
         },
+        "commands": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
         "policies": {
           "type": "array",
           "minItems": 1,

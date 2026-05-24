@@ -123,7 +123,7 @@ spec:
       config: {}
       files:
         - path: .opencode/commands/create-github-draft-pr.md
-          source: create-github-draft-pr.opencode.command.md
+          commandContract: create-github-draft-pr
 
         - path: .opencode/agents/github-draft-pr.md
           source: create-github-draft-pr.opencode.agent.md

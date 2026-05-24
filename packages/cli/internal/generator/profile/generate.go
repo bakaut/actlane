@@ -146,11 +146,11 @@ func renderCapabilityProfile(files map[string][]byte, loaded *pack.LoadedPack, c
 		files[configPath] = mustJSON(cloneStringAnyMap(profile.Config))
 	}
 	for _, file := range profile.Files {
-		if file.Source == "" && file.SkillContract == "" {
-			return fmt.Errorf("capability %s profile file %q must declare source or skillContract", capability.Metadata.Name, file.Path)
+		if file.Source == "" && file.SkillContract == "" && file.CommandContract == "" {
+			return fmt.Errorf("capability %s profile file %q must declare source, skillContract, or commandContract", capability.Metadata.Name, file.Path)
 		}
-		if file.Source != "" && file.SkillContract != "" {
-			return fmt.Errorf("capability %s profile file %q must use source or skillContract, not both", capability.Metadata.Name, file.Path)
+		if countFileGenerators(file) != 1 {
+			return fmt.Errorf("capability %s profile file %q must use exactly one generator", capability.Metadata.Name, file.Path)
 		}
 		if file.Content != "" {
 			return fmt.Errorf("capability %s profile file %q must use source instead of inline content", capability.Metadata.Name, file.Path)
@@ -173,6 +173,14 @@ func renderCapabilityProfile(files map[string][]byte, loaded *pack.LoadedPack, c
 			}
 			continue
 		}
+		if file.CommandContract != "" {
+			content, err := renderCommandContract(loaded, target, file.CommandContract)
+			if err != nil {
+				return err
+			}
+			files[rel] = content
+			continue
+		}
 		content, err := readProfileSource(loaded.Root, capability.Path, file.Source)
 		if err != nil {
 			return err
@@ -180,6 +188,20 @@ func renderCapabilityProfile(files map[string][]byte, loaded *pack.LoadedPack, c
 		files[rel] = content
 	}
 	return nil
+}
+
+func countFileGenerators(file pack.GeneratedFile) int {
+	count := 0
+	if file.Source != "" {
+		count++
+	}
+	if file.SkillContract != "" {
+		count++
+	}
+	if file.CommandContract != "" {
+		count++
+	}
+	return count
 }
 
 func renderSkillContract(loaded *pack.LoadedPack, name string) ([]byte, error) {
@@ -244,6 +266,37 @@ func skillContractFor(loaded *pack.LoadedPack, name string) (pack.SkillContract,
 		}
 	}
 	return pack.SkillContract{}, false
+}
+
+func renderCommandContract(loaded *pack.LoadedPack, target, name string) ([]byte, error) {
+	command, ok := commandContractFor(loaded, name)
+	if !ok {
+		return nil, fmt.Errorf("missing command contract %s", name)
+	}
+	projection, ok := command.Spec.Projections[target]
+	if !ok || !projection.Enabled {
+		return nil, fmt.Errorf("command contract %s missing enabled projection %s", name, target)
+	}
+	var b strings.Builder
+	b.WriteString("---\n")
+	if command.Spec.AgentRef.Name != "" {
+		b.WriteString("agent: " + jsonString(command.Spec.AgentRef.Name) + "\n")
+	}
+	b.WriteString("description: " + jsonString(command.Metadata.Description) + "\n")
+	b.WriteString("---\n\n")
+	body := strings.ReplaceAll(command.Spec.Prompt.Template, "{{ arguments }}", command.Spec.Arguments.Placeholder)
+	b.WriteString(strings.TrimRight(body, "\n"))
+	b.WriteString("\n")
+	return []byte(strings.TrimRight(b.String(), "\n") + "\n"), nil
+}
+
+func commandContractFor(loaded *pack.LoadedPack, name string) (pack.CommandContract, bool) {
+	for _, command := range loaded.Commands {
+		if command.Metadata.Name == name {
+			return command, true
+		}
+	}
+	return pack.CommandContract{}, false
 }
 
 func jsonString(value string) string {

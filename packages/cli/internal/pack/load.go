@@ -66,6 +66,21 @@ func Load(root string) (*LoadedPack, error) {
 		loaded.Skills = append(loaded.Skills, skill)
 	}
 
+	for _, rel := range manifest.Spec.Commands {
+		path := filepath.Join(packRoot, rel)
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			return nil, fmt.Errorf("read command contract %s: %w", rel, err)
+		}
+		var command CommandContract
+		if err := yaml.Unmarshal(raw, &command); err != nil {
+			return nil, fmt.Errorf("parse command contract %s: %w", rel, err)
+		}
+		command.Path = path
+		command.Raw = raw
+		loaded.Commands = append(loaded.Commands, command)
+	}
+
 	for _, rel := range manifest.Spec.Policies {
 		path := filepath.Join(packRoot, rel)
 		raw, err := os.ReadFile(path)

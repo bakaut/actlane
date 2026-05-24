@@ -240,12 +240,14 @@
                   "properties": {
                     "path": { "type": "string", "minLength": 1 },
                     "source": { "type": "string", "minLength": 1 },
-                    "skillContract": { "type": "string", "minLength": 1 }
+                    "skillContract": { "type": "string", "minLength": 1 },
+                    "commandContract": { "type": "string", "minLength": 1 }
                   },
                   "additionalProperties": false,
                   "oneOf": [
                     { "required": ["source"] },
-                    { "required": ["skillContract"] }
+                    { "required": ["skillContract"] },
+                    { "required": ["commandContract"] }
                   ]
                 }
               }

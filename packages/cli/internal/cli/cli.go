@@ -190,6 +190,7 @@ func runSchema(args []string, stdout, stderr io.Writer) int {
 	if len(args) == 1 && args[0] == "list" {
 		fmt.Fprintln(stdout, "capability https://actlane.ru/schemas/v1alpha1/capability.schema.json")
 		fmt.Fprintln(stdout, "capability-pack https://actlane.ru/schemas/v1alpha1/capability-pack.schema.json")
+		fmt.Fprintln(stdout, "command-contract https://actlane.ru/schemas/v1alpha1/command-contract.schema.json")
 		fmt.Fprintln(stdout, "mcp-binding https://actlane.ru/schemas/v1alpha1/mcp-binding.schema.json")
 		fmt.Fprintln(stdout, "skill-contract https://actlane.ru/schemas/v1alpha1/skill-contract.schema.json")
 		fmt.Fprintln(stdout, "tool-call-policy https://actlane.ru/schemas/v1alpha1/tool-call-policy.schema.json")

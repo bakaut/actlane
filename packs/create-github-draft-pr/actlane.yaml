@@ -37,6 +37,9 @@ spec:
   skills:
     - skills/create-github-draft-pr.yaml
 
+  commands:
+    - commands/create-github-draft-pr.yaml
+
   policies:
     - policies/github-draft-pr.policy.yaml
 

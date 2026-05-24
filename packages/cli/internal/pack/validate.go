@@ -110,6 +110,40 @@ func Validate(loaded *LoadedPack) error {
 		skills[skill.Metadata.Name] = true
 	}
 
+	commands := map[string]bool{}
+	for _, command := range loaded.Commands {
+		if command.APIVersion != "actlane.ru/v1alpha1" {
+			return fmt.Errorf("command contract %s apiVersion must be actlane.ru/v1alpha1", command.Metadata.Name)
+		}
+		if command.Kind != "CommandContract" {
+			return fmt.Errorf("command contract %s kind must be CommandContract", command.Metadata.Name)
+		}
+		if !kebabName.MatchString(command.Metadata.Name) {
+			return fmt.Errorf("command contract metadata.name must be kebab-case")
+		}
+		if command.Metadata.Description == "" {
+			return fmt.Errorf("command contract %s metadata.description is required", command.Metadata.Name)
+		}
+		if command.Spec.CapabilityRef.Name == "" {
+			return fmt.Errorf("command contract %s spec.capabilityRef.name is required", command.Metadata.Name)
+		}
+		if command.Spec.Invocation.Slash == "" {
+			return fmt.Errorf("command contract %s spec.invocation.slash is required", command.Metadata.Name)
+		}
+		if command.Spec.Prompt.Template == "" {
+			return fmt.Errorf("command contract %s spec.prompt.template is required", command.Metadata.Name)
+		}
+		if command.Spec.Arguments.Mode == "passthrough" && command.Spec.Arguments.Placeholder == "" {
+			return fmt.Errorf("command contract %s passthrough arguments require placeholder", command.Metadata.Name)
+		}
+		for target, projection := range command.Spec.Projections {
+			if projection.Enabled && projection.Path == "" {
+				return fmt.Errorf("command contract %s projection %s path is required", command.Metadata.Name, target)
+			}
+		}
+		commands[command.Metadata.Name] = true
+	}
+
 	for _, capability := range loaded.Capabilities {
 		if capability.APIVersion != "actlane.ru/v1alpha1" {
 			return fmt.Errorf("capability %s apiVersion must be actlane.ru/v1alpha1", capability.Metadata.Name)
@@ -151,12 +185,31 @@ func Validate(loaded *LoadedPack) error {
 		if capability.Spec.ExecutionRef.Name != "" && !bindings[capability.Spec.ExecutionRef.Name] {
 			return fmt.Errorf("capability %s references missing mcp binding %s", capability.Metadata.Name, capability.Spec.ExecutionRef.Name)
 		}
+		if capability.Spec.Projections.OpenCode.Command != "" && !commands[capability.Spec.Projections.OpenCode.Command] {
+			return fmt.Errorf("capability %s references missing command contract %s", capability.Metadata.Name, capability.Spec.Projections.OpenCode.Command)
+		}
 		for target, profile := range capability.Spec.Profiles {
 			for _, file := range profile.Files {
 				if file.SkillContract != "" && !skills[file.SkillContract] {
 					return fmt.Errorf("capability %s profile %s references missing skill contract %s", capability.Metadata.Name, target, file.SkillContract)
 				}
+				if file.CommandContract != "" && !commands[file.CommandContract] {
+					return fmt.Errorf("capability %s profile %s references missing command contract %s", capability.Metadata.Name, target, file.CommandContract)
+				}
 			}
+		}
+	}
+
+	for _, command := range loaded.Commands {
+		found := false
+		for _, capability := range loaded.Capabilities {
+			if capability.Metadata.Name == command.Spec.CapabilityRef.Name {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return fmt.Errorf("command contract %s references missing capability %s", command.Metadata.Name, command.Spec.CapabilityRef.Name)
 		}
 	}
 
