@@ -6,11 +6,11 @@ on:
       tag:
         description: Release tag to create or update
         required: true
-        default: "v0.1.0-alpha.1"
+        default: "v0.2.0-alpha.1"
       release-name:
         description: Release title
         required: true
-        default: "Actlane CLI v0.1.0-alpha.1"
+        default: "Actlane CLI v0.2.0-alpha.1"
       go-version:
         description: Go version to use
         required: true
@@ -42,6 +42,16 @@ jobs:
             goarch: amd64
             binary: actlane-linux-amd64
             artifact: actlane-linux-amd64
+          - runner: ubuntu-latest
+            goos: linux
+            goarch: arm64
+            binary: actlane-linux-arm64
+            artifact: actlane-linux-arm64
+          - runner: macos-latest
+            goos: darwin
+            goarch: amd64
+            binary: actlane-darwin-amd64
+            artifact: actlane-darwin-amd64
           - runner: macos-latest
             goos: darwin
             goarch: arm64

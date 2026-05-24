@@ -2,6 +2,25 @@
 
 Status: Phase 1 MVP implementation.
 
+## Quick Start
+
+```bash
+curl -fsSL https://actlane.ru/install.sh | sh
+actlane version
+```
+
+Override install options:
+
+```bash
+ACTLANE_VERSION=v0.2.0-alpha.1 ACTLANE_INSTALL_DIR="$HOME/.local/bin" sh -c "$(curl -fsSL https://actlane.ru/install.sh)"
+```
+
+Docker:
+
+```bash
+docker run --rm ghcr.io/actlane/actlane:0.2.0-alpha.1 version
+```
+
 Implemented MVP commands:
 
 ```bash

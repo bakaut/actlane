@@ -86,10 +86,23 @@ This repository is currently pre-alpha with a narrow working CLI MVP:
 Try the MVP locally:
 
 ```bash
+curl -fsSL https://actlane.ru/install.sh | sh
+actlane version
+```
+
+Or run from source:
+
+```bash
 cd packages/cli
 go test ./...
 go run ./cmd/actlane validate ../../packs/create-github-draft-pr
 go run ./cmd/actlane generate ../../packs/create-github-draft-pr --target opencode --check
+```
+
+Run with Docker:
+
+```bash
+docker run --rm ghcr.io/actlane/actlane:0.2.0-alpha.1 version
 ```
 
 Brownfield OpenCode import flow:

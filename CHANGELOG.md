@@ -17,6 +17,9 @@ SemVer rationale:
 - Added OpenCode import support for `.opencode/opencode.jsonc` as well as project-root `opencode.jsonc`.
 - Added MCP server and tool import from OpenCode config, including local/remote server fields and permission-derived tools such as `codegraph_*`, `memory_*`, `context7_*`, and `serena_*`.
 - Added generated `MCPBinding.requiredTools` entries for imported OpenCode MCP tool permissions.
+- Added `install.sh` for `curl -fsSL https://actlane.ru/install.sh | sh` installs from the latest GitHub Release on macOS and Linux.
+- Added a Dockerfile and manual Docker image workflow for publishing the Actlane CLI image to GHCR.
+- Expanded release binary matrix with Linux arm64 and macOS amd64 artifacts.
 - Aligned the Go CLI with `packs/create-github-draft-pr` as the source of truth.
 - Added support for pack-level `guidance.sources` and `guidance.compose` to generate OpenCode `AGENTS.md`.
 - Added support for `mcpBindings` and generated MCP server/tool metadata from `mcp/bindings/*.yaml`.

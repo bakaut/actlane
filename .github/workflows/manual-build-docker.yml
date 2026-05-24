@@ -1,0 +1,63 @@
+name: Manual Docker Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      image:
+        description: OCI image name
+        required: true
+        default: ghcr.io/actlane/actlane
+      tag:
+        description: Image tag
+        required: true
+        default: 0.2.0-alpha.1
+      push:
+        description: Push image to registry
+        required: true
+        type: boolean
+        default: true
+      platforms:
+        description: Target platforms
+        required: true
+        default: linux/amd64,linux/arm64
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  docker:
+    name: Build Docker Image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        if: inputs.push
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Build and optionally push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          platforms: ${{ inputs.platforms }}
+          push: ${{ inputs.push }}
+          tags: |
+            ${{ inputs.image }}:${{ inputs.tag }}
+            ${{ inputs.image }}:latest
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.version=${{ inputs.tag }}
+            org.opencontainers.image.title=Actlane CLI
