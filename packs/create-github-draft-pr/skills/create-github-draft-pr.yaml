@@ -4,135 +4,51 @@ kind: SkillContract
 
 metadata:
   name: create-github-draft-pr
-  version: 0.1.0
-  title: Create GitHub Draft PR
   description: Safely prepare a GitHub draft pull request from reviewed changes.
-  labels:
-    domain: gitops
-    risk: medium
 
 spec:
-  activation:
-    mode: onDemand
-    whenToUse:
-      - Use after changes are reviewed and the user asks to prepare a GitHub draft PR.
-    whenNotToUse:
-      - Do not use for architecture-only discussion.
-      - Do not use before explicit user confirmation.
-      - Do not use for direct production deploys.
-    directInvocation:
-      aliases:
-        - create-github-draft-pr
+  body: |-
+    Security gate flow:
 
-  instructions:
-    beforeCall:
-      - Summarize planned changes.
-      - Check forbidden paths.
-      - Run tests when possible.
-    afterCall:
-      - Return PR URL, branch, changed files, and test status.
-    onDeny:
-      - Explain the policy violation.
-      - Suggest a safe next step.
+    - Call `create_github_draft_pr_enforce` before any downstream GitHub MCP tool.
+    - If the gate returns `allowed: false` or `isError: true`, stop and report the policy reasons.
+    - If the gate returns `allowed: true`, use `mutatedInput` and the returned `next` calls for downstream MCP execution.
+    - Do not use original input for downstream MCP calls after mutation.
 
-  interface:
-    input:
-      type: object
-      required:
-        - repo
-        - baseBranch
-        - branch
-        - title
-        - summary
-        - files
-        - confirmed
-      properties:
-        repo:
-          type: string
-        baseBranch:
-          type: string
-        branch:
-          type: string
-        title:
-          type: string
-        summary:
-          type: string
-        files:
-          type: array
-          items:
-            type: string
-        confirmed:
-          type: boolean
+    Safely prepare a GitHub draft pull request from reviewed changes.
 
-    output:
-      type: object
-      properties:
-        prUrl:
-          type: string
-        branch:
-          type: string
-        policyDecision:
-          type: string
-        summary:
-          type: string
-        changedFiles:
-          type: array
-          items:
-            type: string
+    When to use:
 
-  tools:
-    mcp:
-      securityGate: create_github_draft_pr_enforce
-      downstream:
-        - github_create_branch
-        - github_push_files
-        - github_create_pull_request
+    - Use after changes are reviewed and the user asks to prepare a GitHub draft PR.
 
-  profiles:
-    codex:
-      name: create-github-draft-pr
-      description: Safely prepare a GitHub draft pull request from reviewed changes.
-      compatibility: codex
-      metadata:
-        capability: create-github-draft-pr
-        execution_ref: github-mcp-draft-pr
+    When not to use:
 
-    opencode:
-      name: create-github-draft-pr
-      description: Safely prepare a GitHub draft pull request from reviewed changes.
-      compatibility: opencode
-      metadata:
-        capability: create-github-draft-pr
-        execution_ref: github-mcp-draft-pr
+    - Do not use for architecture-only discussion.
+    - Do not use before explicit user confirmation.
+    - Do not use for direct production deploys.
 
-  body:
-    securityGateFlow:
-      - Call `create_github_draft_pr_enforce` before any downstream GitHub MCP tool.
-      - "If the gate returns `allowed: false` or `isError: true`, stop and report the policy reasons."
-      - "If the gate returns `allowed: true`, use `mutatedInput` and the returned `next` calls for downstream MCP execution."
-      - Do not use original input for downstream MCP calls after mutation.
-    workflow:
-      - step: inspect-project
-        purpose: Inspect current repository, existing agent files, and target agent config before mutation.
-      - step: run-tests
-        purpose: Run project test command when configured by the user or project.
-      - step: create-branch
-        purpose: Create a branch using the required safe prefix after confirmation.
-      - step: push-files
-        purpose: Push reviewed files only after confirmation.
-      - step: create-draft-pr
-        purpose: Create a GitHub draft pull request after confirmation.
-    requiredInputs:
-      - repo
-      - baseBranch
-      - branch
-      - title
-      - summary
-      - files
-      - confirmed
-    mcpTools:
-      - create_github_draft_pr_audit
-      - create_github_draft_pr_enforce
-      - github_create_branch
-      - github_create_pull_request
-      - github_push_files
+    Workflow:
+
+    - `inspect-project`: Inspect current repository, existing agent files, and target agent config before mutation.
+    - `run-tests`: Run project test command when configured by the user or project.
+    - `create-branch`: Create a branch using the required safe prefix after confirmation.
+    - `push-files`: Push reviewed files only after confirmation.
+    - `create-draft-pr`: Create a GitHub draft pull request after confirmation.
+
+    Required inputs:
+
+    - repo
+    - baseBranch
+    - branch
+    - title
+    - summary
+    - files
+    - confirmed
+
+    MCP tools:
+
+    - `create_github_draft_pr_audit`
+    - `create_github_draft_pr_enforce`
+    - `github_create_branch`
+    - `github_create_pull_request`
+    - `github_push_files`

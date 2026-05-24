@@ -112,11 +112,16 @@ func TestGenerateOpenCodeWritesOnlyGeneratedOutput(t *testing.T) {
 	skill := readFile(t, filepath.Join(packDir, "generated/opencode/.opencode/skills/create-github-draft-pr/SKILL.md"))
 	for _, want := range []string{
 		"name: \"create-github-draft-pr\"",
-		"compatibility: opencode",
-		"execution_ref: \"github-mcp-draft-pr\"",
+		"description: \"Safely prepare a GitHub draft pull request from reviewed changes.\"",
+		"Security gate flow:",
 	} {
 		if !strings.Contains(skill, want) {
 			t.Fatalf("generated OpenCode skill missing %q:\n%s", want, skill)
+		}
+	}
+	for _, forbidden := range []string{"compatibility:", "execution_ref:"} {
+		if strings.Contains(skill, forbidden) {
+			t.Fatalf("generated OpenCode skill should not include %q:\n%s", forbidden, skill)
 		}
 	}
 	lockfile := readFile(t, filepath.Join(packDir, "generated/opencode/actlane.lock"))
@@ -208,7 +213,7 @@ func TestGenerateCodexWritesCodexProfile(t *testing.T) {
 	skill := readFile(t, filepath.Join(packDir, "generated/codex/.codex/skills/create-github-draft-pr/SKILL.md"))
 	for _, want := range []string{
 		"name: \"create-github-draft-pr\"",
-		"compatibility: codex",
+		"description: \"Safely prepare a GitHub draft pull request from reviewed changes.\"",
 		"Security gate flow:",
 		"`create_github_draft_pr_enforce`",
 		"`github_create_pull_request`",
@@ -216,6 +221,40 @@ func TestGenerateCodexWritesCodexProfile(t *testing.T) {
 		if !strings.Contains(skill, want) {
 			t.Fatalf("generated Codex skill missing %q:\n%s", want, skill)
 		}
+	}
+}
+
+func TestGenerateSkillContractResources(t *testing.T) {
+	packDir := copyPackToTemp(t)
+	referenceDir := filepath.Join(packDir, "skills/references")
+	if err := os.MkdirAll(referenceDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	referencePath := filepath.Join(referenceDir, "usage.md")
+	if err := os.WriteFile(referencePath, []byte("# Usage\n\nResource content.\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	skillPath := filepath.Join(packDir, "skills/create-github-draft-pr.yaml")
+	skill := readFile(t, skillPath)
+	skill += "\n  references:\n    - source: references/usage.md\n      path: references/usage.md\n"
+	if err := os.WriteFile(skillPath, []byte(skill), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	var stdout, stderr bytes.Buffer
+
+	code := Main([]string{"generate", packDir, "--target", "opencode"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("generate failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+
+	generatedReference := filepath.Join(packDir, "generated/opencode/.opencode/skills/create-github-draft-pr/references/usage.md")
+	assertExists(t, generatedReference)
+	if got := readFile(t, generatedReference); !strings.Contains(got, "Resource content.") {
+		t.Fatalf("generated reference missing content:\n%s", got)
+	}
+	lockfile := readFile(t, filepath.Join(packDir, "generated/opencode/actlane.lock"))
+	if !strings.Contains(lockfile, "skills/references/usage.md") {
+		t.Fatalf("generated lockfile should include skill resource source digest:\n%s", lockfile)
 	}
 }
 

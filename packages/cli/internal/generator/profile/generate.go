@@ -163,11 +163,14 @@ func renderCapabilityProfile(files map[string][]byte, loaded *pack.LoadedPack, c
 			return fmt.Errorf("duplicate generated profile file path %q", file.Path)
 		}
 		if file.SkillContract != "" {
-			content, err := renderSkillContract(loaded, capability, target, file.SkillContract)
+			content, err := renderSkillContract(loaded, file.SkillContract)
 			if err != nil {
 				return err
 			}
 			files[rel] = content
+			if err := renderSkillContractResources(files, loaded, file.SkillContract, filepath.Dir(rel)); err != nil {
+				return err
+			}
 			continue
 		}
 		content, err := readProfileSource(loaded.Root, capability.Path, file.Source)
@@ -179,56 +182,59 @@ func renderCapabilityProfile(files map[string][]byte, loaded *pack.LoadedPack, c
 	return nil
 }
 
-func renderSkillContract(loaded *pack.LoadedPack, capability pack.Capability, target, name string) ([]byte, error) {
+func renderSkillContract(loaded *pack.LoadedPack, name string) ([]byte, error) {
 	skill, ok := skillContractFor(loaded, name)
 	if !ok {
 		return nil, fmt.Errorf("missing skill contract %s", name)
 	}
-	profile, ok := skill.Spec.Profiles[target]
-	if !ok {
-		return nil, fmt.Errorf("skill contract %s missing spec.profiles.%s", name, target)
-	}
-	if profile.Name == "" {
-		profile.Name = skill.Metadata.Name
-	}
-	if profile.Description == "" {
-		profile.Description = skill.Metadata.Description
-	}
-	if profile.Compatibility == "" {
-		profile.Compatibility = target
-	}
-	metadata := cloneStringMap(profile.Metadata)
-	if metadata["capability"] == "" {
-		metadata["capability"] = capability.Metadata.Name
-	}
-	if metadata["execution_ref"] == "" && capability.Spec.ExecutionRef.Name != "" {
-		metadata["execution_ref"] = capability.Spec.ExecutionRef.Name
-	}
 
 	var b strings.Builder
 	b.WriteString("---\n")
-	b.WriteString("name: " + jsonString(profile.Name) + "\n")
-	b.WriteString("description: " + jsonString(profile.Description) + "\n")
-	b.WriteString("compatibility: " + profile.Compatibility + "\n")
-	if len(metadata) > 0 {
-		b.WriteString("metadata:\n")
-		for _, key := range sortedStringKeys(metadata) {
-			b.WriteString("  " + key + ": " + jsonString(metadata[key]) + "\n")
-		}
-	}
+	b.WriteString("name: " + jsonString(skill.Metadata.Name) + "\n")
+	b.WriteString("description: " + jsonString(skill.Metadata.Description) + "\n")
 	b.WriteString("---\n\n")
-
-	writeListSection(&b, "Security gate flow:", skill.Spec.Body.SecurityGateFlow, false)
-	if profile.Description != "" {
-		b.WriteString(profile.Description + "\n\n")
-	}
-	writeListSection(&b, "When to use:", skill.Spec.Activation.WhenToUse, false)
-	writeListSection(&b, "When not to use:", skill.Spec.Activation.WhenNotToUse, false)
-	writeWorkflowSection(&b, skill.Spec.Body.Workflow)
-	writeListSection(&b, "Required inputs:", skill.Spec.Body.RequiredInputs, false)
-	writeListSection(&b, "MCP tools:", skill.Spec.Body.MCPTools, true)
+	b.WriteString(strings.TrimRight(skill.Spec.Body, "\n"))
+	b.WriteString("\n")
 
 	return []byte(strings.TrimRight(b.String(), "\n") + "\n"), nil
+}
+
+func renderSkillContractResources(files map[string][]byte, loaded *pack.LoadedPack, name, skillDir string) error {
+	skill, ok := skillContractFor(loaded, name)
+	if !ok {
+		return fmt.Errorf("missing skill contract %s", name)
+	}
+	for _, group := range []struct {
+		dir       string
+		resources []pack.SkillResource
+	}{
+		{dir: "scripts", resources: skill.Spec.Scripts},
+		{dir: "references", resources: skill.Spec.References},
+		{dir: "assets", resources: skill.Spec.Assets},
+	} {
+		for _, resource := range group.resources {
+			if resource.Source == "" || resource.Path == "" {
+				return fmt.Errorf("skill contract %s %s resource must declare source and path", name, group.dir)
+			}
+			relPath, err := cleanRelativePath(resource.Path)
+			if err != nil {
+				return fmt.Errorf("invalid skill contract %s %s path %q: %w", name, group.dir, resource.Path, err)
+			}
+			if !strings.HasPrefix(relPath, group.dir+"/") {
+				return fmt.Errorf("skill contract %s %s resource path %q must be under %s/", name, group.dir, resource.Path, group.dir)
+			}
+			source, err := readSkillResourceSource(loaded.Root, skill.Path, resource.Source)
+			if err != nil {
+				return err
+			}
+			output := filepath.ToSlash(filepath.Join(skillDir, filepath.FromSlash(relPath)))
+			if _, exists := files[output]; exists {
+				return fmt.Errorf("duplicate generated skill resource path %q", output)
+			}
+			files[output] = source
+		}
+	}
+	return nil
 }
 
 func skillContractFor(loaded *pack.LoadedPack, name string) (pack.SkillContract, bool) {
@@ -238,48 +244,6 @@ func skillContractFor(loaded *pack.LoadedPack, name string) (pack.SkillContract,
 		}
 	}
 	return pack.SkillContract{}, false
-}
-
-func writeListSection(b *strings.Builder, heading string, values []string, code bool) {
-	if len(values) == 0 {
-		return
-	}
-	b.WriteString(heading + "\n\n")
-	for _, value := range values {
-		if code {
-			value = "`" + value + "`"
-		}
-		b.WriteString("- " + value + "\n")
-	}
-	b.WriteString("\n")
-}
-
-func writeWorkflowSection(b *strings.Builder, workflow []pack.WorkflowHint) {
-	if len(workflow) == 0 {
-		return
-	}
-	b.WriteString("Workflow:\n\n")
-	for _, step := range workflow {
-		b.WriteString("- `" + step.Step + "`: " + step.Purpose + "\n")
-	}
-	b.WriteString("\n")
-}
-
-func sortedStringKeys(values map[string]string) []string {
-	keys := make([]string, 0, len(values))
-	for key := range values {
-		keys = append(keys, key)
-	}
-	sort.Strings(keys)
-	return keys
-}
-
-func cloneStringMap(source map[string]string) map[string]string {
-	clone := make(map[string]string, len(source))
-	for key, value := range source {
-		clone[key] = value
-	}
-	return clone
 }
 
 func jsonString(value string) string {
@@ -306,6 +270,18 @@ func readProfileSource(packRoot, capabilityPath, source string) ([]byte, error) 
 	data, err := os.ReadFile(sourcePath)
 	if err != nil {
 		return nil, fmt.Errorf("read profile source %s: %w", source, err)
+	}
+	return data, nil
+}
+
+func readSkillResourceSource(packRoot, skillPath, source string) ([]byte, error) {
+	sourcePath, err := profileSourcePath(packRoot, skillPath, source)
+	if err != nil {
+		return nil, err
+	}
+	data, err := os.ReadFile(sourcePath)
+	if err != nil {
+		return nil, fmt.Errorf("read skill resource source %s: %w", source, err)
 	}
 	return data, nil
 }

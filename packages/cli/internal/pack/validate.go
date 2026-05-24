@@ -2,7 +2,9 @@ package pack
 
 import (
 	"fmt"
+	"path"
 	"regexp"
+	"strings"
 )
 
 var kebabName = regexp.MustCompile(`^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$`)
@@ -90,8 +92,20 @@ func Validate(loaded *LoadedPack) error {
 		if !kebabName.MatchString(skill.Metadata.Name) {
 			return fmt.Errorf("skill contract metadata.name must be kebab-case")
 		}
-		if len(skill.Spec.Profiles) == 0 {
-			return fmt.Errorf("skill contract %s spec.profiles is required", skill.Metadata.Name)
+		if skill.Metadata.Description == "" {
+			return fmt.Errorf("skill contract %s metadata.description is required", skill.Metadata.Name)
+		}
+		if skill.Spec.Body == "" {
+			return fmt.Errorf("skill contract %s spec.body is required", skill.Metadata.Name)
+		}
+		if err := validateSkillResources(skill, "scripts", skill.Spec.Scripts); err != nil {
+			return err
+		}
+		if err := validateSkillResources(skill, "references", skill.Spec.References); err != nil {
+			return err
+		}
+		if err := validateSkillResources(skill, "assets", skill.Spec.Assets); err != nil {
+			return err
 		}
 		skills[skill.Metadata.Name] = true
 	}
@@ -146,6 +160,22 @@ func Validate(loaded *LoadedPack) error {
 		}
 	}
 
+	return nil
+}
+
+func validateSkillResources(skill SkillContract, group string, resources []SkillResource) error {
+	for _, resource := range resources {
+		if resource.Source == "" || resource.Path == "" {
+			return fmt.Errorf("skill contract %s %s resource must declare source and path", skill.Metadata.Name, group)
+		}
+		cleaned := path.Clean(resource.Path)
+		if cleaned == "." || path.IsAbs(cleaned) || strings.HasPrefix(cleaned, "../") {
+			return fmt.Errorf("skill contract %s %s resource path %q must be relative", skill.Metadata.Name, group, resource.Path)
+		}
+		if !strings.HasPrefix(cleaned, group+"/") {
+			return fmt.Errorf("skill contract %s %s resource path %q must be under %s/", skill.Metadata.Name, group, resource.Path, group)
+		}
+	}
 	return nil
 }
 

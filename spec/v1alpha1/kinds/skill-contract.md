@@ -1,5 +1,11 @@
 # SkillContract
 
-`SkillContract` describes reusable skill semantics once and lets profile generators translate them into target-specific agent files such as Codex or OpenCode `SKILL.md`.
+`SkillContract` describes the portable skill folder contract used by agent profiles such as Claude, Codex, and OpenCode.
 
-The contract is the source of truth for skill front matter, activation rules, security-gate flow, workflow steps, required inputs, and MCP tool references. Generators should not embed capability-specific prose in code.
+The contract has only the primitives needed to form a target skill directory:
+
+- `metadata.name` and `metadata.description` for `SKILL.md` front matter.
+- `spec.body` for `SKILL.md` content.
+- optional `spec.scripts`, `spec.references`, and `spec.assets` resources copied under the matching skill subdirectories.
+
+Runtime policy, MCP bindings, capability inputs, and tool execution remain in their own Actlane contracts.

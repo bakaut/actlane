@@ -72,6 +72,26 @@ func guidanceSources(loaded *pack.LoadedPack) []string {
 	return sources
 }
 
+func skillResourceSources(loaded *pack.LoadedPack) []string {
+	seen := map[string]bool{}
+	var sources []string
+	for _, skill := range loaded.Skills {
+		for _, resource := range append(append([]pack.SkillResource{}, skill.Spec.Scripts...), append(skill.Spec.References, skill.Spec.Assets...)...) {
+			if resource.Source == "" {
+				continue
+			}
+			source, err := profileSourcePath(loaded.Root, skill.Path, resource.Source)
+			if err != nil || seen[source] {
+				continue
+			}
+			seen[source] = true
+			sources = append(sources, source)
+		}
+	}
+	sort.Strings(sources)
+	return sources
+}
+
 func lockfilePath(target string) string {
 	return "generated/" + target + "/actlane.lock"
 }
@@ -95,7 +115,9 @@ func buildLockfile(loaded *pack.LoadedPack, files map[string][]byte, target, loc
 	for _, targetProfile := range loaded.TargetProfiles {
 		sourceDigests[relToRoot(loaded.Root, targetProfile.Path)] = digest(targetProfile.Raw)
 	}
-	for _, source := range append(profileSources(loaded), guidanceSources(loaded)...) {
+	sources := append(profileSources(loaded), guidanceSources(loaded)...)
+	sources = append(sources, skillResourceSources(loaded)...)
+	for _, source := range sources {
 		data, err := os.ReadFile(source)
 		if err != nil {
 			continue

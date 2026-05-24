@@ -180,59 +180,15 @@ type SkillContract struct {
 }
 
 type SkillContractSpec struct {
-	Activation   SkillActivation         `yaml:"activation"`
-	Instructions SkillInstructions       `yaml:"instructions"`
-	Interface    SkillInterface          `yaml:"interface"`
-	Tools        SkillTools              `yaml:"tools"`
-	Profiles     map[string]SkillProfile `yaml:"profiles"`
-	Body         SkillBody               `yaml:"body"`
-	Extra        map[string]any          `yaml:",inline"`
+	Body       string          `yaml:"body"`
+	Scripts    []SkillResource `yaml:"scripts"`
+	References []SkillResource `yaml:"references"`
+	Assets     []SkillResource `yaml:"assets"`
 }
 
-type SkillActivation struct {
-	Mode             string                `yaml:"mode"`
-	WhenToUse        []string              `yaml:"whenToUse"`
-	WhenNotToUse     []string              `yaml:"whenNotToUse"`
-	DirectInvocation SkillDirectInvocation `yaml:"directInvocation"`
-}
-
-type SkillDirectInvocation struct {
-	Aliases []string `yaml:"aliases"`
-}
-
-type SkillInstructions struct {
-	BeforeCall []string `yaml:"beforeCall"`
-	AfterCall  []string `yaml:"afterCall"`
-	OnDeny     []string `yaml:"onDeny"`
-}
-
-type SkillInterface struct {
-	Input  map[string]any `yaml:"input"`
-	Output map[string]any `yaml:"output"`
-}
-
-type SkillTools struct {
-	Required []string `yaml:"required"`
-	MCP      SkillMCP `yaml:"mcp"`
-}
-
-type SkillMCP struct {
-	SecurityGate string   `yaml:"securityGate"`
-	Downstream   []string `yaml:"downstream"`
-}
-
-type SkillProfile struct {
-	Name          string            `yaml:"name"`
-	Description   string            `yaml:"description"`
-	Compatibility string            `yaml:"compatibility"`
-	Metadata      map[string]string `yaml:"metadata"`
-}
-
-type SkillBody struct {
-	SecurityGateFlow []string       `yaml:"securityGateFlow"`
-	Workflow         []WorkflowHint `yaml:"workflow"`
-	RequiredInputs   []string       `yaml:"requiredInputs"`
-	MCPTools         []string       `yaml:"mcpTools"`
+type SkillResource struct {
+	Source string `yaml:"source"`
+	Path   string `yaml:"path"`
 }
 
 type TargetProfile struct {

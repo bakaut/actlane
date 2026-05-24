@@ -10,149 +10,47 @@
     "kind": { "const": "SkillContract" },
     "metadata": {
       "type": "object",
-      "required": ["name"],
+      "required": ["name", "description"],
       "properties": {
         "name": {
           "type": "string",
           "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
         },
-        "version": { "type": "string" },
-        "title": { "type": "string" },
-        "description": { "type": "string" },
-        "labels": {
-          "type": "object",
-          "additionalProperties": { "type": "string" }
-        }
+        "description": { "type": "string", "minLength": 1 }
       },
       "additionalProperties": false
     },
     "spec": {
       "type": "object",
-      "required": ["activation", "profiles", "body"],
+      "required": ["body"],
       "properties": {
-        "activation": {
-          "type": "object",
-          "properties": {
-            "mode": { "type": "string" },
-            "whenToUse": {
-              "type": "array",
-              "items": { "type": "string" }
-            },
-            "whenNotToUse": {
-              "type": "array",
-              "items": { "type": "string" }
-            },
-            "directInvocation": {
-              "type": "object",
-              "properties": {
-                "aliases": {
-                  "type": "array",
-                  "items": { "type": "string" }
-                }
-              },
-              "additionalProperties": false
-            }
-          },
-          "additionalProperties": false
+        "body": { "type": "string", "minLength": 1 },
+        "scripts": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/skillResource" }
         },
-        "instructions": {
-          "type": "object",
-          "properties": {
-            "beforeCall": {
-              "type": "array",
-              "items": { "type": "string" }
-            },
-            "afterCall": {
-              "type": "array",
-              "items": { "type": "string" }
-            },
-            "onDeny": {
-              "type": "array",
-              "items": { "type": "string" }
-            }
-          },
-          "additionalProperties": false
+        "references": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/skillResource" }
         },
-        "interface": {
-          "type": "object",
-          "properties": {
-            "input": { "type": "object" },
-            "output": { "type": "object" }
-          },
-          "additionalProperties": false
-        },
-        "tools": {
-          "type": "object",
-          "properties": {
-            "required": {
-              "type": "array",
-              "items": { "type": "string" }
-            },
-            "mcp": {
-              "type": "object",
-              "properties": {
-                "securityGate": { "type": "string" },
-                "downstream": {
-                  "type": "array",
-                  "items": { "type": "string" }
-                }
-              },
-              "additionalProperties": false
-            }
-          },
-          "additionalProperties": false
-        },
-        "profiles": {
-          "type": "object",
-          "minProperties": 1,
-          "additionalProperties": {
-            "type": "object",
-            "required": ["name", "compatibility"],
-            "properties": {
-              "name": { "type": "string" },
-              "description": { "type": "string" },
-              "compatibility": { "type": "string" },
-              "metadata": {
-                "type": "object",
-                "additionalProperties": { "type": "string" }
-              }
-            },
-            "additionalProperties": false
-          }
-        },
-        "body": {
-          "type": "object",
-          "properties": {
-            "securityGateFlow": {
-              "type": "array",
-              "items": { "type": "string" }
-            },
-            "workflow": {
-              "type": "array",
-              "items": {
-                "type": "object",
-                "required": ["step", "purpose"],
-                "properties": {
-                  "step": { "type": "string" },
-                  "purpose": { "type": "string" }
-                },
-                "additionalProperties": false
-              }
-            },
-            "requiredInputs": {
-              "type": "array",
-              "items": { "type": "string" }
-            },
-            "mcpTools": {
-              "type": "array",
-              "items": { "type": "string" }
-            }
-          },
-          "additionalProperties": false
+        "assets": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/skillResource" }
         }
       },
       "additionalProperties": false
     }
   },
-  "additionalProperties": false
+  "additionalProperties": false,
+  "$defs": {
+    "skillResource": {
+      "type": "object",
+      "required": ["source", "path"],
+      "properties": {
+        "source": { "type": "string", "minLength": 1 },
+        "path": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    }
+  }
 }
