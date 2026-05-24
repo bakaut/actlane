@@ -483,6 +483,11 @@ type MCPRuntimeServer struct {
 	Command   []string       `yaml:"command"`
 	Args      []string       `yaml:"args"`
 	Env       map[string]any `yaml:"env"`
+	URL       string         `yaml:"url"`
+	Headers   map[string]any `yaml:"headers"`
+	OAuth     any            `yaml:"oauth"`
+	Timeout   int            `yaml:"timeout"`
+	Enabled   *bool          `yaml:"enabled"`
 }
 
 type MCPBindingStrategy struct {

@@ -1,9 +1,22 @@
 # Changelog
 
-## Unreleased - 2026-05-24
+## [0.2.0-alpha.1] - 2026-05-24
+
+Second SemVer-tagged CLI MVP release.
+
+SemVer rationale:
+
+- minor bump from `0.1.0-alpha.1` to `0.2.0-alpha.1` because this release adds new CLI workflows and changes MVP behavior before `1.0.0`;
+- keeps the `alpha.1` prerelease channel because contracts are still pre-production and may change.
 
 ### Changed
 
+- Added brownfield OpenCode adoption flow: `actlane inspect`, `actlane import`, `actlane import report`, `actlane pack create`, `actlane pack inspect`, and `actlane pack install`.
+- Added default-based UX so `inspect`, `import`, `pack create`, and `generate` can run without repeated path arguments.
+- Added direct generation from `actlane-pack.zip`; `actlane generate --target <target>` now works without `.actlane/` when `actlane-pack.zip` exists in the current directory.
+- Added OpenCode import support for `.opencode/opencode.jsonc` as well as project-root `opencode.jsonc`.
+- Added MCP server and tool import from OpenCode config, including local/remote server fields and permission-derived tools such as `codegraph_*`, `memory_*`, `context7_*`, and `serena_*`.
+- Added generated `MCPBinding.requiredTools` entries for imported OpenCode MCP tool permissions.
 - Aligned the Go CLI with `packs/create-github-draft-pr` as the source of truth.
 - Added support for pack-level `guidance.sources` and `guidance.compose` to generate OpenCode `AGENTS.md`.
 - Added support for `mcpBindings` and generated MCP server/tool metadata from `mcp/bindings/*.yaml`.

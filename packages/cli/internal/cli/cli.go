@@ -6,14 +6,17 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
+	"strings"
 
+	"github.com/actlane/actlane/packages/cli/internal/adoption"
 	"github.com/actlane/actlane/packages/cli/internal/generator/profile"
 	"github.com/actlane/actlane/packages/cli/internal/mcpserver"
 	"github.com/actlane/actlane/packages/cli/internal/pack"
 	"github.com/actlane/actlane/packages/cli/internal/schema"
 )
 
-const version = "0.1.0-alpha.1"
+const version = "0.2.0-alpha.1"
 
 func Main(args []string, stdout, stderr io.Writer) int {
 	return MainWithIO(args, os.Stdin, stdout, stderr)
@@ -31,6 +34,12 @@ func MainWithIO(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		return 0
 	case "validate":
 		return runValidate(args[1:], stdout, stderr)
+	case "inspect":
+		return runInspect(args[1:], stdout, stderr)
+	case "import":
+		return runImport(args[1:], stdout, stderr)
+	case "pack":
+		return runPack(args[1:], stdout, stderr)
 	case "generate":
 		return runGenerate(args[1:], stdout, stderr)
 	case "mcp":
@@ -42,6 +51,310 @@ func MainWithIO(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		usage(stderr)
 		return 2
 	}
+}
+
+func runInspect(args []string, stdout, stderr io.Writer) int {
+	opts := adoption.InspectOptions{From: ".", AIAgent: "auto"}
+	for i := 0; i < len(args); i++ {
+		switch {
+		case strings.HasPrefix(args[i], "--from="):
+			opts.From = strings.TrimPrefix(args[i], "--from=")
+		case strings.HasPrefix(args[i], "--ai-agent="):
+			opts.AIAgent = strings.TrimPrefix(args[i], "--ai-agent=")
+		case args[i] == "--from":
+			i++
+			if i >= len(args) {
+				fmt.Fprintln(stderr, "--from requires a value")
+				return 2
+			}
+			opts.From = args[i]
+		case args[i] == "--ai-agent":
+			i++
+			if i >= len(args) {
+				fmt.Fprintln(stderr, "--ai-agent requires a value")
+				return 2
+			}
+			opts.AIAgent = args[i]
+		default:
+			fmt.Fprintf(stderr, "unknown inspect flag %q\n", args[i])
+			return 2
+		}
+	}
+	discovery, err := adoption.Inspect(opts)
+	if err != nil {
+		fmt.Fprintf(stderr, "inspect failed: %v\n", err)
+		return 1
+	}
+	if discovery.Runtime == "" {
+		fmt.Fprintln(stdout, "No supported ai-agent detected.")
+		fmt.Fprintln(stdout, "Try: actlane inspect --ai-agent opencode")
+		return 0
+	}
+	fmt.Fprintln(stdout, "Detected:")
+	fmt.Fprintf(stdout, "- ai-agent: %s\n", discovery.Runtime)
+	fmt.Fprintf(stdout, "- confidence: %s\n", discovery.Confidence)
+	for _, command := range discovery.Commands {
+		fmt.Fprintf(stdout, "- command: %s\n", command.Name)
+	}
+	for _, agent := range discovery.Agents {
+		fmt.Fprintf(stdout, "- agent: %s\n", agent.Name)
+	}
+	for _, skill := range discovery.Skills {
+		fmt.Fprintf(stdout, "- skill: %s\n", skill.Name)
+	}
+	for _, server := range discovery.MCPServers {
+		fmt.Fprintf(stdout, "- mcp server: %s\n", server.Name)
+		for _, tool := range server.Tools {
+			fmt.Fprintf(stdout, "- mcp tool: %s/%s\n", server.Name, tool)
+		}
+	}
+	for key, value := range discovery.Permissions {
+		fmt.Fprintf(stdout, "- permission %s=%s\n", key, value)
+	}
+	fmt.Fprintln(stdout)
+	fmt.Fprintln(stdout, "Next:")
+	fmt.Fprintln(stdout, "  actlane import")
+	return 0
+}
+
+func runImport(args []string, stdout, stderr io.Writer) int {
+	if len(args) > 0 && args[0] == "report" {
+		return runImportReport(args[1:], stdout, stderr)
+	}
+	opts := adoption.ImportOptions{From: ".", Out: ".actlane", AIAgent: "auto"}
+	for i := 0; i < len(args); i++ {
+		switch {
+		case strings.HasPrefix(args[i], "--from="):
+			opts.From = strings.TrimPrefix(args[i], "--from=")
+		case strings.HasPrefix(args[i], "--out="):
+			opts.Out = strings.TrimPrefix(args[i], "--out=")
+		case strings.HasPrefix(args[i], "--ai-agent="):
+			opts.AIAgent = strings.TrimPrefix(args[i], "--ai-agent=")
+		case args[i] == "opencode":
+			opts.AIAgent = "opencode"
+		case args[i] == "--from":
+			i++
+			if i >= len(args) {
+				fmt.Fprintln(stderr, "--from requires a value")
+				return 2
+			}
+			opts.From = args[i]
+		case args[i] == "--out":
+			i++
+			if i >= len(args) {
+				fmt.Fprintln(stderr, "--out requires a value")
+				return 2
+			}
+			opts.Out = args[i]
+		case args[i] == "--ai-agent":
+			i++
+			if i >= len(args) {
+				fmt.Fprintln(stderr, "--ai-agent requires a value")
+				return 2
+			}
+			opts.AIAgent = args[i]
+		case args[i] == "--force":
+			opts.Force = true
+		default:
+			fmt.Fprintf(stderr, "unknown import flag %q\n", args[i])
+			return 2
+		}
+	}
+	result, err := adoption.Import(opts)
+	if err != nil {
+		fmt.Fprintf(stderr, "import failed: %v\n", err)
+		return 1
+	}
+	fmt.Fprintf(stdout, "Imported %s project into %s\n", result.Runtime, result.Out)
+	fmt.Fprintf(stdout, "Generated source files: %d\n", len(result.Files))
+	fmt.Fprintln(stdout)
+	fmt.Fprintln(stdout, "Next:")
+	fmt.Fprintln(stdout, "  actlane pack create")
+	return 0
+}
+
+func runImportReport(args []string, stdout, stderr io.Writer) int {
+	from := ".actlane"
+	for i := 0; i < len(args); i++ {
+		switch {
+		case strings.HasPrefix(args[i], "--from="):
+			from = strings.TrimPrefix(args[i], "--from=")
+		case args[i] == "--from":
+			i++
+			if i >= len(args) {
+				fmt.Fprintln(stderr, "--from requires a value")
+				return 2
+			}
+			from = args[i]
+		default:
+			fmt.Fprintf(stderr, "unknown import report flag %q\n", args[i])
+			return 2
+		}
+	}
+	data, err := adoption.ReadImportReport(from)
+	if err != nil {
+		fmt.Fprintf(stderr, "import report failed: %v\n", err)
+		return 1
+	}
+	fmt.Fprint(stdout, string(data))
+	return 0
+}
+
+func runPack(args []string, stdout, stderr io.Writer) int {
+	if len(args) == 0 {
+		fmt.Fprintln(stderr, "usage: actlane pack <create|inspect|install>")
+		return 2
+	}
+	switch args[0] {
+	case "create":
+		return runPackCreate(args[1:], stdout, stderr)
+	case "inspect":
+		return runPackInspect(args[1:], stdout, stderr)
+	case "install":
+		return runPackInstall(args[1:], stdout, stderr)
+	default:
+		fmt.Fprintf(stderr, "unknown pack command %q\n", args[0])
+		return 2
+	}
+}
+
+func runPackCreate(args []string, stdout, stderr io.Writer) int {
+	opts := adoption.PackCreateOptions{From: ".actlane", Out: "actlane-pack.zip"}
+	for i := 0; i < len(args); i++ {
+		switch {
+		case strings.HasPrefix(args[i], "--from="):
+			opts.From = strings.TrimPrefix(args[i], "--from=")
+		case strings.HasPrefix(args[i], "--out="):
+			opts.Out = strings.TrimPrefix(args[i], "--out=")
+		case args[i] == "--from":
+			i++
+			if i >= len(args) {
+				fmt.Fprintln(stderr, "--from requires a value")
+				return 2
+			}
+			opts.From = args[i]
+		case args[i] == "--out":
+			i++
+			if i >= len(args) {
+				fmt.Fprintln(stderr, "--out requires a value")
+				return 2
+			}
+			opts.Out = args[i]
+		case args[i] == "--force":
+			opts.Force = true
+		default:
+			fmt.Fprintf(stderr, "unknown pack create flag %q\n", args[i])
+			return 2
+		}
+	}
+	loaded, err := pack.Load(opts.From)
+	if err != nil {
+		fmt.Fprintf(stderr, "pack create failed: %v\n", err)
+		return 1
+	}
+	if err := pack.Validate(loaded); err != nil {
+		fmt.Fprintf(stderr, "pack create failed: %v\n", err)
+		return 1
+	}
+	if err := adoption.CreatePack(opts); err != nil {
+		fmt.Fprintf(stderr, "pack create failed: %v\n", err)
+		return 1
+	}
+	fmt.Fprintf(stdout, "created pack: %s\n", opts.Out)
+	return 0
+}
+
+func runPackInspect(args []string, stdout, stderr io.Writer) int {
+	archive := "actlane-pack.zip"
+	if len(args) > 1 {
+		fmt.Fprintln(stderr, "usage: actlane pack inspect [actlane-pack.zip]")
+		return 2
+	}
+	if len(args) == 1 {
+		archive = args[0]
+	}
+	info, err := adoption.InspectPack(archive)
+	if err != nil {
+		fmt.Fprintf(stderr, "pack inspect failed: %v\n", err)
+		return 1
+	}
+	fmt.Fprintf(stdout, "Pack: %s\n", info.Name)
+	if info.Version != "" {
+		fmt.Fprintf(stdout, "Version: %s\n", info.Version)
+	}
+	if info.SourceRuntime != "" {
+		fmt.Fprintf(stdout, "Source runtime: %s\n", info.SourceRuntime)
+	}
+	fmt.Fprintln(stdout, "Objects:")
+	for _, kind := range sortedObjectKinds(info.Objects) {
+		count := info.Objects[kind]
+		fmt.Fprintf(stdout, "- %s: %d\n", kind, count)
+	}
+	fmt.Fprintln(stdout, "Targets:")
+	for _, target := range info.Targets {
+		fmt.Fprintf(stdout, "- %s\n", target)
+	}
+	if len(info.Warnings) > 0 {
+		fmt.Fprintln(stdout, "Warnings:")
+		for _, warning := range info.Warnings {
+			fmt.Fprintf(stdout, "- %s\n", warning)
+		}
+	}
+	return 0
+}
+
+func runPackInstall(args []string, stdout, stderr io.Writer) int {
+	opts := adoption.PackInstallOptions{Out: ".actlane", Mode: "overlay"}
+	if len(args) > 0 && !isFlag(args[0]) {
+		opts.Archive = args[0]
+		args = args[1:]
+	}
+	for i := 0; i < len(args); i++ {
+		switch {
+		case strings.HasPrefix(args[i], "--target="):
+			opts.Target = strings.TrimPrefix(args[i], "--target=")
+		case strings.HasPrefix(args[i], "--mode="):
+			opts.Mode = strings.TrimPrefix(args[i], "--mode=")
+		case strings.HasPrefix(args[i], "--out="):
+			opts.Out = strings.TrimPrefix(args[i], "--out=")
+		case args[i] == "--target":
+			i++
+			if i >= len(args) {
+				fmt.Fprintln(stderr, "--target requires a value")
+				return 2
+			}
+			opts.Target = args[i]
+		case args[i] == "--mode":
+			i++
+			if i >= len(args) {
+				fmt.Fprintln(stderr, "--mode requires a value")
+				return 2
+			}
+			opts.Mode = args[i]
+		case args[i] == "--out":
+			i++
+			if i >= len(args) {
+				fmt.Fprintln(stderr, "--out requires a value")
+				return 2
+			}
+			opts.Out = args[i]
+		case args[i] == "--force":
+			opts.Force = true
+		default:
+			fmt.Fprintf(stderr, "unknown pack install flag %q\n", args[i])
+			return 2
+		}
+	}
+	if opts.Archive == "" {
+		opts.Archive = "actlane-pack.zip"
+	}
+	if err := adoption.InstallPack(opts); err != nil {
+		fmt.Fprintf(stderr, "pack install failed: %v\n", err)
+		return 1
+	}
+	fmt.Fprintf(stdout, "installed pack into %s\n", opts.Out)
+	fmt.Fprintf(stdout, "default target: %s\n", opts.Target)
+	return 0
 }
 
 func runMCP(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
@@ -124,40 +437,87 @@ func runValidate(args []string, stdout, stderr io.Writer) int {
 }
 
 func runGenerate(args []string, stdout, stderr io.Writer) int {
-	if len(args) < 1 {
-		fmt.Fprintln(stderr, "usage: actlane generate <pack> --target <target> [--out <dir>] [--check] [--frozen-lockfile]")
-		return 2
+	packDir := ".actlane"
+	packArgExplicit := false
+	if len(args) > 0 && !isFlag(args[0]) {
+		packDir = args[0]
+		packArgExplicit = true
+		args = args[1:]
 	}
-
-	packDir := args[0]
-	opts := profile.Options{Target: "opencode", OutDir: packDir}
-	for i := 1; i < len(args); i++ {
-		switch args[i] {
-		case "--target":
+	outExplicit := false
+	outDir := ""
+	outBase := packDir
+	opts := profile.Options{}
+	for i := 0; i < len(args); i++ {
+		switch {
+		case strings.HasPrefix(args[i], "--target="):
+			opts.Target = strings.TrimPrefix(args[i], "--target=")
+		case strings.HasPrefix(args[i], "--out="):
+			outDir = strings.TrimPrefix(args[i], "--out=")
+			outExplicit = true
+		case args[i] == "--target":
 			i++
 			if i >= len(args) {
 				fmt.Fprintln(stderr, "--target requires a value")
 				return 2
 			}
 			opts.Target = args[i]
-		case "--out":
+		case args[i] == "--out":
 			i++
 			if i >= len(args) {
 				fmt.Fprintln(stderr, "--out requires a value")
 				return 2
 			}
-			opts.OutDir = args[i]
-			if !filepath.IsAbs(opts.OutDir) {
-				opts.OutDir = filepath.Join(packDir, opts.OutDir)
-			}
-		case "--check":
+			outDir = args[i]
+			outExplicit = true
+		case args[i] == "--check":
 			opts.Check = true
-		case "--frozen-lockfile":
+		case args[i] == "--frozen-lockfile":
 			opts.FrozenLockfile = true
 		default:
 			fmt.Fprintf(stderr, "unknown generate flag %q\n", args[i])
 			return 2
 		}
+	}
+	cleanup := func() {}
+	if shouldUsePackArchive(packDir, packArgExplicit) {
+		archive := packDir
+		if !packArgExplicit {
+			archive = "actlane-pack.zip"
+		}
+		tempDir, err := os.MkdirTemp("", "actlane-pack-*")
+		if err != nil {
+			fmt.Fprintf(stderr, "generate failed: %v\n", err)
+			return 1
+		}
+		cleanup = func() { _ = os.RemoveAll(tempDir) }
+		defer cleanup()
+		if err := adoption.ExtractPack(archive, tempDir); err != nil {
+			fmt.Fprintf(stderr, "generate failed: read pack archive: %v\n", err)
+			return 1
+		}
+		packDir = tempDir
+		outBase = "."
+		if !outExplicit {
+			outDir = "."
+		}
+	}
+	if outDir == "" {
+		outDir = packDir
+	}
+	opts.OutDir = outDir
+	if !filepath.IsAbs(opts.OutDir) && opts.OutDir != "." {
+		opts.OutDir = filepath.Join(outBase, opts.OutDir)
+	}
+	if opts.Target == "" {
+		target, err := adoption.ReadDefaultTarget(packDir)
+		if err == nil {
+			opts.Target = target
+		}
+	}
+	if opts.Target == "" {
+		fmt.Fprintln(stderr, "generate failed: --target is required when no default target exists")
+		return 2
 	}
 
 	loaded, err := pack.Load(packDir)
@@ -213,5 +573,30 @@ func runSchema(args []string, stdout, stderr io.Writer) int {
 }
 
 func usage(w io.Writer) {
-	fmt.Fprintln(w, "usage: actlane <version|validate|generate|mcp|schema>")
+	fmt.Fprintln(w, "usage: actlane <version|inspect|import|pack|validate|generate|mcp|schema>")
+}
+
+func isFlag(value string) bool {
+	return len(value) > 0 && value[0] == '-'
+}
+
+func shouldUsePackArchive(packDir string, explicit bool) bool {
+	if explicit {
+		info, err := os.Stat(packDir)
+		return err == nil && !info.IsDir()
+	}
+	if _, err := os.Stat(filepath.Join(packDir, "actlane.yaml")); err == nil {
+		return false
+	}
+	info, err := os.Stat("actlane-pack.zip")
+	return err == nil && !info.IsDir()
+}
+
+func sortedObjectKinds(values map[string]int) []string {
+	keys := make([]string, 0, len(values))
+	for key := range values {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	return keys
 }

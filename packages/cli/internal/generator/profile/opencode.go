@@ -58,20 +58,42 @@ func openCodeMCPServerConfig(bindings []pack.MCPBinding) map[string]any {
 		for _, server := range binding.Spec.Servers {
 			config := map[string]any{
 				"enabled": true,
-				"type":    "local",
+				"type":    defaultMCPType(server.Transport),
+			}
+			if server.Enabled != nil {
+				config["enabled"] = *server.Enabled
 			}
 			command := append([]string{}, server.Command...)
 			command = append(command, server.Args...)
 			if len(command) > 0 {
 				config["command"] = command
 			}
+			if server.URL != "" {
+				config["url"] = server.URL
+			}
 			if len(server.Env) > 0 {
 				config["environment"] = openCodeEnvironment(server.Env)
+			}
+			if len(server.Headers) > 0 {
+				config["headers"] = openCodeEnvironment(server.Headers)
+			}
+			if server.OAuth != nil {
+				config["oauth"] = server.OAuth
+			}
+			if server.Timeout > 0 {
+				config["timeout"] = server.Timeout
 			}
 			servers[server.Name] = config
 		}
 	}
 	return servers
+}
+
+func defaultMCPType(value string) string {
+	if value == "" || value == "stdio" {
+		return "local"
+	}
+	return value
 }
 
 func openCodeEnvironment(env map[string]any) map[string]any {

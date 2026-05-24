@@ -13,9 +13,10 @@ Actlane started as a design and specification repository. It now also contains a
 - Documentation for the first intended pack: `safe-gitops`.
 - Hand-written `safe-gitops` pack artifacts and examples.
 - Working Go CLI MVP in `packages/cli`.
-- `validate`, `generate --target opencode`, `--check`, `--frozen-lockfile`, and schema inspection commands.
+- `inspect`, `import`, `import report`, `pack create`, `pack inspect`, `pack install`, `validate`, `generate`, `--check`, `--frozen-lockfile`, and schema inspection commands.
 - First executable MVP pack: `packs/create-github-draft-pr`.
-- Generated OpenCode command, agent instructions, config snippet, policy bundle, and `actlane.lock`.
+- Generated OpenCode and Codex artifacts, target-local policy bundles, and `actlane.lock`.
+- Brownfield OpenCode import into `.actlane/` with inferred capability, policy, MCP binding, command, agent, skill, target profile, report, and lockfile artifacts.
 - Manual GitHub Actions release workflow for Linux, macOS, and Windows CLI artifacts.
 
 ## What Does Not Exist Yet
@@ -27,7 +28,8 @@ Actlane started as a design and specification repository. It now also contains a
 - No marketplace.
 - No production security guarantees.
 - No apply/remove lifecycle for existing projects.
-- No generated MCP, Codex, Claude, or multi-target adapters in the working CLI.
+- No Claude or broad multi-target adapter matrix in the working CLI.
+- No `plan apply` lifecycle yet.
 
 ## Intended Next Step
 
@@ -45,6 +47,7 @@ Current validation path:
 ```bash
 cd packages/cli
 go test ./...
+go run ./cmd/actlane inspect --from ../../packs/create-github-draft-pr/generated/opencode
 go run ./cmd/actlane validate ../../packs/create-github-draft-pr
 go run ./cmd/actlane generate ../../packs/create-github-draft-pr --target opencode --check
 go run ./cmd/actlane generate ../../packs/create-github-draft-pr --target opencode --frozen-lockfile

@@ -33,8 +33,23 @@ func mcpServerConfig(bindings []pack.MCPBinding) map[string]any {
 			if len(command) > 0 {
 				config["command"] = command
 			}
+			if server.URL != "" {
+				config["url"] = server.URL
+			}
 			if len(server.Env) > 0 {
 				config["environment"] = server.Env
+			}
+			if len(server.Headers) > 0 {
+				config["headers"] = server.Headers
+			}
+			if server.OAuth != nil {
+				config["oauth"] = server.OAuth
+			}
+			if server.Timeout > 0 {
+				config["timeout"] = server.Timeout
+			}
+			if server.Enabled != nil {
+				config["enabled"] = *server.Enabled
 			}
 			servers[server.Name] = config
 		}

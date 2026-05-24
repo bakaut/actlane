@@ -79,7 +79,8 @@ This repository is currently pre-alpha with a narrow working CLI MVP:
 - PlantUML diagrams;
 - early v1alpha1 spec notes;
 - Go CLI MVP in `packages/cli`;
-- OpenCode-only generator for `packs/create-github-draft-pr`;
+- OpenCode and Codex generator for `packs/create-github-draft-pr`;
+- brownfield OpenCode import into `.actlane/` plus pack create/inspect/install flow;
 - manual GitHub Actions release workflow for CLI artifacts.
 
 Try the MVP locally:
@@ -89,6 +90,15 @@ cd packages/cli
 go test ./...
 go run ./cmd/actlane validate ../../packs/create-github-draft-pr
 go run ./cmd/actlane generate ../../packs/create-github-draft-pr --target opencode --check
+```
+
+Brownfield OpenCode import flow:
+
+```bash
+actlane inspect
+actlane import
+actlane import report
+actlane pack create
 ```
 
 See [STATUS.md](STATUS.md).

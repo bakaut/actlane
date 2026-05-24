@@ -429,6 +429,165 @@ func TestUnsupportedTargetFailsClearly(t *testing.T) {
 	}
 }
 
+func TestInspectImportPackInstallAndGenerateDefaultTarget(t *testing.T) {
+	projectDir := filepath.Join(t.TempDir(), "project")
+	writeTestFile(t, filepath.Join(projectDir, "AGENTS.md"), "Project agent guidance.\n")
+	writeTestFile(t, filepath.Join(projectDir, "opencode.jsonc"), `{
+  "$schema": "https://opencode.ai/config.json",
+  "permission": {
+    "bash": "ask",
+    "edit": "ask",
+    "skill": "allow",
+    "github_create_pull_request": "allow"
+  },
+  "mcp": {
+    "github": {
+      "type": "local",
+      "command": ["github-mcp-server"]
+    }
+  }
+}
+`)
+	writeTestFile(t, filepath.Join(projectDir, ".opencode/commands/create-github-draft-pr.md"), `---
+agent: github-draft-pr
+description: Prepare a GitHub draft pull request.
+---
+
+Create a draft PR from $ARGUMENTS.
+`)
+	writeTestFile(t, filepath.Join(projectDir, ".opencode/agents/github-draft-pr.md"), `---
+description: GitHub draft PR specialist.
+---
+
+Prepare safe draft PRs.
+`)
+	writeTestFile(t, filepath.Join(projectDir, ".opencode/skills/create-github-draft-pr/SKILL.md"), `---
+name: create-github-draft-pr
+description: Draft PR skill.
+---
+
+Use the GitHub draft PR workflow.
+`)
+
+	var stdout, stderr bytes.Buffer
+	code := Main([]string{"inspect", "--from", projectDir}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("inspect failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	for _, want := range []string{"ai-agent: opencode", "command: create-github-draft-pr", "agent: github-draft-pr", "skill: create-github-draft-pr", "mcp server: github"} {
+		if !strings.Contains(stdout.String(), want) {
+			t.Fatalf("inspect output missing %q:\n%s", want, stdout.String())
+		}
+	}
+
+	actlaneDir := filepath.Join(t.TempDir(), ".actlane")
+	stdout.Reset()
+	stderr.Reset()
+	code = Main([]string{"import", "--from", projectDir, "--out", actlaneDir}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("import failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	assertExists(t, filepath.Join(actlaneDir, "actlane.yaml"))
+	assertExists(t, filepath.Join(actlaneDir, "capabilities/create-github-draft-pr.yaml"))
+	assertExists(t, filepath.Join(actlaneDir, "commands/create-github-draft-pr.yaml"))
+	assertExists(t, filepath.Join(actlaneDir, "agents/github-draft-pr.yaml"))
+	assertExists(t, filepath.Join(actlaneDir, "skills/create-github-draft-pr.yaml"))
+	assertExists(t, filepath.Join(actlaneDir, "import.report.md"))
+	mcpBinding := readFile(t, filepath.Join(actlaneDir, "mcp/bindings/create-github-draft-pr.yaml"))
+	if !strings.Contains(mcpBinding, "github-mcp-server") {
+		t.Fatalf("imported MCP binding should preserve command, got:\n%s", mcpBinding)
+	}
+	for _, want := range []string{"requiredTools:", "name: github_create_pull_request", "server: github", "toolset: opencode-permission"} {
+		if !strings.Contains(mcpBinding, want) {
+			t.Fatalf("imported MCP binding should preserve MCP tools %q, got:\n%s", want, mcpBinding)
+		}
+	}
+
+	stdout.Reset()
+	stderr.Reset()
+	code = Main([]string{"validate", actlaneDir}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("validate imported pack failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+
+	stdout.Reset()
+	stderr.Reset()
+	code = Main([]string{"import", "report", "--from", actlaneDir}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("import report failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "Detected runtime: opencode") || !strings.Contains(stdout.String(), "Capability, policy, and MCP binding were inferred") {
+		t.Fatalf("unexpected import report:\n%s", stdout.String())
+	}
+
+	archive := filepath.Join(t.TempDir(), "actlane-pack.zip")
+	stdout.Reset()
+	stderr.Reset()
+	code = Main([]string{"pack", "create", "--from", actlaneDir, "--out", archive}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("pack create failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	assertExists(t, archive)
+
+	stdout.Reset()
+	stderr.Reset()
+	code = Main([]string{"pack", "inspect", archive}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("pack inspect failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "Source runtime: opencode") || !strings.Contains(stdout.String(), "Capability") || !strings.Contains(stdout.String(), "codex") {
+		t.Fatalf("unexpected pack inspect output:\n%s", stdout.String())
+	}
+
+	consumerDir := filepath.Join(t.TempDir(), "consumer")
+	if err := os.MkdirAll(consumerDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	archiveData, err := os.ReadFile(archive)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(consumerDir, "actlane-pack.zip"), archiveData, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chdir(consumerDir); err != nil {
+		t.Fatal(err)
+	}
+	stdout.Reset()
+	stderr.Reset()
+	code = Main([]string{"generate", "--target", "codex"}, &stdout, &stderr)
+	if chdirErr := os.Chdir(wd); chdirErr != nil {
+		t.Fatal(chdirErr)
+	}
+	if code != 0 {
+		t.Fatalf("generate from default pack zip failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	assertExists(t, filepath.Join(consumerDir, "generated/codex/.codex/skills/create-github-draft-pr/SKILL.md"))
+	assertNotExists(t, filepath.Join(consumerDir, ".actlane"))
+
+	installedDir := filepath.Join(t.TempDir(), ".actlane")
+	stdout.Reset()
+	stderr.Reset()
+	code = Main([]string{"pack", "install", archive, "--target", "codex", "--out", installedDir}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("pack install failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	assertExists(t, filepath.Join(installedDir, ".local.yaml"))
+
+	stdout.Reset()
+	stderr.Reset()
+	code = Main([]string{"generate", installedDir}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("generate with default target failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	assertExists(t, filepath.Join(installedDir, "generated/codex/.codex/skills/create-github-draft-pr/SKILL.md"))
+	assertExists(t, filepath.Join(installedDir, "generated/codex/actlane.lock"))
+}
+
 func repoRoot(t *testing.T) string {
 	t.Helper()
 	wd, err := os.Getwd()
@@ -507,4 +666,14 @@ func readFile(t *testing.T, path string) string {
 		t.Fatal(err)
 	}
 	return string(data)
+}
+
+func writeTestFile(t *testing.T, path, content string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
 }
