@@ -33,7 +33,7 @@ A generated policy bundle should eventually support:
 allow
 deny
 mutate
-requires-approval
+requires_approval
 ```
 
 Example:

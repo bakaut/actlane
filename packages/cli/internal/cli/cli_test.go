@@ -404,6 +404,70 @@ func TestMCPServeAcceptsPolicyBundle(t *testing.T) {
 	}
 }
 
+func TestCheckUsesResponsibilityContract(t *testing.T) {
+	packDir := copyPackToTemp(t)
+	stdin := strings.NewReader(`{"repo":"bakaut/development","baseBranch":"main","branch":"feature","title":"Test","summary":"Test","files":[".github/workflows/release.yml"],"confirmed":true}`)
+	var stdout, stderr bytes.Buffer
+
+	code := MainWithIO([]string{"check", "--pack", packDir, "--capability", "create-github-draft-pr"}, stdin, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("check failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	output := stdout.String()
+	for _, want := range []string{
+		`"policyDecision": "requires_approval"`,
+		`"risk": "high"`,
+		`"ci"`,
+		`"security-scan"`,
+		`"humanApprovalRequired": true`,
+	} {
+		if !strings.Contains(output, want) {
+			t.Fatalf("check output missing %q:\n%s", want, output)
+		}
+	}
+}
+
+func TestCheckEnforceStopsCriticalRisk(t *testing.T) {
+	packDir := copyPackToTemp(t)
+	stdin := strings.NewReader(`{"repo":"bakaut/development","baseBranch":"main","branch":"feature","title":"Test","summary":"Test","files":["secrets/token.txt"],"confirmed":true}`)
+	var stdout, stderr bytes.Buffer
+
+	code := MainWithIO([]string{"check", "--pack", packDir, "--capability", "create-github-draft-pr", "--mode", "enforce"}, stdin, &stdout, &stderr)
+	if code != 1 {
+		t.Fatalf("check enforce should fail with code 1, got %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	output := stdout.String()
+	for _, want := range []string{
+		`"policyDecision": "deny"`,
+		`"risk": "critical"`,
+		`"stop": true`,
+	} {
+		if !strings.Contains(output, want) {
+			t.Fatalf("check enforce output missing %q:\n%s", want, output)
+		}
+	}
+}
+
+func TestGeneratedPolicyBundleCarriesResponsibilityContract(t *testing.T) {
+	packDir := copyPackToTemp(t)
+	var stdout, stderr bytes.Buffer
+
+	code := Main([]string{"generate", packDir, "--target", "codex"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("generate failed: %s", stderr.String())
+	}
+	bundle := readFile(t, filepath.Join(packDir, "generated/codex/policies/policy-bundle.json"))
+	for _, want := range []string{
+		`"responsibility":`,
+		`"riskFloor": "critical"`,
+		`"requiredForHandoff"`,
+	} {
+		if !strings.Contains(bundle, want) {
+			t.Fatalf("policy bundle missing %q:\n%s", want, bundle)
+		}
+	}
+}
+
 func TestGenerateCheckDetectsStaleOutputWithoutWriting(t *testing.T) {
 	packDir := copyPackToTemp(t)
 	var stdout, stderr bytes.Buffer

@@ -76,13 +76,14 @@ func render(loaded *pack.LoadedPack, targetProfile pack.TargetProfile, target st
 		renderMCPBindingArtifacts(files, loaded)
 	}
 	files[targetPolicyBundlePath(target)] = mustJSON(policyBundle{
-		Pack:         loaded.Manifest.Metadata.Name,
-		Version:      loaded.Manifest.Metadata.Version,
-		Target:       target,
-		Capabilities: []string{capability.Metadata.Name},
-		Decisions:    []string{"allow", "deny", "mutate", "requires-approval"},
-		Rules:        rules,
-		MCPBindings:  policyBundleMCPBindings(loaded.MCPBindings),
+		Pack:           loaded.Manifest.Metadata.Name,
+		Version:        loaded.Manifest.Metadata.Version,
+		Target:         target,
+		Capabilities:   []string{capability.Metadata.Name},
+		Decisions:      []string{"allow", "deny", "mutate", "requires_approval"},
+		Rules:          rules,
+		MCPBindings:    policyBundleMCPBindings(loaded.MCPBindings),
+		Responsibility: policyBundleResponsibilities(loaded.Contracts),
 	})
 	return files, nil
 }

@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"path"
 	"strings"
 
+	"github.com/actlane/actlane/packages/cli/internal/evaluator"
 	"github.com/actlane/actlane/packages/cli/internal/pack"
 )
 
@@ -16,13 +16,14 @@ type Server struct {
 }
 
 type PolicyBundle struct {
-	Pack         string             `json:"pack"`
-	Version      string             `json:"version"`
-	Target       string             `json:"target"`
-	Capabilities []string           `json:"capabilities"`
-	Decisions    []string           `json:"decisions"`
-	Rules        PolicyBundleRules  `json:"rules"`
-	MCPBindings  []BundleMCPBinding `json:"mcpBindings"`
+	Pack           string                 `json:"pack"`
+	Version        string                 `json:"version"`
+	Target         string                 `json:"target"`
+	Capabilities   []string               `json:"capabilities"`
+	Decisions      []string               `json:"decisions"`
+	Rules          PolicyBundleRules      `json:"rules"`
+	MCPBindings    []BundleMCPBinding     `json:"mcpBindings"`
+	Responsibility []BundleResponsibility `json:"responsibility,omitempty"`
 }
 
 type PolicyBundleRules struct {
@@ -44,6 +45,11 @@ type BundleMCPBinding struct {
 	Handler        string                  `json:"handler"`
 	GeneratedTools []pack.MCPGeneratedTool `json:"generatedTools"`
 	RequiredTools  []pack.MCPToolBinding   `json:"requiredTools"`
+}
+
+type BundleResponsibility struct {
+	Name string         `json:"name"`
+	Spec map[string]any `json:"spec"`
 }
 
 type request struct {
@@ -80,30 +86,15 @@ type toolContent struct {
 	Text string `json:"text"`
 }
 
-type evaluation struct {
-	Tool           string         `json:"tool"`
-	Mode           string         `json:"mode"`
-	Capability     string         `json:"capability"`
-	PolicyDecision string         `json:"policyDecision"`
-	Allowed        bool           `json:"allowed"`
-	Reasons        []string       `json:"reasons,omitempty"`
-	OriginalInput  map[string]any `json:"originalInput"`
-	MutatedInput   map[string]any `json:"mutatedInput"`
-	Next           []nextCall     `json:"next,omitempty"`
-	PolicyRefs     []string       `json:"policyRefs"`
-}
-
-type nextCall struct {
-	Server    string         `json:"server"`
-	Tool      string         `json:"tool"`
-	Arguments map[string]any `json:"arguments"`
-}
-
 func New(loaded *pack.LoadedPack) *Server {
 	return &Server{loaded: loaded}
 }
 
 func NewFromPolicyBundle(bundle PolicyBundle) *Server {
+	return New(LoadedFromPolicyBundle(bundle))
+}
+
+func LoadedFromPolicyBundle(bundle PolicyBundle) *pack.LoadedPack {
 	capabilities := bundle.Rules.Capabilities
 	if len(capabilities) == 0 {
 		capabilities = bundle.Capabilities
@@ -154,7 +145,15 @@ func NewFromPolicyBundle(bundle PolicyBundle) *Server {
 			},
 		})
 	}
-	return New(loaded)
+	for _, responsibility := range bundle.Responsibility {
+		loaded.Contracts = append(loaded.Contracts, pack.ResponsibilityContract{
+			Document: pack.Document{
+				Metadata: pack.Metadata{Name: responsibility.Name},
+			},
+			Spec: responsibility.Spec,
+		})
+	}
+	return loaded
 }
 
 func (s *Server) Serve(r io.Reader, w io.Writer) error {
@@ -192,7 +191,7 @@ func (s *Server) handle(req request) response {
 			},
 			"serverInfo": map[string]any{
 				"name":    "actlane-safe-gitops",
-				"version": "0.3.0-alpha.1",
+				"version": "0.3.0-alpha.2",
 			},
 		})
 	case "tools/list":
@@ -241,7 +240,12 @@ func (s *Server) callTool(name string, args map[string]any) (toolResult, error) 
 	if mode == "" {
 		mode = "audit"
 	}
-	eval := s.evaluate(binding, name, mode, args)
+	eval := evaluator.Evaluate(s.loaded, evaluator.Request{
+		Tool:       name,
+		Mode:       mode,
+		Capability: binding.Spec.CapabilityRef.Name,
+		Input:      args,
+	})
 	text, err := json.MarshalIndent(eval, "", "  ")
 	if err != nil {
 		return toolResult{}, err
@@ -269,142 +273,10 @@ func (s *Server) generatedTool(name string) (pack.MCPBinding, pack.MCPGeneratedT
 	return pack.MCPBinding{}, pack.MCPGeneratedTool{}, false
 }
 
-func (s *Server) evaluate(binding pack.MCPBinding, toolName, mode string, input map[string]any) evaluation {
-	original := cloneMap(input)
-	mutated := cloneMap(input)
-	policies := s.policiesFor(binding.Spec.CapabilityRef.Name)
-	reasons := mutate(mutated, policies)
-	reasons = append(reasons, validate(mutated, policies)...)
-	allowed := len(reasons) == 0
-	decision := "allow"
-	if !allowed {
-		decision = "deny"
-	}
-	eval := evaluation{
-		Tool:           toolName,
-		Mode:           mode,
-		Capability:     binding.Spec.CapabilityRef.Name,
-		PolicyDecision: decision,
-		Allowed:        allowed,
-		Reasons:        reasons,
-		OriginalInput:  original,
-		MutatedInput:   mutated,
-		PolicyRefs:     policyNames(policies),
-	}
-	if allowed {
-		eval.Next = s.nextCalls(binding.Spec.CapabilityRef.Name, mutated)
-	}
-	return eval
-}
-
-func (s *Server) nextCalls(capability string, input map[string]any) []nextCall {
-	var calls []nextCall
-	for _, binding := range s.loaded.MCPBindings {
-		if binding.Spec.CapabilityRef.Name != capability || binding.Spec.Strategy.Handler == "actlane.policy.evaluate" {
-			continue
-		}
-		for _, tool := range binding.Spec.RequiredTools {
-			call := nextCall{
-				Server:    tool.Server,
-				Tool:      tool.Server + "_" + tool.Name,
-				Arguments: map[string]any{},
-			}
-			switch tool.Name {
-			case "create_branch":
-				call.Arguments = pick(input, "repo", "baseBranch", "branch")
-			case "push_files":
-				call.Arguments = pick(input, "repo", "branch", "files")
-			case "create_pull_request":
-				call.Arguments = pick(input, "repo", "baseBranch", "branch", "title", "summary", "draft")
-			default:
-				call.Arguments = cloneMap(input)
-			}
-			calls = append(calls, call)
-		}
-	}
-	return calls
-}
-
-func (s *Server) policiesFor(capability string) []pack.Policy {
-	var policies []pack.Policy
-	for _, policy := range s.loaded.Policies {
-		for _, name := range policy.Spec.Match.Capabilities {
-			if name == capability {
-				policies = append(policies, policy)
-				break
-			}
-		}
-	}
-	return policies
-}
-
-func mutate(input map[string]any, policies []pack.Policy) []string {
-	var reasons []string
-	for _, policy := range policies {
-		for key, value := range policy.Spec.Mutate.Defaults {
-			if _, exists := input[key]; !exists {
-				input[key] = value
-			}
-		}
-		prefix := policy.Spec.Mutate.Ensure.BranchPrefix
-		if prefix != "" {
-			branch, _ := input["branch"].(string)
-			if branch == "" {
-				reasons = append(reasons, "branch is required")
-				continue
-			}
-			if !strings.HasPrefix(branch, prefix) {
-				input["branch"] = prefix + branch
-			}
-		}
-	}
-	return reasons
-}
-
-func validate(input map[string]any, policies []pack.Policy) []string {
-	var reasons []string
-	for _, policy := range policies {
-		confirmation := policy.Spec.Validate.Confirmation
-		if confirmation.Field != "" && input[confirmation.Field] != confirmation.MustBe {
-			reasons = append(reasons, fmt.Sprintf("%s must be %v", confirmation.Field, confirmation.MustBe))
-		}
-		if len(policy.Spec.Validate.RepoAllowlist) > 0 {
-			repo, _ := input["repo"].(string)
-			if !contains(policy.Spec.Validate.RepoAllowlist, repo) {
-				reasons = append(reasons, "repo is not allowlisted")
-			}
-		}
-		files := stringSlice(input["files"])
-		for _, file := range files {
-			if forbidden(file, policy.Spec.Validate.ForbidPaths) {
-				reasons = append(reasons, "file is forbidden: "+file)
-			}
-		}
-		if policy.Spec.Validate.Limits.MaxFiles > 0 && len(files) > policy.Spec.Validate.Limits.MaxFiles {
-			reasons = append(reasons, "too many files")
-		}
-		if policy.Spec.Validate.Limits.MaxDiffKB > 0 {
-			if diffKB, ok := number(input["diffKb"]); ok && int(diffKB) > policy.Spec.Validate.Limits.MaxDiffKB {
-				reasons = append(reasons, "diff is too large")
-			}
-		}
-	}
-	return reasons
-}
-
 func inputSchema() map[string]any {
 	return map[string]any{
-		"type": "object",
-		"properties": map[string]any{
-			"repo":       map[string]any{"type": "string"},
-			"baseBranch": map[string]any{"type": "string"},
-			"branch":     map[string]any{"type": "string"},
-			"title":      map[string]any{"type": "string"},
-			"summary":    map[string]any{"type": "string"},
-			"files":      map[string]any{"type": "array", "items": map[string]any{"type": "string"}},
-			"confirmed":  map[string]any{"type": "boolean"},
-			"diffKb":     map[string]any{"type": "number"},
-		},
+		"type":                 "object",
+		"additionalProperties": true,
 	}
 }
 
@@ -433,80 +305,4 @@ func generatedTools(binding pack.MCPBinding) []pack.MCPGeneratedTool {
 		return []pack.MCPGeneratedTool{binding.Spec.GeneratedTool}
 	}
 	return nil
-}
-
-func cloneMap(input map[string]any) map[string]any {
-	clone := map[string]any{}
-	for key, value := range input {
-		clone[key] = value
-	}
-	return clone
-}
-
-func pick(input map[string]any, keys ...string) map[string]any {
-	selected := map[string]any{}
-	for _, key := range keys {
-		if value, ok := input[key]; ok {
-			selected[key] = value
-		}
-	}
-	return selected
-}
-
-func policyNames(policies []pack.Policy) []string {
-	names := make([]string, 0, len(policies))
-	for _, policy := range policies {
-		names = append(names, policy.Metadata.Name)
-	}
-	return names
-}
-
-func stringSlice(value any) []string {
-	raw, ok := value.([]any)
-	if !ok {
-		return nil
-	}
-	values := make([]string, 0, len(raw))
-	for _, item := range raw {
-		text, ok := item.(string)
-		if ok {
-			values = append(values, text)
-		}
-	}
-	return values
-}
-
-func forbidden(file string, patterns []string) bool {
-	for _, pattern := range patterns {
-		if pattern == file {
-			return true
-		}
-		if strings.HasSuffix(pattern, "/**") && strings.HasPrefix(file, strings.TrimSuffix(pattern, "/**")+"/") {
-			return true
-		}
-		if ok, _ := path.Match(pattern, file); ok {
-			return true
-		}
-	}
-	return false
-}
-
-func contains(values []string, value string) bool {
-	for _, candidate := range values {
-		if candidate == value {
-			return true
-		}
-	}
-	return false
-}
-
-func number(value any) (float64, bool) {
-	switch typed := value.(type) {
-	case float64:
-		return typed, true
-	case int:
-		return float64(typed), true
-	default:
-		return 0, false
-	}
 }

@@ -1,13 +1,13 @@
 # Changelog
 
-## [0.3.0-alpha.1] - 2026-05-25
+## [0.3.0-alpha.2] - 2026-05-25
 
-Third SemVer-tagged CLI MVP release.
+Fourth SemVer-tagged CLI MVP release.
 
 SemVer rationale:
 
-- minor bump from `0.2.0-alpha.1` to `0.3.0-alpha.1` because the source contract model changed before `1.0.0`;
-- keeps the `alpha.1` prerelease channel because contract boundaries and generated target profiles are still pre-production.
+- prerelease bump from `0.3.0-alpha.1` to `0.3.0-alpha.2` because the evaluator runtime and CLI surface changed before `1.0.0`;
+- keeps the `alpha` prerelease channel because contract boundaries and generated target profiles are still pre-production.
 
 ### Changed
 
@@ -21,6 +21,11 @@ SemVer rationale:
 - Removed duplicated OpenCode prompt markdown sources from `capabilities/`.
 - Cleaned `CommandContract` and `AgentContract` so safety, output, permissions, and target projection logic stay in their owning contracts.
 - Added validation checks that reject contract-boundary violations such as target paths in `Capability`, generated MCP sections in `SkillContract`, CLI lifecycle fields in `ResponsibilityContract`, and exact MCP tools outside `MCPBinding`.
+- Added shared evaluator runtime for policy mutation/validation plus `ResponsibilityContract` risk, checks, evidence, human approval, stop, and MCP tool governance decisions.
+- Added `actlane check` for CLI/CI evaluation from a pack or generated `policy-bundle.json`.
+- Changed `actlane mcp serve` to call the same evaluator used by `actlane check` instead of owning policy evaluation logic.
+- Changed generated `policy-bundle.json` to include `ResponsibilityContract` input for self-contained runtime evaluation.
+- Removed GitHub-specific downstream argument shaping from the MCP server.
 - Updated brownfield import to emit target layout in `TargetProfile` instead of `Capability`.
 - Regenerated OpenCode and Codex outputs from the cleaned contract graph.
 - Updated architecture handoff documentation in `.bakaut/.agent`.

@@ -30,5 +30,5 @@ Future local policy checks should return:
 allow
 deny
 mutate
-requires-approval
+requires_approval
 ```

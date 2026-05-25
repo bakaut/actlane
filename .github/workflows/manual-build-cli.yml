@@ -6,11 +6,11 @@ on:
       tag:
         description: Release tag to create or update
         required: true
-        default: "v0.3.0-alpha.1"
+        default: "v0.3.0-alpha.2"
       release-name:
         description: Release title
         required: true
-        default: "Actlane CLI v0.3.0-alpha.1"
+        default: "Actlane CLI v0.3.0-alpha.2"
       go-version:
         description: Go version to use
         required: true

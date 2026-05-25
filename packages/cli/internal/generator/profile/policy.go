@@ -3,13 +3,14 @@ package profile
 import "github.com/actlane/actlane/packages/cli/internal/pack"
 
 type policyBundle struct {
-	Pack         string                   `json:"pack"`
-	Version      string                   `json:"version"`
-	Target       string                   `json:"target"`
-	Capabilities []string                 `json:"capabilities"`
-	Decisions    []string                 `json:"decisions"`
-	Rules        map[string]any           `json:"rules"`
-	MCPBindings  []policyBundleMCPBinding `json:"mcpBindings"`
+	Pack           string                       `json:"pack"`
+	Version        string                       `json:"version"`
+	Target         string                       `json:"target"`
+	Capabilities   []string                     `json:"capabilities"`
+	Decisions      []string                     `json:"decisions"`
+	Rules          map[string]any               `json:"rules"`
+	MCPBindings    []policyBundleMCPBinding     `json:"mcpBindings"`
+	Responsibility []policyBundleResponsibility `json:"responsibility,omitempty"`
 }
 
 type policyBundleMCPBinding struct {
@@ -18,6 +19,11 @@ type policyBundleMCPBinding struct {
 	Handler        string                  `json:"handler"`
 	GeneratedTools []pack.MCPGeneratedTool `json:"generatedTools,omitempty"`
 	RequiredTools  []pack.MCPToolBinding   `json:"requiredTools,omitempty"`
+}
+
+type policyBundleResponsibility struct {
+	Name string         `json:"name"`
+	Spec map[string]any `json:"spec"`
 }
 
 func collectRules(policies []pack.Policy) map[string]any {
@@ -66,6 +72,17 @@ func policyBundleMCPBindings(bindings []pack.MCPBinding) []policyBundleMCPBindin
 			Handler:        binding.Spec.Strategy.Handler,
 			GeneratedTools: generatedTools(binding),
 			RequiredTools:  binding.Spec.RequiredTools,
+		})
+	}
+	return out
+}
+
+func policyBundleResponsibilities(contracts []pack.ResponsibilityContract) []policyBundleResponsibility {
+	out := make([]policyBundleResponsibility, 0, len(contracts))
+	for _, contract := range contracts {
+		out = append(out, policyBundleResponsibility{
+			Name: contract.Metadata.Name,
+			Spec: contract.Spec,
 		})
 	}
 	return out

@@ -9,7 +9,7 @@ Actlane is currently a pre-alpha repository with a narrow Go CLI MVP. The most u
 - Open a `Try Actlane on my setup` issue with your current files and desired generated artifact.
 - Improve the `safe-gitops` example.
 - Improve the `create-github-draft-pr` MVP pack.
-- Add policy examples for allow, deny, mutate, and requires-approval.
+- Add policy examples for allow, deny, mutate, and requires_approval.
 - Point out where the docs overpromise implementation that does not exist yet.
 
 ## Contribution Rules

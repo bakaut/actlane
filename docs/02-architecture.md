@@ -39,7 +39,7 @@ Describes safety behavior:
 allow
 deny
 mutate
-requires-approval
+requires_approval
 audit
 limits
 forbidden paths

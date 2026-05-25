@@ -10,13 +10,14 @@ import (
 	"strings"
 
 	"github.com/actlane/actlane/packages/cli/internal/adoption"
+	"github.com/actlane/actlane/packages/cli/internal/evaluator"
 	"github.com/actlane/actlane/packages/cli/internal/generator/profile"
 	"github.com/actlane/actlane/packages/cli/internal/mcpserver"
 	"github.com/actlane/actlane/packages/cli/internal/pack"
 	"github.com/actlane/actlane/packages/cli/internal/schema"
 )
 
-const version = "0.3.0-alpha.1"
+const version = "0.3.0-alpha.2"
 
 func Main(args []string, stdout, stderr io.Writer) int {
 	return MainWithIO(args, os.Stdin, stdout, stderr)
@@ -42,6 +43,8 @@ func MainWithIO(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		return runPack(args[1:], stdout, stderr)
 	case "generate":
 		return runGenerate(args[1:], stdout, stderr)
+	case "check":
+		return runCheck(args[1:], stdin, stdout, stderr)
 	case "mcp":
 		return runMCP(args[1:], stdin, stdout, stderr)
 	case "schema":
@@ -418,6 +421,145 @@ func runMCP(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	return 0
 }
 
+func runCheck(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
+	packDir := "."
+	policyBundlePath := ""
+	inputPath := ""
+	capabilityName := ""
+	toolName := "actlane.check"
+	mode := "audit"
+	for i := 0; i < len(args); i++ {
+		switch args[i] {
+		case "--pack":
+			i++
+			if i >= len(args) {
+				fmt.Fprintln(stderr, "--pack requires a value")
+				return 2
+			}
+			packDir = args[i]
+		case "--policy-bundle":
+			i++
+			if i >= len(args) {
+				fmt.Fprintln(stderr, "--policy-bundle requires a value")
+				return 2
+			}
+			policyBundlePath = args[i]
+		case "--input":
+			i++
+			if i >= len(args) {
+				fmt.Fprintln(stderr, "--input requires a value")
+				return 2
+			}
+			inputPath = args[i]
+		case "--capability":
+			i++
+			if i >= len(args) {
+				fmt.Fprintln(stderr, "--capability requires a value")
+				return 2
+			}
+			capabilityName = args[i]
+		case "--tool":
+			i++
+			if i >= len(args) {
+				fmt.Fprintln(stderr, "--tool requires a value")
+				return 2
+			}
+			toolName = args[i]
+		case "--mode":
+			i++
+			if i >= len(args) {
+				fmt.Fprintln(stderr, "--mode requires a value")
+				return 2
+			}
+			mode = args[i]
+		default:
+			fmt.Fprintf(stderr, "unknown check flag %q\n", args[i])
+			return 2
+		}
+	}
+
+	loaded, err := loadedForCheck(packDir, policyBundlePath)
+	if err != nil {
+		fmt.Fprintf(stderr, "check failed: %v\n", err)
+		return 1
+	}
+	if capabilityName == "" {
+		if len(loaded.Capabilities) > 0 {
+			capabilityName = loaded.Capabilities[0].Metadata.Name
+		} else if len(loaded.Contracts) > 0 {
+			capabilityName = loaded.Contracts[0].Metadata.Name
+		}
+	}
+	if capabilityName == "" {
+		fmt.Fprintln(stderr, "check failed: capability is required")
+		return 1
+	}
+	input, err := readCheckInput(stdin, inputPath)
+	if err != nil {
+		fmt.Fprintf(stderr, "check failed: %v\n", err)
+		return 1
+	}
+	eval := evaluator.Evaluate(loaded, evaluator.Request{
+		Tool:       toolName,
+		Mode:       mode,
+		Capability: capabilityName,
+		Input:      input,
+	})
+	data, err := json.MarshalIndent(eval, "", "  ")
+	if err != nil {
+		fmt.Fprintf(stderr, "check failed: %v\n", err)
+		return 1
+	}
+	fmt.Fprintln(stdout, string(data))
+	if mode == "enforce" && !eval.Allowed {
+		return 1
+	}
+	return 0
+}
+
+func loadedForCheck(packDir, policyBundlePath string) (*pack.LoadedPack, error) {
+	if policyBundlePath != "" {
+		data, err := os.ReadFile(policyBundlePath)
+		if err != nil {
+			return nil, fmt.Errorf("read policy bundle: %w", err)
+		}
+		var bundle mcpserver.PolicyBundle
+		if err := json.Unmarshal(data, &bundle); err != nil {
+			return nil, fmt.Errorf("parse policy bundle: %w", err)
+		}
+		return mcpserver.LoadedFromPolicyBundle(bundle), nil
+	}
+	loaded, err := pack.Load(packDir)
+	if err != nil {
+		return nil, err
+	}
+	if err := pack.Validate(loaded); err != nil {
+		return nil, err
+	}
+	return loaded, nil
+}
+
+func readCheckInput(stdin io.Reader, inputPath string) (map[string]any, error) {
+	var data []byte
+	var err error
+	if inputPath != "" {
+		data, err = os.ReadFile(inputPath)
+	} else {
+		data, err = io.ReadAll(stdin)
+	}
+	if err != nil {
+		return nil, err
+	}
+	input := map[string]any{}
+	if len(strings.TrimSpace(string(data))) == 0 {
+		return input, nil
+	}
+	if err := json.Unmarshal(data, &input); err != nil {
+		return nil, fmt.Errorf("parse input JSON: %w", err)
+	}
+	return input, nil
+}
+
 func runValidate(args []string, stdout, stderr io.Writer) int {
 	if len(args) != 1 {
 		fmt.Fprintln(stderr, "usage: actlane validate <pack>")
@@ -573,7 +715,7 @@ func runSchema(args []string, stdout, stderr io.Writer) int {
 }
 
 func usage(w io.Writer) {
-	fmt.Fprintln(w, "usage: actlane <version|inspect|import|pack|validate|generate|mcp|schema>")
+	fmt.Fprintln(w, "usage: actlane <version|inspect|import|pack|validate|generate|check|mcp|schema>")
 }
 
 func isFlag(value string) bool {
