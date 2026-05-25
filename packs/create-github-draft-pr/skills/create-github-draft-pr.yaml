@@ -8,13 +8,6 @@ metadata:
 
 spec:
   body: |-
-    Security gate flow:
-
-    - Call `create_github_draft_pr_enforce` before any downstream GitHub MCP tool.
-    - If the gate returns `allowed: false` or `isError: true`, stop and report the policy reasons.
-    - If the gate returns `allowed: true`, use `mutatedInput` and the returned `next` calls for downstream MCP execution.
-    - Do not use original input for downstream MCP calls after mutation.
-
     Safely prepare a GitHub draft pull request from reviewed changes.
 
     When to use:
@@ -34,21 +27,3 @@ spec:
     - `create-branch`: Create a branch using the required safe prefix after confirmation.
     - `push-files`: Push reviewed files only after confirmation.
     - `create-draft-pr`: Create a GitHub draft pull request after confirmation.
-
-    Required inputs:
-
-    - repo
-    - baseBranch
-    - branch
-    - title
-    - summary
-    - files
-    - confirmed
-
-    MCP tools:
-
-    - `create_github_draft_pr_audit`
-    - `create_github_draft_pr_enforce`
-    - `github_create_branch`
-    - `github_create_pull_request`
-    - `github_push_files`

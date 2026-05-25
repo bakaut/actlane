@@ -5,6 +5,8 @@ import (
 	"path"
 	"regexp"
 	"strings"
+
+	"gopkg.in/yaml.v3"
 )
 
 var kebabName = regexp.MustCompile(`^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$`)
@@ -87,6 +89,13 @@ func Validate(loaded *LoadedPack) error {
 		bindings[binding.Metadata.Name] = true
 	}
 
+	contracts := map[string]bool{}
+	for _, contract := range loaded.Contracts {
+		if contract.Metadata.Name != "" {
+			contracts[contract.Metadata.Name] = true
+		}
+	}
+
 	skills := map[string]bool{}
 	for _, skill := range loaded.Skills {
 		if skill.APIVersion != "actlane.ru/v1alpha1" {
@@ -103,6 +112,9 @@ func Validate(loaded *LoadedPack) error {
 		}
 		if skill.Spec.Body == "" {
 			return fmt.Errorf("skill contract %s spec.body is required", skill.Metadata.Name)
+		}
+		if strings.Contains(skill.Spec.Body, "Required inputs:") || strings.Contains(skill.Spec.Body, "MCP tools:") {
+			return fmt.Errorf("skill contract %s must not embed generated input or MCP tool sections", skill.Metadata.Name)
 		}
 		if err := validateSkillResources(skill, "scripts", skill.Spec.Scripts); err != nil {
 			return err
@@ -137,6 +149,15 @@ func Validate(loaded *LoadedPack) error {
 		if agent.Spec.Role.Summary == "" {
 			return fmt.Errorf("agent contract %s spec.role.summary is required", agent.Metadata.Name)
 		}
+		if specHasKey(agent.Raw, "permissions") {
+			return fmt.Errorf("agent contract %s must not define spec.permissions; use ResponsibilityContract and TargetProfile mapping", agent.Metadata.Name)
+		}
+		if specHasKey(agent.Raw, "output") {
+			return fmt.Errorf("agent contract %s must not define spec.output; use Capability reporting or ResponsibilityContract evidence", agent.Metadata.Name)
+		}
+		if specHasKey(agent.Raw, "projections") {
+			return fmt.Errorf("agent contract %s must not define spec.projections; use TargetProfile files", agent.Metadata.Name)
+		}
 		for _, capabilityName := range agent.Spec.Capabilities.Allowed {
 			if !capabilities[capabilityName] {
 				return fmt.Errorf("agent contract %s references missing capability %s", agent.Metadata.Name, capabilityName)
@@ -147,10 +168,8 @@ func Validate(loaded *LoadedPack) error {
 				return fmt.Errorf("agent contract %s references missing skill %s", agent.Metadata.Name, skillName)
 			}
 		}
-		for target, projection := range agent.Spec.Projections {
-			if projection.Enabled && projection.Path == "" {
-				return fmt.Errorf("agent contract %s projection %s path is required", agent.Metadata.Name, target)
-			}
+		if agents[agent.Metadata.Name] {
+			return fmt.Errorf("duplicate agent contract %s", agent.Metadata.Name)
 		}
 		agents[agent.Metadata.Name] = true
 	}
@@ -177,13 +196,17 @@ func Validate(loaded *LoadedPack) error {
 		if command.Spec.Prompt.Template == "" {
 			return fmt.Errorf("command contract %s spec.prompt.template is required", command.Metadata.Name)
 		}
+		if specHasKey(command.Raw, "safety") {
+			return fmt.Errorf("command contract %s must not define spec.safety; use ToolCallPolicy and ResponsibilityContract", command.Metadata.Name)
+		}
+		if specHasKey(command.Raw, "output") {
+			return fmt.Errorf("command contract %s must not define spec.output; use Capability output and ResponsibilityContract evidence", command.Metadata.Name)
+		}
+		if specHasKey(command.Raw, "projections") {
+			return fmt.Errorf("command contract %s must not define spec.projections; use TargetProfile files", command.Metadata.Name)
+		}
 		if command.Spec.Arguments.Mode == "passthrough" && command.Spec.Arguments.Placeholder == "" {
 			return fmt.Errorf("command contract %s passthrough arguments require placeholder", command.Metadata.Name)
-		}
-		for target, projection := range command.Spec.Projections {
-			if projection.Enabled && projection.Path == "" {
-				return fmt.Errorf("command contract %s projection %s path is required", command.Metadata.Name, target)
-			}
 		}
 		if command.Spec.AgentRef.Name != "" && !agents[command.Spec.AgentRef.Name] {
 			return fmt.Errorf("command contract %s references missing agent %s", command.Metadata.Name, command.Spec.AgentRef.Name)
@@ -204,16 +227,11 @@ func Validate(loaded *LoadedPack) error {
 		if capability.Spec.WhenToUse == "" && len(capability.Spec.Intent.WhenToUse) == 0 {
 			return fmt.Errorf("capability %s usage guidance is required", capability.Metadata.Name)
 		}
-		if len(capabilityTargets(capability)) == 0 {
-			return fmt.Errorf("capability %s spec.targets is required", capability.Metadata.Name)
+		if len(capability.Spec.Profiles) > 0 {
+			return fmt.Errorf("capability %s must not define spec.profiles; use TargetProfile files", capability.Metadata.Name)
 		}
-		for _, target := range capabilityTargets(capability) {
-			if !targetProfiles[target] {
-				return fmt.Errorf("capability %s target %q has no target profile", capability.Metadata.Name, target)
-			}
-			if _, ok := capability.Spec.Profiles[target]; !ok && !capabilityProjectionEnabled(capability, target) {
-				return fmt.Errorf("capability %s missing spec.profiles.%s", capability.Metadata.Name, target)
-			}
+		if len(capability.Spec.MCP.Tools) > 0 {
+			return fmt.Errorf("capability %s must not define exact MCP tools; use MCPBinding", capability.Metadata.Name)
 		}
 		if len(capability.Spec.Inputs) == 0 && len(capability.Spec.Interface.Input) == 0 {
 			return fmt.Errorf("capability %s spec.inputs is required", capability.Metadata.Name)
@@ -232,23 +250,45 @@ func Validate(loaded *LoadedPack) error {
 		if capability.Spec.ExecutionRef.Name != "" && !bindings[capability.Spec.ExecutionRef.Name] {
 			return fmt.Errorf("capability %s references missing mcp binding %s", capability.Metadata.Name, capability.Spec.ExecutionRef.Name)
 		}
-		if capability.Spec.Projections.OpenCode.Command != "" && !commands[capability.Spec.Projections.OpenCode.Command] {
-			return fmt.Errorf("capability %s references missing command contract %s", capability.Metadata.Name, capability.Spec.Projections.OpenCode.Command)
+		if capability.Spec.ResponsibilityRef.Name != "" && !contracts[capability.Spec.ResponsibilityRef.Name] {
+			return fmt.Errorf("capability %s references missing responsibility contract %s", capability.Metadata.Name, capability.Spec.ResponsibilityRef.Name)
 		}
-		if capability.Spec.Projections.OpenCode.Agent != "" && !agents[capability.Spec.Projections.OpenCode.Agent] {
-			return fmt.Errorf("capability %s references missing agent contract %s", capability.Metadata.Name, capability.Spec.Projections.OpenCode.Agent)
+	}
+
+	for _, contract := range loaded.Contracts {
+		if contract.APIVersion != "actlane.ru/v1alpha1" {
+			return fmt.Errorf("responsibility contract %s apiVersion must be actlane.ru/v1alpha1", contract.Metadata.Name)
 		}
-		for target, profile := range capability.Spec.Profiles {
-			for _, file := range profile.Files {
-				if file.SkillContract != "" && !skills[file.SkillContract] {
-					return fmt.Errorf("capability %s profile %s references missing skill contract %s", capability.Metadata.Name, target, file.SkillContract)
-				}
-				if file.CommandContract != "" && !commands[file.CommandContract] {
-					return fmt.Errorf("capability %s profile %s references missing command contract %s", capability.Metadata.Name, target, file.CommandContract)
-				}
-				if file.AgentContract != "" && !agents[file.AgentContract] {
-					return fmt.Errorf("capability %s profile %s references missing agent contract %s", capability.Metadata.Name, target, file.AgentContract)
-				}
+		if contract.Kind != "ResponsibilityContract" {
+			return fmt.Errorf("responsibility contract %s kind must be ResponsibilityContract", contract.Metadata.Name)
+		}
+		if contract.Metadata.Name == "" {
+			return fmt.Errorf("responsibility contract metadata.name is required")
+		}
+		if specHasKey(contract.Raw, "ci") {
+			return fmt.Errorf("responsibility contract %s must not define spec.ci; keep CI implementation outside the responsibility contract", contract.Metadata.Name)
+		}
+		if specHasKey(contract.Raw, "acceptanceCriteria") {
+			return fmt.Errorf("responsibility contract %s must not define spec.acceptanceCriteria; use docs or tests", contract.Metadata.Name)
+		}
+		if responsibilityHasExactMCPTools(contract.Raw) {
+			return fmt.Errorf("responsibility contract %s must not define exact MCP tools; use MCPBinding", contract.Metadata.Name)
+		}
+	}
+
+	for _, targetProfile := range loaded.TargetProfiles {
+		for _, file := range targetProfileFiles(targetProfile) {
+			if file.SkillContract != "" && !skills[file.SkillContract] {
+				return fmt.Errorf("target profile %s references missing skill contract %s", targetProfile.Metadata.Name, file.SkillContract)
+			}
+			if file.CommandContract != "" && !commands[file.CommandContract] {
+				return fmt.Errorf("target profile %s references missing command contract %s", targetProfile.Metadata.Name, file.CommandContract)
+			}
+			if file.AgentContract != "" && !agents[file.AgentContract] {
+				return fmt.Errorf("target profile %s references missing agent contract %s", targetProfile.Metadata.Name, file.AgentContract)
+			}
+			if countTargetFileGenerators(file) > 1 {
+				return fmt.Errorf("target profile %s file %q must use at most one generator", targetProfile.Metadata.Name, file.TargetPath)
 			}
 		}
 	}
@@ -267,6 +307,61 @@ func Validate(loaded *LoadedPack) error {
 	}
 
 	return nil
+}
+
+func specHasKey(raw []byte, key string) bool {
+	spec, ok := rawSpec(raw)
+	if !ok {
+		return false
+	}
+	_, exists := spec[key]
+	return exists
+}
+
+func rawSpec(raw []byte) (map[string]any, bool) {
+	var doc map[string]any
+	if err := yaml.Unmarshal(raw, &doc); err != nil {
+		return nil, false
+	}
+	spec, ok := doc["spec"].(map[string]any)
+	return spec, ok
+}
+
+func responsibilityHasExactMCPTools(raw []byte) bool {
+	spec, ok := rawSpec(raw)
+	if !ok {
+		return false
+	}
+	tools, ok := spec["tools"].(map[string]any)
+	if !ok {
+		return false
+	}
+	mcp, ok := tools["mcp"].(map[string]any)
+	if !ok {
+		return false
+	}
+	if _, ok := mcp["servers"]; ok {
+		return true
+	}
+	return containsKeyDeep(mcp, "allowedTools") || containsKeyDeep(mcp, "deniedTools")
+}
+
+func containsKeyDeep(value any, key string) bool {
+	switch typed := value.(type) {
+	case map[string]any:
+		for k, v := range typed {
+			if k == key || containsKeyDeep(v, key) {
+				return true
+			}
+		}
+	case []any:
+		for _, item := range typed {
+			if containsKeyDeep(item, key) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func validateSkillResources(skill SkillContract, group string, resources []SkillResource) error {
@@ -318,4 +413,32 @@ func capabilityPolicies(capability Capability) []string {
 		return []string{capability.Spec.PolicyRef.Name}
 	}
 	return nil
+}
+
+func targetProfileFiles(targetProfile TargetProfile) []TargetProfileFile {
+	switch targetProfile.Spec.Target {
+	case "codex":
+		return targetProfile.Spec.Codex.Files
+	case "opencode":
+		return targetProfile.Spec.OpenCode.Files
+	default:
+		return nil
+	}
+}
+
+func countTargetFileGenerators(file TargetProfileFile) int {
+	count := 0
+	if file.Source != "" {
+		count++
+	}
+	if file.SkillContract != "" {
+		count++
+	}
+	if file.CommandContract != "" {
+		count++
+	}
+	if file.AgentContract != "" {
+		count++
+	}
+	return count
 }

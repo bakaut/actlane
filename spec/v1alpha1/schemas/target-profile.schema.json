@@ -82,6 +82,10 @@
                 "properties": {
                   "targetPath": { "type": "string" },
                   "generatedPath": { "type": "string" },
+                  "source": { "type": "string" },
+                  "skillContract": { "type": "string" },
+                  "commandContract": { "type": "string" },
+                  "agentContract": { "type": "string" },
                   "owned": { "type": "boolean" },
                   "ownedBlock": { "type": "boolean" }
                 },
@@ -127,6 +131,10 @@
                 "properties": {
                   "targetPath": { "type": "string" },
                   "generatedPath": { "type": "string" },
+                  "source": { "type": "string" },
+                  "skillContract": { "type": "string" },
+                  "commandContract": { "type": "string" },
+                  "agentContract": { "type": "string" },
                   "owned": { "type": "boolean" },
                   "ownedBlock": { "type": "boolean" }
                 },

@@ -74,6 +74,10 @@
           "type": "array",
           "items": { "type": "string" }
         },
+        "contracts": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
         "policies": {
           "type": "array",
           "minItems": 1,

@@ -21,6 +21,74 @@ func TestValidateGithubDraftPROpenCodePack(t *testing.T) {
 	}
 }
 
+func TestValidateContractBoundaries(t *testing.T) {
+	cases := []struct {
+		name string
+		path string
+		edit func(string) string
+		want string
+	}{
+		{
+			name: "capability-target-profile",
+			path: "capabilities/create-github-draft-pr.yaml",
+			edit: func(content string) string {
+				return content + "\n  profiles:\n    opencode:\n      config: {}\n      files:\n        - path: .opencode/skills/create-github-draft-pr/SKILL.md\n          skillContract: create-github-draft-pr\n"
+			},
+			want: "must not define spec.profiles",
+		},
+		{
+			name: "skill-generated-mcp-section",
+			path: "skills/create-github-draft-pr.yaml",
+			edit: func(content string) string {
+				return strings.Replace(content, "    Workflow:\n", "    MCP tools:\n\n    - `github_create_pull_request`\n\n    Workflow:\n", 1)
+			},
+			want: "must not embed generated input or MCP tool sections",
+		},
+		{
+			name: "command-safety",
+			path: "commands/create-github-draft-pr.yaml",
+			edit: func(content string) string {
+				return content + "\n  safety:\n    requirePolicy: true\n"
+			},
+			want: "must not define spec.safety",
+		},
+		{
+			name: "agent-permissions",
+			path: "subagents/create-github-draft-pr.yaml",
+			edit: func(content string) string {
+				return content + "\n  permissions:\n    bash: ask\n"
+			},
+			want: "must not define spec.permissions",
+		},
+		{
+			name: "responsibility-acceptance-criteria",
+			path: "contracts/create-github-draft-pr.yaml",
+			edit: func(content string) string {
+				return content + "\n  acceptanceCriteria:\n    - keep out of runtime contract\n"
+			},
+			want: "must not define spec.acceptanceCriteria",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			packDir := copyPackToTemp(t)
+			target := filepath.Join(packDir, tc.path)
+			content := readFile(t, target)
+			if err := os.WriteFile(target, []byte(tc.edit(content)), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			var stdout, stderr bytes.Buffer
+			code := Main([]string{"validate", packDir}, &stdout, &stderr)
+			if code == 0 {
+				t.Fatalf("validate should fail for %s", tc.name)
+			}
+			if !strings.Contains(stderr.String(), tc.want) {
+				t.Fatalf("validate error missing %q\nstdout:\n%s\nstderr:\n%s", tc.want, stdout.String(), stderr.String())
+			}
+		})
+	}
+}
+
 func TestGenerateOpenCodeWritesOnlyGeneratedOutput(t *testing.T) {
 	packDir := copyPackToTemp(t)
 	var stdout, stderr bytes.Buffer
@@ -102,12 +170,10 @@ func TestGenerateOpenCodeWritesOnlyGeneratedOutput(t *testing.T) {
 	agent := readFile(t, filepath.Join(packDir, "generated/opencode/.opencode/agents/github-draft-pr.md"))
 	for _, want := range []string{
 		"mode: subagent",
-		"permission:",
 		"Prepare GitHub draft pull requests through Actlane capabilities.",
 		"Use capability `create-github-draft-pr`.",
 		"Use skill `create-github-draft-pr`.",
 		"Raw MCP tools default: `deny`.",
-		"Output must include:",
 	} {
 		if !strings.Contains(agent, want) {
 			t.Fatalf("generated OpenCode agent missing %q:\n%s", want, agent)
@@ -118,7 +184,7 @@ func TestGenerateOpenCodeWritesOnlyGeneratedOutput(t *testing.T) {
 	for _, want := range []string{
 		"name: \"create-github-draft-pr\"",
 		"description: \"Safely prepare a GitHub draft pull request from reviewed changes.\"",
-		"Security gate flow:",
+		"Policy gate tools:",
 	} {
 		if !strings.Contains(skill, want) {
 			t.Fatalf("generated OpenCode skill missing %q:\n%s", want, skill)
@@ -136,7 +202,7 @@ func TestGenerateOpenCodeWritesOnlyGeneratedOutput(t *testing.T) {
 	if !strings.Contains(lockfile, "commands/create-github-draft-pr.yaml") {
 		t.Fatalf("generated lockfile should include command contract source digest:\n%s", lockfile)
 	}
-	if !strings.Contains(lockfile, "agents/create-github-draft-pr.yaml") {
+	if !strings.Contains(lockfile, "subagents/create-github-draft-pr.yaml") {
 		t.Fatalf("generated lockfile should include agent contract source digest:\n%s", lockfile)
 	}
 
@@ -225,7 +291,7 @@ func TestGenerateCodexWritesCodexProfile(t *testing.T) {
 	for _, want := range []string{
 		"name: \"create-github-draft-pr\"",
 		"description: \"Safely prepare a GitHub draft pull request from reviewed changes.\"",
-		"Security gate flow:",
+		"Policy gate tools:",
 		"`create_github_draft_pr_enforce`",
 		"`github_create_pull_request`",
 	} {

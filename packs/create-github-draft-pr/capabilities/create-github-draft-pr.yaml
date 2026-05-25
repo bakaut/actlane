@@ -80,53 +80,10 @@ spec:
   executionRef:
     name: github-mcp-draft-pr
 
-  workflowHints:
-    - step: inspect-project
-      purpose: Inspect current repository, existing agent files, and target agent config before mutation.
-    - step: run-tests
-      purpose: Run project test command when configured by the user or project.
-    - step: create-branch
-      purpose: Create a branch using the required safe prefix after confirmation.
-    - step: push-files
-      purpose: Push reviewed files only after confirmation.
-    - step: create-draft-pr
-      purpose: Create a GitHub draft pull request after confirmation.
-
-  projections:
-
-    mcp:
-      enabled: true
-      toolName: create_github_draft_pr
-
-    codex:
-      enabled: true
-      skill: create-github-draft-pr
-
-    opencode:
-      enabled: true
-      command: create-github-draft-pr
-      agent: github-draft-pr
+  responsibilityRef:
+    name: create-github-draft-pr
 
   reporting:
     includeChangedFiles: true
     includePolicyDecision: true
     includePrUrl: true
-
-  profiles:
-    codex:
-      config: {}
-      files:
-        - path: .codex/skills/create-github-draft-pr/SKILL.md
-          skillContract: create-github-draft-pr
-
-    opencode:
-      config: {}
-      files:
-        - path: .opencode/commands/create-github-draft-pr.md
-          commandContract: create-github-draft-pr
-
-        - path: .opencode/agents/github-draft-pr.md
-          agentContract: github-draft-pr
-
-        - path: .opencode/skills/create-github-draft-pr/SKILL.md
-          skillContract: create-github-draft-pr

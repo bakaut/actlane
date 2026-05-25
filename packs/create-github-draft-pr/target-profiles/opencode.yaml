@@ -57,12 +57,15 @@ spec:
 
       - targetPath: .opencode/commands/create-github-draft-pr.md
         generatedPath: generated/opencode/.opencode/commands/create-github-draft-pr.md
+        commandContract: create-github-draft-pr
         owned: true
 
       - targetPath: .opencode/agents/github-draft-pr.md
         generatedPath: generated/opencode/.opencode/agents/github-draft-pr.md
+        agentContract: github-draft-pr
         owned: true
 
       - targetPath: .opencode/skills/create-github-draft-pr/SKILL.md
         generatedPath: generated/opencode/.opencode/skills/create-github-draft-pr/SKILL.md
+        skillContract: create-github-draft-pr
         owned: true

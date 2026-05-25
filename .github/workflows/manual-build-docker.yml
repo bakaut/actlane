@@ -4,13 +4,13 @@ on:
   workflow_dispatch:
     inputs:
       image:
-        description: OCI image name
-        required: true
-        default: ghcr.io/actlane/actlane
+        description: OCI image name. Leave empty to use ghcr.io/<owner>/<repo>.
+        required: false
+        default: ""
       tag:
         description: Image tag
         required: true
-        default: 0.2.0-alpha.1
+        default: 0.3.0-alpha.1
       push:
         description: Push image to registry
         required: true
@@ -47,6 +47,18 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ github.token }}
 
+      - name: Resolve image name
+        id: image
+        shell: bash
+        run: |
+          image="${{ inputs.image }}"
+          if [[ -z "$image" ]]; then
+            image="ghcr.io/${GITHUB_REPOSITORY}"
+          fi
+          image="$(echo "$image" | tr '[:upper:]' '[:lower:]')"
+          echo "image=$image" >> "$GITHUB_OUTPUT"
+          echo "Using image: $image"
+
       - name: Build and optionally push
         uses: docker/build-push-action@v6
         with:
@@ -55,8 +67,8 @@ jobs:
           platforms: ${{ inputs.platforms }}
           push: ${{ inputs.push }}
           tags: |
-            ${{ inputs.image }}:${{ inputs.tag }}
-            ${{ inputs.image }}:latest
+            ${{ steps.image.outputs.image }}:${{ inputs.tag }}
+            ${{ steps.image.outputs.image }}:latest
           labels: |
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
             org.opencontainers.image.version=${{ inputs.tag }}

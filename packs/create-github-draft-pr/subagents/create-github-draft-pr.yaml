@@ -29,23 +29,3 @@ spec:
     strategy: capability-only
     rawMcpTools:
       default: deny
-
-  permissions:
-    bash: ask
-    edit: ask
-    skill: allow
-    network: deny
-
-  output:
-    mustInclude:
-      - prUrl
-      - branch
-      - changedFiles
-      - policyDecision
-      - testStatus
-      - summary
-
-  projections:
-    opencode:
-      enabled: true
-      path: .opencode/agents/github-draft-pr.md

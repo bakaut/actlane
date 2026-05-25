@@ -16,10 +16,12 @@ create-safe-draft-pr
 - input schema;
 - output schema;
 - policy references;
-- underlying tool mapping;
-- generated target artifacts;
+- execution binding reference;
+- optional responsibility contract reference;
 - reporting contract for the agent.
 
-## Phase 0 Boundary
+## Boundary
 
-This kind is a contract sketch. No CLI validation is implemented yet.
+`Capability` must not own target-specific file layout, generated paths, prompts for a specific runtime, or exact MCP server/tool wiring.
+
+Use `TargetProfile` for generated file layout, `SkillContract` for skill content, `CommandContract` for command entrypoints, `AgentContract` for role boundaries, `MCPBinding` for real tools, and `ToolCallPolicy` for enforcement.

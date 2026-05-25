@@ -41,13 +41,13 @@ actlane version
 Install options:
 
 ```bash
-ACTLANE_VERSION=v0.2.0-alpha.1 ACTLANE_INSTALL_DIR="$HOME/.local/bin" sh -c "$(curl -fsSL https://actlane.ru/install.sh)"
+ACTLANE_VERSION=v0.3.0-alpha.1 ACTLANE_INSTALL_DIR="$HOME/.local/bin" sh -c "$(curl -fsSL https://actlane.ru/install.sh)"
 ```
 
 Docker:
 
 ```bash
-docker run --rm ghcr.io/actlane/actlane:0.2.0-alpha.1 version
+docker run --rm ghcr.io/bakaut/actlane:0.3.0-alpha.1 version
 ```
 
 ## Quick Start
@@ -159,6 +159,7 @@ packages/  Go CLI and future package boundaries
 - [docs/01-concept.md](docs/01-concept.md)
 - [docs/02-architecture.md](docs/02-architecture.md)
 - [docs/04-brownfield-adoption.md](docs/04-brownfield-adoption.md)
+- [docs/09-responsibility-contract.md](docs/09-responsibility-contract.md)
 
 ## Feedback
 

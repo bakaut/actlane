@@ -43,4 +43,5 @@ spec:
 
       - targetPath: .codex/skills/create-github-draft-pr/SKILL.md
         generatedPath: generated/codex/.codex/skills/create-github-draft-pr/SKILL.md
+        skillContract: create-github-draft-pr
         owned: true

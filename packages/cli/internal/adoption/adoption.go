@@ -446,7 +446,7 @@ func writeImportedPack(from, out string, d Discovery) ([]string, error) {
 			return nil, err
 		}
 	}
-	if err := write("target-profiles/opencode.yaml", importedOpenCodeTarget(d)); err != nil {
+	if err := write("target-profiles/opencode.yaml", importedOpenCodeTarget(d, skillName, commandName, agentName)); err != nil {
 		return nil, err
 	}
 	if err := write("target-profiles/codex.yaml", importedCodexTarget(skillName)); err != nil {
@@ -491,32 +491,15 @@ func importedManifest(capabilityName, skillName, commandName, agentName string, 
 	if len(d.MCPServers) > 0 {
 		spec["mcpBindings"] = []string{"mcp/bindings/" + capabilityName + ".yaml"}
 	}
-	return doc("CapabilityPack", "imported-"+d.Runtime+"-pack", "0.2.0-alpha.1", "Imported "+d.Runtime+" project.", spec, importedAnnotations(d, "", false))
+	return doc("CapabilityPack", "imported-"+d.Runtime+"-pack", "0.3.0-alpha.1", "Imported "+d.Runtime+" project.", spec, importedAnnotations(d, "", false))
 }
 
 func importedCapability(name, skillName, commandName, agentName, policyName string, d Discovery) map[string]any {
-	filesOpenCode := []map[string]any{}
-	if commandName != "" {
-		filesOpenCode = append(filesOpenCode, map[string]any{"path": ".opencode/commands/" + commandName + ".md", "commandContract": commandName})
-	}
-	if agentName != "" {
-		filesOpenCode = append(filesOpenCode, map[string]any{"path": ".opencode/agents/" + agentName + ".md", "agentContract": agentName})
-	}
-	filesOpenCode = append(filesOpenCode, map[string]any{"path": ".opencode/skills/" + skillName + "/SKILL.md", "skillContract": skillName})
 	spec := map[string]any{
 		"whenToUse": "Use this imported capability when the user asks for the matching OpenCode workflow.",
-		"targets":   []string{"opencode", "codex"},
 		"inputs":    map[string]any{"request": map[string]any{"type": "string", "required": true}},
 		"outputs":   map[string]any{"summary": map[string]any{"type": "string"}},
-		"policies":  []string{policyName},
-		"projections": map[string]any{
-			"opencode": map[string]any{"enabled": true, "command": commandName, "agent": agentName},
-			"codex":    map[string]any{"enabled": true, "skill": skillName},
-		},
-		"profiles": map[string]any{
-			"opencode": map[string]any{"config": map[string]any{}, "files": filesOpenCode},
-			"codex":    map[string]any{"config": map[string]any{}, "files": []map[string]any{{"path": ".codex/skills/" + skillName + "/SKILL.md", "skillContract": skillName}}},
-		},
+		"policyRef": map[string]any{"name": policyName},
 	}
 	if len(d.MCPServers) > 0 {
 		spec["executionRef"] = map[string]any{"name": name}
@@ -556,8 +539,6 @@ func importedCommand(name, capabilityName, skillName, agentName string, d Discov
 		"skillRef":      map[string]any{"path": ".opencode/skills/" + skillName + "/SKILL.md"},
 		"arguments":     map[string]any{"mode": "passthrough", "placeholder": "{{ input }}", "description": "User request passed to the imported command."},
 		"prompt":        map[string]any{"template": body},
-		"output":        map[string]any{"expected": []string{"summary"}},
-		"projections":   map[string]any{"opencode": map[string]any{"enabled": true, "path": ".opencode/commands/" + name + ".md"}},
 	}
 	if agentName != "" {
 		spec["agentRef"] = map[string]any{"name": agentName, "optional": true}
@@ -581,9 +562,6 @@ func importedAgent(name, capabilityName, skillName string, d Discovery) map[stri
 		"activation":   map[string]any{"whenToUse": []string{"Use when the imported OpenCode command delegates to this agent."}},
 		"capabilities": map[string]any{"allowed": []string{capabilityName}},
 		"skills":       map[string]any{"allowed": []string{skillName}},
-		"permissions":  d.Permissions,
-		"output":       map[string]any{"mustInclude": []string{"summary"}},
-		"projections":  map[string]any{"opencode": map[string]any{"enabled": true, "path": ".opencode/agents/" + name + ".md"}},
 	}
 	return doc("AgentContract", name, "", desc, spec, importedAnnotations(d, source, false))
 }
@@ -642,11 +620,22 @@ func importedMCPBinding(capabilityName string, d Discovery) map[string]any {
 	return doc("MCPBinding", capabilityName, "", "Inferred imported MCP binding.", spec, importedAnnotations(d, "opencode.jsonc", true))
 }
 
-func importedOpenCodeTarget(d Discovery) map[string]any {
+func importedOpenCodeTarget(d Discovery, skillName, commandName, agentName string) map[string]any {
 	permission := d.Permissions
 	if len(permission) == 0 {
 		permission = map[string]string{"bash": "ask", "edit": "ask", "skill": "allow"}
 	}
+	files := []map[string]any{
+		{"targetPath": "AGENTS.md", "generatedPath": "generated/opencode/AGENTS.md", "ownedBlock": true},
+		{"targetPath": "opencode.jsonc", "generatedPath": "generated/opencode/opencode.jsonc", "owned": true},
+	}
+	if commandName != "" {
+		files = append(files, map[string]any{"targetPath": ".opencode/commands/" + commandName + ".md", "generatedPath": "generated/opencode/.opencode/commands/" + commandName + ".md", "commandContract": commandName, "owned": true})
+	}
+	if agentName != "" {
+		files = append(files, map[string]any{"targetPath": ".opencode/agents/" + agentName + ".md", "generatedPath": "generated/opencode/.opencode/agents/" + agentName + ".md", "agentContract": agentName, "owned": true})
+	}
+	files = append(files, map[string]any{"targetPath": ".opencode/skills/" + skillName + "/SKILL.md", "generatedPath": "generated/opencode/.opencode/skills/" + skillName + "/SKILL.md", "skillContract": skillName, "owned": true})
 	spec := map[string]any{
 		"target": "opencode", "scope": "project",
 		"output":  map[string]any{"root": "generated/opencode"},
@@ -654,7 +643,7 @@ func importedOpenCodeTarget(d Discovery) map[string]any {
 		"generate": map[string]any{
 			"config": true, "instructions": true, "agents": true, "commands": true, "skills": true, "mcp": len(d.MCPServers) > 0,
 		},
-		"opencode": map[string]any{"config": map[string]any{"filename": "opencode.jsonc", "schema": "https://opencode.ai/config.json", "instructions": []string{"AGENTS.md"}, "permission": permission}},
+		"opencode": map[string]any{"config": map[string]any{"filename": "opencode.jsonc", "schema": "https://opencode.ai/config.json", "instructions": []string{"AGENTS.md"}, "permission": permission}, "files": files},
 	}
 	return doc("TargetProfile", "opencode", "", "OpenCode project-local target.", spec, importedAnnotations(d, "opencode.jsonc", false))
 }
@@ -667,7 +656,10 @@ func importedCodexTarget(skillName string) map[string]any {
 		"generate": map[string]any{
 			"config": true, "instructions": true, "agents": false, "commands": false, "skills": true, "mcp": false,
 		},
-		"codex": map[string]any{"config": map[string]any{"filename": "codex.config.toml"}},
+		"codex": map[string]any{"config": map[string]any{"filename": "codex.config.toml"}, "files": []map[string]any{
+			{"targetPath": "AGENTS.md", "generatedPath": "generated/codex/AGENTS.md", "ownedBlock": true},
+			{"targetPath": ".codex/skills/" + skillName + "/SKILL.md", "generatedPath": "generated/codex/.codex/skills/" + skillName + "/SKILL.md", "skillContract": skillName, "owned": true},
+		}},
 	}
 	return doc("TargetProfile", "codex", "", "Codex project-local target.", spec, nil)
 }

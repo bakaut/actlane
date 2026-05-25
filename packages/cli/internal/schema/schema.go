@@ -11,6 +11,7 @@ var schemaFiles = map[string]string{
 	"capability":       "capability.schema.json",
 	"capability-pack":  "capability-pack.schema.json",
 	"command-contract": "command-contract.schema.json",
+	"contract":         "contract.schema.json",
 	"mcp-binding":      "mcp-binding.schema.json",
 	"skill-contract":   "skill-contract.schema.json",
 	"target-profile":   "target-profile.schema.json",

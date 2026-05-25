@@ -25,6 +25,7 @@ type PackSpec struct {
 	Skills          []string       `yaml:"skills"`
 	Commands        []string       `yaml:"commands"`
 	Agents          []string       `yaml:"agents"`
+	Contracts       []string       `yaml:"contracts"`
 	Policies        []string       `yaml:"policies"`
 	MCPBindings     []string       `yaml:"mcpBindings"`
 	Targets         []string       `yaml:"targets"`
@@ -59,22 +60,23 @@ type Capability struct {
 }
 
 type CapabilitySpec struct {
-	Intent        CapabilityIntent             `yaml:"intent"`
-	Interface     CapabilityInterface          `yaml:"interface"`
-	PolicyRef     LocalRef                     `yaml:"policyRef"`
-	ExecutionRef  LocalRef                     `yaml:"executionRef"`
-	WorkflowHints []WorkflowHint               `yaml:"workflowHints"`
-	Projections   CapabilityProjections        `yaml:"projections"`
-	Reporting     map[string]bool              `yaml:"reporting"`
-	WhenToUse     string                       `yaml:"whenToUse"`
-	Targets       []string                     `yaml:"targets"`
-	Inputs        map[string]Field             `yaml:"inputs"`
-	Outputs       map[string]Field             `yaml:"outputs"`
-	Policies      []string                     `yaml:"policies"`
-	ToolFlow      []ToolFlowStep               `yaml:"toolFlow"`
-	MCP           MCPSpec                      `yaml:"mcp"`
-	Profiles      map[string]CapabilityProfile `yaml:"profiles"`
-	Extra         map[string]any               `yaml:",inline"`
+	Intent            CapabilityIntent             `yaml:"intent"`
+	Interface         CapabilityInterface          `yaml:"interface"`
+	PolicyRef         LocalRef                     `yaml:"policyRef"`
+	ExecutionRef      LocalRef                     `yaml:"executionRef"`
+	ResponsibilityRef LocalRef                     `yaml:"responsibilityRef"`
+	WorkflowHints     []WorkflowHint               `yaml:"workflowHints"`
+	Projections       CapabilityProjections        `yaml:"projections"`
+	Reporting         map[string]bool              `yaml:"reporting"`
+	WhenToUse         string                       `yaml:"whenToUse"`
+	Targets           []string                     `yaml:"targets"`
+	Inputs            map[string]Field             `yaml:"inputs"`
+	Outputs           map[string]Field             `yaml:"outputs"`
+	Policies          []string                     `yaml:"policies"`
+	ToolFlow          []ToolFlowStep               `yaml:"toolFlow"`
+	MCP               MCPSpec                      `yaml:"mcp"`
+	Profiles          map[string]CapabilityProfile `yaml:"profiles"`
+	Extra             map[string]any               `yaml:",inline"`
 }
 
 type Field struct {
@@ -379,10 +381,14 @@ type TargetProfileMCPServerConfig struct {
 }
 
 type TargetProfileFile struct {
-	TargetPath    string `yaml:"targetPath"`
-	GeneratedPath string `yaml:"generatedPath"`
-	Owned         bool   `yaml:"owned"`
-	OwnedBlock    bool   `yaml:"ownedBlock"`
+	TargetPath      string `yaml:"targetPath"`
+	GeneratedPath   string `yaml:"generatedPath"`
+	Source          string `yaml:"source"`
+	SkillContract   string `yaml:"skillContract"`
+	CommandContract string `yaml:"commandContract"`
+	AgentContract   string `yaml:"agentContract"`
+	Owned           bool   `yaml:"owned"`
+	OwnedBlock      bool   `yaml:"ownedBlock"`
 }
 
 type TargetProfileTransforms struct {
@@ -459,6 +465,13 @@ type PolicyAudit struct {
 	Include []string `yaml:"include" json:"include"`
 }
 
+type ResponsibilityContract struct {
+	Document `yaml:",inline"`
+	Spec     map[string]any `yaml:"spec"`
+	Path     string         `yaml:"-"`
+	Raw      []byte         `yaml:"-"`
+}
+
 type MCPBinding struct {
 	Document `yaml:",inline"`
 	Spec     MCPBindingSpec `yaml:"spec"`
@@ -510,6 +523,7 @@ type LoadedPack struct {
 	Skills         []SkillContract
 	Commands       []CommandContract
 	Agents         []AgentContract
+	Contracts      []ResponsibilityContract
 	Policies       []Policy
 	MCPBindings    []MCPBinding
 	TargetProfiles []TargetProfile

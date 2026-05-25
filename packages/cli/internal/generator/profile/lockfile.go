@@ -10,7 +10,7 @@ import (
 	"github.com/actlane/actlane/packages/cli/internal/pack"
 )
 
-const generatorVersion = "actlane-go-profile-0.2.0-alpha.1"
+const generatorVersion = "actlane-go-profile-0.3.0-alpha.1"
 
 type lockfile struct {
 	LockfileVersion int                   `json:"lockfileVersion"`
@@ -31,19 +31,21 @@ type generatedFileRecord struct {
 func profileSources(loaded *pack.LoadedPack) []string {
 	seen := map[string]bool{}
 	var sources []string
-	for _, capability := range loaded.Capabilities {
-		for _, profile := range capability.Spec.Profiles {
-			for _, file := range profile.Files {
-				if file.Source == "" {
-					continue
-				}
-				source, err := profileSourcePath(loaded.Root, capability.Path, file.Source)
-				if err != nil || seen[source] {
-					continue
-				}
-				seen[source] = true
-				sources = append(sources, source)
+	if len(loaded.Capabilities) == 0 {
+		return nil
+	}
+	capability := loaded.Capabilities[0]
+	for _, targetProfile := range loaded.TargetProfiles {
+		for _, file := range targetProfileFiles(targetProfile) {
+			if file.Source == "" {
+				continue
 			}
+			source, err := profileSourcePath(loaded.Root, capability.Path, file.Source)
+			if err != nil || seen[source] {
+				continue
+			}
+			seen[source] = true
+			sources = append(sources, source)
 		}
 	}
 	sort.Strings(sources)
@@ -111,6 +113,9 @@ func buildLockfile(loaded *pack.LoadedPack, files map[string][]byte, target, loc
 	}
 	for _, agent := range loaded.Agents {
 		sourceDigests[relToRoot(loaded.Root, agent.Path)] = digest(agent.Raw)
+	}
+	for _, contract := range loaded.Contracts {
+		sourceDigests[relToRoot(loaded.Root, contract.Path)] = digest(contract.Raw)
 	}
 	for _, policy := range loaded.Policies {
 		sourceDigests[relToRoot(loaded.Root, policy.Path)] = digest(policy.Raw)

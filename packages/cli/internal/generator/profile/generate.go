@@ -69,7 +69,7 @@ func render(loaded *pack.LoadedPack, targetProfile pack.TargetProfile, target st
 	if err := renderer.Render(files, loaded, capability, targetProfile); err != nil {
 		return nil, err
 	}
-	if err := renderCapabilityProfile(files, loaded, capability, targetProfile, target); err != nil {
+	if err := renderTargetProfileFiles(files, loaded, capability, targetProfile, target); err != nil {
 		return nil, err
 	}
 	if targetProfile.Spec.Generate.MCP {
@@ -126,44 +126,23 @@ func renderGuidance(files map[string][]byte, loaded *pack.LoadedPack, targetProf
 	return nil
 }
 
-func renderCapabilityProfile(files map[string][]byte, loaded *pack.LoadedPack, capability pack.Capability, targetProfile pack.TargetProfile, target string) error {
-	profile, ok := capability.Spec.Profiles[target]
-	if !ok {
-		return nil
-	}
-	if profile.Config == nil {
-		return fmt.Errorf("capability %s is missing spec.profiles.%s.config", capability.Metadata.Name, target)
-	}
-	if len(profile.Files) == 0 {
-		return fmt.Errorf("capability %s is missing spec.profiles.%s.files", capability.Metadata.Name, target)
-	}
-
-	configPath, err := targetConfigPath(targetProfile)
-	if err != nil {
-		return err
-	}
-	if _, exists := files[configPath]; !exists {
-		files[configPath] = mustJSON(cloneStringAnyMap(profile.Config))
-	}
-	for _, file := range profile.Files {
+func renderTargetProfileFiles(files map[string][]byte, loaded *pack.LoadedPack, capability pack.Capability, targetProfile pack.TargetProfile, target string) error {
+	for _, file := range targetProfileFiles(targetProfile) {
 		if file.Source == "" && file.SkillContract == "" && file.CommandContract == "" && file.AgentContract == "" {
-			return fmt.Errorf("capability %s profile file %q must declare source, skillContract, commandContract, or agentContract", capability.Metadata.Name, file.Path)
+			continue
 		}
-		if countFileGenerators(file) != 1 {
-			return fmt.Errorf("capability %s profile file %q must use exactly one generator", capability.Metadata.Name, file.Path)
+		if countTargetFileGenerators(file) != 1 {
+			return fmt.Errorf("target profile %s file %q must use exactly one generator", targetProfile.Metadata.Name, file.TargetPath)
 		}
-		if file.Content != "" {
-			return fmt.Errorf("capability %s profile file %q must use source instead of inline content", capability.Metadata.Name, file.Path)
-		}
-		rel, err := targetOutputPath(targetProfile, file.Path)
+		rel, err := targetProfileGeneratedPath(targetProfile, file)
 		if err != nil {
-			return fmt.Errorf("invalid generated profile file path %q: %w", file.Path, err)
+			return fmt.Errorf("invalid target profile file path %q: %w", file.TargetPath, err)
 		}
 		if _, exists := files[rel]; exists {
-			return fmt.Errorf("duplicate generated profile file path %q", file.Path)
+			return fmt.Errorf("duplicate generated profile file path %q", rel)
 		}
 		if file.SkillContract != "" {
-			content, err := renderSkillContract(loaded, file.SkillContract)
+			content, err := renderSkillContract(loaded, capability, file.SkillContract)
 			if err != nil {
 				return err
 			}
@@ -198,7 +177,18 @@ func renderCapabilityProfile(files map[string][]byte, loaded *pack.LoadedPack, c
 	return nil
 }
 
-func countFileGenerators(file pack.GeneratedFile) int {
+func targetProfileFiles(targetProfile pack.TargetProfile) []pack.TargetProfileFile {
+	switch targetProfile.Spec.Target {
+	case "codex":
+		return targetProfile.Spec.Codex.Files
+	case "opencode":
+		return targetProfile.Spec.OpenCode.Files
+	default:
+		return nil
+	}
+}
+
+func countTargetFileGenerators(file pack.TargetProfileFile) int {
 	count := 0
 	if file.Source != "" {
 		count++
@@ -215,7 +205,7 @@ func countFileGenerators(file pack.GeneratedFile) int {
 	return count
 }
 
-func renderSkillContract(loaded *pack.LoadedPack, name string) ([]byte, error) {
+func renderSkillContract(loaded *pack.LoadedPack, capability pack.Capability, name string) ([]byte, error) {
 	skill, ok := skillContractFor(loaded, name)
 	if !ok {
 		return nil, fmt.Errorf("missing skill contract %s", name)
@@ -228,6 +218,7 @@ func renderSkillContract(loaded *pack.LoadedPack, name string) ([]byte, error) {
 	b.WriteString("---\n\n")
 	b.WriteString(strings.TrimRight(skill.Spec.Body, "\n"))
 	b.WriteString("\n")
+	appendDerivedSkillSections(&b, loaded, capability)
 
 	return []byte(strings.TrimRight(b.String(), "\n") + "\n"), nil
 }
@@ -284,10 +275,6 @@ func renderCommandContract(loaded *pack.LoadedPack, target, name string) ([]byte
 	if !ok {
 		return nil, fmt.Errorf("missing command contract %s", name)
 	}
-	projection, ok := command.Spec.Projections[target]
-	if !ok || !projection.Enabled {
-		return nil, fmt.Errorf("command contract %s missing enabled projection %s", name, target)
-	}
 	var b strings.Builder
 	b.WriteString("---\n")
 	if command.Spec.AgentRef.Name != "" {
@@ -314,10 +301,6 @@ func renderAgentContract(loaded *pack.LoadedPack, target, name string) ([]byte, 
 	agent, ok := agentContractFor(loaded, name)
 	if !ok {
 		return nil, fmt.Errorf("missing agent contract %s", name)
-	}
-	projection, ok := agent.Spec.Projections[target]
-	if !ok || !projection.Enabled {
-		return nil, fmt.Errorf("agent contract %s missing enabled projection %s", name, target)
 	}
 	var b strings.Builder
 	b.WriteString("---\n")
@@ -366,6 +349,111 @@ func renderAgentContract(loaded *pack.LoadedPack, target, name string) ([]byte, 
 		b.WriteString("\n")
 	}
 	return []byte(strings.TrimRight(b.String(), "\n") + "\n"), nil
+}
+
+func appendDerivedSkillSections(b *strings.Builder, loaded *pack.LoadedPack, capability pack.Capability) {
+	requiredInputs := capabilityRequiredInputs(capability)
+	if len(requiredInputs) > 0 {
+		b.WriteString("\n\nRequired inputs:\n\n")
+		for _, input := range requiredInputs {
+			b.WriteString("- " + input + "\n")
+		}
+	}
+	generatedTools := capabilityGeneratedTools(loaded, capability.Metadata.Name)
+	if len(generatedTools) > 0 {
+		b.WriteString("\n\nPolicy gate tools:\n\n")
+		for _, tool := range generatedTools {
+			if tool.Mode != "" {
+				b.WriteString("- `" + tool.Name + "` (" + tool.Mode + ")\n")
+				continue
+			}
+			b.WriteString("- `" + tool.Name + "`\n")
+		}
+		b.WriteString("\nUse enforce-mode policy tools before downstream mutating tools. If policy evaluation denies the request, stop and report the policy reasons.\n")
+	}
+	mcpTools := capabilityMCPTools(loaded, capability.Metadata.Name)
+	if len(mcpTools) > 0 {
+		b.WriteString("\n\nDownstream MCP tools:\n\n")
+		for _, tool := range mcpTools {
+			b.WriteString("- `" + tool + "`\n")
+		}
+	}
+	reporting := capabilityReportingFields(capability)
+	if len(reporting) > 0 {
+		b.WriteString("\n\nReporting fields:\n\n")
+		for _, field := range reporting {
+			b.WriteString("- " + field + "\n")
+		}
+	}
+}
+
+func capabilityRequiredInputs(capability pack.Capability) []string {
+	required := map[string]bool{}
+	if rawRequired, ok := capability.Spec.Interface.Input["required"].([]any); ok {
+		for _, item := range rawRequired {
+			if name, ok := item.(string); ok && name != "" {
+				required[name] = true
+			}
+		}
+	}
+	for name, field := range capability.Spec.Inputs {
+		if field.Required {
+			required[name] = true
+		}
+	}
+	return sortedBoolKeys(required)
+}
+
+func capabilityGeneratedTools(loaded *pack.LoadedPack, capabilityName string) []pack.MCPGeneratedTool {
+	var tools []pack.MCPGeneratedTool
+	for _, binding := range loaded.MCPBindings {
+		if binding.Spec.CapabilityRef.Name != capabilityName {
+			continue
+		}
+		tools = append(tools, generatedTools(binding)...)
+	}
+	sort.Slice(tools, func(i, j int) bool {
+		return tools[i].Name < tools[j].Name
+	})
+	return tools
+}
+
+func capabilityMCPTools(loaded *pack.LoadedPack, capabilityName string) []string {
+	seen := map[string]bool{}
+	for _, binding := range loaded.MCPBindings {
+		if binding.Spec.CapabilityRef.Name != capabilityName {
+			continue
+		}
+		for _, tool := range binding.Spec.RequiredTools {
+			name := tool.Name
+			if tool.Server != "" && !strings.HasPrefix(name, tool.Server+"_") {
+				name = tool.Server + "_" + name
+			}
+			seen[name] = true
+		}
+	}
+	return sortedBoolKeys(seen)
+}
+
+func capabilityReportingFields(capability pack.Capability) []string {
+	fields := map[string]bool{}
+	for name, enabled := range capability.Spec.Reporting {
+		if enabled {
+			fields[name] = true
+		}
+	}
+	return sortedBoolKeys(fields)
+}
+
+func sortedBoolKeys(values map[string]bool) []string {
+	keys := make([]string, 0, len(values))
+	for key, ok := range values {
+		if ok {
+			keys = append(keys, key)
+		}
+	}
+	sort.Strings(keys)
+	return keys
 }
 
 func agentContractFor(loaded *pack.LoadedPack, name string) (pack.AgentContract, bool) {

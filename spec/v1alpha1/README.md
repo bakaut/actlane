@@ -18,6 +18,8 @@ generated AGENTS.md / SKILL.md / MCP metadata / CLI/Codex/Claude/OpenCode config
 - [SkillContract](kinds/skill-contract.md)
 - [CommandContract](kinds/command-contract.md)
 - [AgentContract](kinds/agent-contract.md)
+- [ResponsibilityContract](kinds/responsibility-contract.md)
+- [MCPBinding](kinds/mcp-binding.md)
 - [AdoptionProfile](kinds/adoption-profile.md)
 - [RuntimeBinding](kinds/runtime-binding.md)
 - [CapabilityPack](kinds/capability-pack.md)

@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.3.0-alpha.1] - 2026-05-25
+
+Third SemVer-tagged CLI MVP release.
+
+SemVer rationale:
+
+- minor bump from `0.2.0-alpha.1` to `0.3.0-alpha.1` because the source contract model changed before `1.0.0`;
+- keeps the `alpha.1` prerelease channel because contract boundaries and generated target profiles are still pre-production.
+
+### Changed
+
+- Split contract ownership so each Actlane object has one primary responsibility.
+- Moved target-specific generated file layout out of `Capability` and into `TargetProfile.files`.
+- Added pack-level `contracts` loading for `ResponsibilityContract`.
+- Added `ResponsibilityContract` schema and kind documentation.
+- Added `MCPBinding` kind documentation.
+- Added `responsibilityRef` support on `Capability`.
+- Changed `SkillContract` to keep only portable skill body/resources; generated `SKILL.md` now derives required inputs, policy gate tools, downstream MCP tools, and reporting fields from linked YAML contracts.
+- Removed duplicated OpenCode prompt markdown sources from `capabilities/`.
+- Cleaned `CommandContract` and `AgentContract` so safety, output, permissions, and target projection logic stay in their owning contracts.
+- Added validation checks that reject contract-boundary violations such as target paths in `Capability`, generated MCP sections in `SkillContract`, CLI lifecycle fields in `ResponsibilityContract`, and exact MCP tools outside `MCPBinding`.
+- Updated brownfield import to emit target layout in `TargetProfile` instead of `Capability`.
+- Regenerated OpenCode and Codex outputs from the cleaned contract graph.
+- Updated architecture handoff documentation in `.bakaut/.agent`.
+
 ## [0.2.0-alpha.1] - 2026-05-24
 
 Second SemVer-tagged CLI MVP release.

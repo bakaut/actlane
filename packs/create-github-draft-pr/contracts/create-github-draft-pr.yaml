@@ -1,0 +1,414 @@
+$schema: https://actlane.ru/schemas/v1alpha1/contract.schema.json
+apiVersion: actlane.ru/v1alpha1
+kind: ResponsibilityContract
+
+metadata:
+  name: create-github-draft-pr
+  version: 0.3.0-alpha.1
+  description: >
+    Verifiable responsibility contract between human, AI agent,
+    repository, tools, and CI.
+
+spec:
+  # ---------------------------------------------------------------------------
+  # 1. Existing sources
+  # ---------------------------------------------------------------------------
+
+  sources:
+    instructions:
+      - path: AGENTS.md
+        role: root-agent-guidance
+        required: true
+
+      - path: CLAUDE.md
+        role: runtime-specific-guidance
+        required: false
+
+      - path: .github/copilot-instructions.md
+        role: runtime-specific-guidance
+        required: false
+
+      - path: .cursor/rules/**/*.mdc
+        role: scoped-runtime-rules
+        required: false
+
+      - path: .opencode/**/*.md
+        role: opencode-runtime-rules
+        required: false
+
+    tools:
+      - path: .mcp.json
+        role: mcp-tool-wiring
+        required: false
+
+      - path: opencode.jsonc
+        role: opencode-project-config
+        required: false
+
+    process:
+      - path: .github/pull_request_template.md
+        role: pr-handoff-template
+        required: false
+
+      - path: .github/workflows/**/*.yml
+        role: ci-verification
+        required: false
+
+  # ---------------------------------------------------------------------------
+  # 2. Precedence
+  # ---------------------------------------------------------------------------
+
+  precedence:
+    order:
+      - actlane-security-policy
+      - human-boundary
+      - root-agent-guidance
+      - scoped-agent-guidance
+      - runtime-specific-guidance
+      - user-preferences
+
+    rule: >
+      Runtime-specific rules may specialize behavior,
+      but must not weaken Actlane security policy or human boundary.
+
+  # ---------------------------------------------------------------------------
+  # 3. Scopes
+  # ---------------------------------------------------------------------------
+
+  scopes:
+    - name: docs
+      paths:
+        - docs/**
+        - README.md
+      riskFloor: low
+
+    - name: application-code
+      paths:
+        - src/**
+        - app/**
+        - packages/**
+      riskFloor: medium
+
+    - name: tests
+      paths:
+        - test/**
+        - tests/**
+        - "**/*.test.*"
+        - "**/*.spec.*"
+      riskFloor: low
+
+    - name: ci
+      paths:
+        - .github/workflows/**
+        - .gitlab-ci.yml
+      riskFloor: high
+
+    - name: infrastructure
+      paths:
+        - infra/**
+        - infrastructure/**
+        - terraform/**
+        - charts/**
+      riskFloor: high
+
+    - name: secrets
+      paths:
+        - .env
+        - .env.*
+        - secrets/**
+        - "**/*secret*"
+        - "**/*credential*"
+      riskFloor: critical
+
+  # ---------------------------------------------------------------------------
+  # 4. Risk model
+  # ---------------------------------------------------------------------------
+
+  risk:
+    classes:
+      low:
+        examples:
+          - docs-only
+          - comments-only
+          - tests-only
+        requiredChecks:
+          - lint
+
+      medium:
+        examples:
+          - application-code-change
+          - dependency-update
+          - generated-agent-config-change
+        requiredChecks:
+          - lint
+          - unit-tests
+
+      high:
+        examples:
+          - infrastructure-change
+          - ci-workflow-change
+          - auth-change
+          - public-api-change
+          - mcp-tool-config-change
+        requiredChecks:
+          - lint
+          - unit-tests
+          - security-scan
+        humanApprovalRequired: true
+
+      critical:
+        examples:
+          - secrets-change
+          - production-deploy
+          - destructive-infrastructure-change
+          - permission-policy-weakening
+        humanApprovalRequired: true
+        agentMustStop: true
+
+  # ---------------------------------------------------------------------------
+  # 5. Required checks
+  # ---------------------------------------------------------------------------
+
+  checks:
+    required:
+      - name: lint
+        command: make lint
+        requiredFor:
+          - low
+          - medium
+          - high
+        allowFailure: false
+
+      - name: unit-tests
+        command: make test
+        requiredFor:
+          - medium
+          - high
+        allowFailure: false
+
+      - name: security-scan
+        command: gitleaks detect .
+        requiredFor:
+          - high
+          - critical
+        allowFailure: false
+
+    optional:
+      - name: terraform-plan
+        command: terraform plan
+        requiredForScopes:
+          - infrastructure
+        humanReviewRequired: true
+
+      - name: checkov
+        command: checkov -d .
+        requiredForScopes:
+          - infrastructure
+
+  # ---------------------------------------------------------------------------
+  # 6. Permissions
+  # ---------------------------------------------------------------------------
+
+  permissions:
+    shell:
+      allow:
+        - make lint
+        - make test
+        - npm test
+        - go test ./...
+
+      ask:
+        - git push
+        - gh pr create
+        - gh pr merge
+        - terraform plan
+        - terraform apply
+        - helm upgrade
+        - kubectl apply
+
+      deny:
+        - git push --force
+        - git reset --hard
+        - rm -rf /
+        - kubectl delete namespace
+        - terraform destroy
+        - aws iam delete-*
+
+    filesystem:
+      allowRead:
+        - "**"
+      allowWrite:
+        - src/**
+        - app/**
+        - docs/**
+        - tests/**
+      askWrite:
+        - .github/**
+        - infrastructure/**
+        - terraform/**
+        - charts/**
+      denyWrite:
+        - .env
+        - .env.*
+        - secrets/**
+
+    git:
+      allow:
+        - diff
+        - status
+        - log
+      ask:
+        - branch
+        - commit
+        - push
+      deny:
+        - push-force
+        - reset-hard
+
+  # ---------------------------------------------------------------------------
+  # 7. MCP / tools governance
+  # ---------------------------------------------------------------------------
+
+  tools:
+    mcp:
+      defaultAccess: deny-unregistered
+      readAccess: allow
+      writeAccess: ask
+      destructiveAccess: deny
+      denyUnregisteredWriteTools: true
+
+  # ---------------------------------------------------------------------------
+  # 8. Human boundary
+  # ---------------------------------------------------------------------------
+
+  humanBoundary:
+    requireApprovalBefore:
+      - production-change
+      - terraform-apply
+      - terraform-destroy
+      - database-migration
+      - public-api-breaking-change
+      - secrets-or-credentials-change
+      - ci-workflow-permissions-change
+      - mcp-write-tool-enable
+      - permission-policy-weakening
+
+    requireHumanEvidenceFor:
+      - manual-ui-test
+      - production-smoke-test
+      - customer-visible-change
+      - destructive-change
+
+    agentMustNotClaim:
+      - manual-testing-completed
+      - production-validation-completed
+      - human-approval-received
+
+  # ---------------------------------------------------------------------------
+  # 9. Evidence / handoff
+  # ---------------------------------------------------------------------------
+
+  evidence:
+    requiredForHandoff:
+      - summary
+      - changedFiles
+      - riskClassification
+      - commandsRun
+      - commandsFailed
+      - skippedChecksWithReason
+      - policyDecision
+      - humanValidationNeeded
+
+    requiredForPR:
+      - changedFilesSummary
+      - verificationTable
+      - skippedChecks
+      - risks
+      - rollbackNotes
+      - humanValidationNeeded
+
+    forbid:
+      - claim-tests-passed-without-logs
+      - claim-manual-approval
+      - hide-failed-checks
+      - omit-risk-for-high-risk-change
+
+  # ---------------------------------------------------------------------------
+  # 10. Agent behavior
+  # ---------------------------------------------------------------------------
+
+  agentBehavior:
+    required:
+      - inspect-before-mutation
+      - summarize-plan-before-mutation
+      - report-failures-honestly
+      - list-remaining-risks
+      - state-human-validation-needed
+      - prefer-high-level-capabilities-over-raw-tools
+
+    forbidden:
+      - silently-ignore-failed-tests
+      - fabricate-logs
+      - bypass-policy
+      - weaken-security-policy-without-review
+      - make-unrelated-large-refactors
+      - hide-destructive-action-inside-safe-summary
+
+  # ---------------------------------------------------------------------------
+  # 11. PR / handoff format
+  # ---------------------------------------------------------------------------
+
+  handoffFormat:
+    requiredSections:
+      - Summary
+      - Risk
+      - Changed files
+      - Verification
+      - Skipped checks
+      - Policy decision
+      - Human validation needed
+
+    requiredForHighRisk:
+      - Rollback notes
+      - Approval needed
+      - Impacted scopes
+
+    verificationItemFormat:
+      fields:
+        - command
+        - status
+        - evidence
+        - notes
+
+    skippedCheckFormat:
+      fields:
+        - check
+        - reason
+        - impact
+        - whoShouldRun
+
+  # 12. Audit output
+  # ---------------------------------------------------------------------------
+
+  audit:
+    output:
+      include:
+        - discoveredInstructionFiles
+        - discoveredToolConfigs
+        - discoveredCIWorkflows
+        - discoveredMcpServers
+        - discoveredAgentRuntimeConfigs
+        - missingRecommendedFiles
+        - permissionPolicyGaps
+        - humanBoundaryGaps
+        - evidenceGaps
+        - highRiskScopeGaps
+        - unregisteredTools
+
+    severityLevels:
+      info: Useful observation. No action required.
+      warning: Potential governance gap. Review recommended.
+      error: Contract invalid or unsafe. Must fix.
+      blocker: Agent must not proceed without human approval.
+
+  # ---------------------------------------------------------------------------

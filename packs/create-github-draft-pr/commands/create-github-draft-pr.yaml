@@ -33,35 +33,6 @@ spec:
     template: |
       Use Actlane capability `create-github-draft-pr`.
 
-      Before execution:
-      - inspect the project;
-      - summarize reviewed changes;
-      - run tests when configured;
-      - verify explicit user confirmation;
-      - do not bypass Actlane policy.
-
       User request:
 
       {{ arguments }}
-
-  output:
-    expected:
-      - prUrl
-      - branch
-      - changedFiles
-      - policyDecision
-      - summary
-
-  safety:
-    requirePolicy: true
-    requireConfirmation: true
-    doNotBypassCapability: true
-
-  projections:
-    opencode:
-      enabled: true
-      path: .opencode/commands/create-github-draft-pr.md
-
-    codex:
-      enabled: false
-      reason: Prefer Skill projection because reusable custom prompts are deprecated in favor of skills.

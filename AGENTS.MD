@@ -1,0 +1,1 @@
+@.bakaut/.agent/AGENTS.MD
