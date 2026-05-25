@@ -40,7 +40,7 @@ func TestValidateContractBoundaries(t *testing.T) {
 			name: "skill-generated-mcp-section",
 			path: "skills/create-github-draft-pr.yaml",
 			edit: func(content string) string {
-				return strings.Replace(content, "    Workflow:\n", "    MCP tools:\n\n    - `github_create_pull_request`\n\n    Workflow:\n", 1)
+				return strings.Replace(content, "    Workflow:", "    MCP tools:\n\n    - `github_create_pull_request`\n\n    Workflow:", 1)
 			},
 			want: "must not embed generated input or MCP tool sections",
 		},
