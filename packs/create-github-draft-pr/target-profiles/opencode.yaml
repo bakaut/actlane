@@ -69,3 +69,7 @@ spec:
         generatedPath: generated/opencode/.opencode/skills/create-github-draft-pr/SKILL.md
         skillContract: create-github-draft-pr
         owned: true
+      - targetPath: .opencode/skills/dushnila/SKILL.md
+        generatedPath: generated/opencode/.opencode/skills/dushnila/SKILL.md
+        skillContract: dushnila
+        owned: true

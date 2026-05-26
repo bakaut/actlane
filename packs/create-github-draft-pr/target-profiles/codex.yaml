@@ -45,3 +45,7 @@ spec:
         generatedPath: generated/codex/.codex/skills/create-github-draft-pr/SKILL.md
         skillContract: create-github-draft-pr
         owned: true
+      - targetPath: .codex/skills/dushnila/SKILL.md
+        generatedPath: generated/codex/.codex/skills/dushnila/SKILL.md
+        skillContract: dushnila
+        owned: true

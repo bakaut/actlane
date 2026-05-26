@@ -26,6 +26,7 @@ SemVer rationale:
 - Changed `actlane mcp serve` to call the same evaluator used by `actlane check` instead of owning policy evaluation logic.
 - Changed generated `policy-bundle.json` to include `ResponsibilityContract` input for self-contained runtime evaluation.
 - Removed GitHub-specific downstream argument shaping from the MCP server.
+- Added the English `dushnila` SkillContract and generated skill outputs for OpenCode and Codex.
 - Updated brownfield import to emit target layout in `TargetProfile` instead of `Capability`.
 - Regenerated OpenCode and Codex outputs from the cleaned contract graph.
 - Updated architecture handoff documentation in `.bakaut/.agent`.

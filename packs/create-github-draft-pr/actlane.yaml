@@ -36,6 +36,7 @@ spec:
 
   skills:
     - skills/create-github-draft-pr.yaml
+    - skills/dushnila.yaml
 
   commands:
     - commands/create-github-draft-pr.yaml

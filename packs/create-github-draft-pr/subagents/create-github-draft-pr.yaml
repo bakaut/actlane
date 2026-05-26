@@ -24,6 +24,7 @@ spec:
   skills:
     allowed:
       - create-github-draft-pr
+      - dushnila
 
   tools:
     strategy: capability-only
