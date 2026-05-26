@@ -17,7 +17,7 @@ import (
 	"github.com/actlane/actlane/packages/cli/internal/schema"
 )
 
-const version = "0.3.0-alpha.2"
+const version = "0.3.0-alpha.3"
 
 func Main(args []string, stdout, stderr io.Writer) int {
 	return MainWithIO(args, os.Stdin, stdout, stderr)
@@ -43,6 +43,12 @@ func MainWithIO(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		return runPack(args[1:], stdout, stderr)
 	case "generate":
 		return runGenerate(args[1:], stdout, stderr)
+	case "plan":
+		return runPlan(args[1:], stdout, stderr)
+	case "apply":
+		return runApply(args[1:], stdout, stderr)
+	case "remove":
+		return runRemove(args[1:], stdout, stderr)
 	case "check":
 		return runCheck(args[1:], stdin, stdout, stderr)
 	case "mcp":
@@ -688,6 +694,304 @@ func runGenerate(args []string, stdout, stderr io.Writer) int {
 	return 0
 }
 
+func runPlan(args []string, stdout, stderr io.Writer) int {
+	packDir := ".actlane"
+	packArgExplicit := false
+	if len(args) > 0 && !isFlag(args[0]) {
+		packDir = args[0]
+		packArgExplicit = true
+		args = args[1:]
+	}
+	opts := adoption.PlanOptions{Project: "."}
+	for i := 0; i < len(args); i++ {
+		switch {
+		case strings.HasPrefix(args[i], "--target="):
+			opts.Target = strings.TrimPrefix(args[i], "--target=")
+		case strings.HasPrefix(args[i], "--from="):
+			opts.From = strings.TrimPrefix(args[i], "--from=")
+		case strings.HasPrefix(args[i], "--project="):
+			opts.Project = strings.TrimPrefix(args[i], "--project=")
+		case args[i] == "--target":
+			i++
+			if i >= len(args) {
+				fmt.Fprintln(stderr, "--target requires a value")
+				return 2
+			}
+			opts.Target = args[i]
+		case args[i] == "--from":
+			i++
+			if i >= len(args) {
+				fmt.Fprintln(stderr, "--from requires a value")
+				return 2
+			}
+			opts.From = args[i]
+		case args[i] == "--project":
+			i++
+			if i >= len(args) {
+				fmt.Fprintln(stderr, "--project requires a value")
+				return 2
+			}
+			opts.Project = args[i]
+		case args[i] == "--json":
+			opts.JSON = true
+		case args[i] == "--diff":
+			opts.Diff = true
+		case args[i] == "--show-content":
+			opts.ShowContent = true
+		default:
+			fmt.Fprintf(stderr, "unknown plan flag %q\n", args[i])
+			return 2
+		}
+	}
+	cleanup := func() {}
+	if shouldUsePackArchive(packDir, packArgExplicit) {
+		archive := packDir
+		if !packArgExplicit {
+			archive = "actlane-pack.zip"
+		}
+		tempDir, err := os.MkdirTemp("", "actlane-pack-*")
+		if err != nil {
+			fmt.Fprintf(stderr, "plan failed: %v\n", err)
+			return 1
+		}
+		cleanup = func() { _ = os.RemoveAll(tempDir) }
+		defer cleanup()
+		if err := adoption.ExtractPack(archive, tempDir); err != nil {
+			fmt.Fprintf(stderr, "plan failed: read pack archive: %v\n", err)
+			return 1
+		}
+		packDir = tempDir
+	}
+	loaded, err := pack.Load(packDir)
+	if err != nil {
+		fmt.Fprintf(stderr, "plan failed: %v\n", err)
+		return 1
+	}
+	if err := pack.Validate(loaded); err != nil {
+		fmt.Fprintf(stderr, "plan failed: %v\n", err)
+		return 1
+	}
+	if opts.Target == "" {
+		fmt.Fprintln(stderr, "plan failed: --target is required")
+		return 2
+	}
+	plan, err := adoption.BuildPlan(loaded, opts)
+	if err != nil {
+		fmt.Fprintf(stderr, "plan failed: %v\n", err)
+		return 1
+	}
+	if opts.JSON {
+		data, err := adoption.FormatPlanJSON(plan, opts)
+		if err != nil {
+			fmt.Fprintf(stderr, "plan failed: %v\n", err)
+			return 1
+		}
+		fmt.Fprintln(stdout, string(data))
+		return 0
+	}
+	fmt.Fprint(stdout, adoption.FormatPlanText(plan, opts))
+	return 0
+}
+
+func runApply(args []string, stdout, stderr io.Writer) int {
+	packDir := ".actlane"
+	packArgExplicit := false
+	if len(args) > 0 && !isFlag(args[0]) {
+		packDir = args[0]
+		packArgExplicit = true
+		args = args[1:]
+	}
+	opts := adoption.ApplyOptions{PlanOptions: adoption.PlanOptions{Project: "."}}
+	for i := 0; i < len(args); i++ {
+		switch {
+		case strings.HasPrefix(args[i], "--target="):
+			opts.Target = strings.TrimPrefix(args[i], "--target=")
+		case strings.HasPrefix(args[i], "--from="):
+			opts.From = strings.TrimPrefix(args[i], "--from=")
+		case strings.HasPrefix(args[i], "--project="):
+			opts.Project = strings.TrimPrefix(args[i], "--project=")
+		case args[i] == "--target":
+			i++
+			if i >= len(args) {
+				fmt.Fprintln(stderr, "--target requires a value")
+				return 2
+			}
+			opts.Target = args[i]
+		case args[i] == "--from":
+			i++
+			if i >= len(args) {
+				fmt.Fprintln(stderr, "--from requires a value")
+				return 2
+			}
+			opts.From = args[i]
+		case args[i] == "--project":
+			i++
+			if i >= len(args) {
+				fmt.Fprintln(stderr, "--project requires a value")
+				return 2
+			}
+			opts.Project = args[i]
+		case args[i] == "--dry-run":
+			opts.DryRun = true
+		case args[i] == "--json":
+			opts.JSON = true
+		default:
+			fmt.Fprintf(stderr, "unknown apply flag %q\n", args[i])
+			return 2
+		}
+	}
+	if opts.Target == "" {
+		fmt.Fprintln(stderr, "apply failed: --target is required")
+		return 2
+	}
+	cleanup := func() {}
+	if shouldUsePackArchive(packDir, packArgExplicit) {
+		archive := packDir
+		if !packArgExplicit {
+			archive = "actlane-pack.zip"
+		}
+		tempDir, err := os.MkdirTemp("", "actlane-pack-*")
+		if err != nil {
+			fmt.Fprintf(stderr, "apply failed: %v\n", err)
+			return 1
+		}
+		cleanup = func() { _ = os.RemoveAll(tempDir) }
+		defer cleanup()
+		if err := adoption.ExtractPack(archive, tempDir); err != nil {
+			fmt.Fprintf(stderr, "apply failed: read pack archive: %v\n", err)
+			return 1
+		}
+		packDir = tempDir
+	}
+	loaded, err := pack.Load(packDir)
+	if err != nil {
+		fmt.Fprintf(stderr, "apply failed: %v\n", err)
+		return 1
+	}
+	if err := pack.Validate(loaded); err != nil {
+		fmt.Fprintf(stderr, "apply failed: %v\n", err)
+		return 1
+	}
+	plan, err := adoption.BuildPlan(loaded, opts.PlanOptions)
+	if err != nil {
+		fmt.Fprintf(stderr, "apply failed: %v\n", err)
+		return 1
+	}
+	result, err := adoption.ApplyPlan(plan, opts)
+	if opts.JSON {
+		data, jsonErr := adoption.FormatApplyJSON(result)
+		if jsonErr != nil {
+			fmt.Fprintf(stderr, "apply failed: %v\n", jsonErr)
+			return 1
+		}
+		fmt.Fprintln(stdout, string(data))
+	} else {
+		fmt.Fprint(stdout, adoption.FormatApplyText(result))
+	}
+	if err != nil {
+		fmt.Fprintf(stderr, "apply failed: %v\n", err)
+		return 1
+	}
+	return 0
+}
+
+func runRemove(args []string, stdout, stderr io.Writer) int {
+	packDir := ".actlane"
+	packArgExplicit := false
+	if len(args) > 0 && !isFlag(args[0]) {
+		packDir = args[0]
+		packArgExplicit = true
+		args = args[1:]
+	}
+	opts := adoption.RemoveOptions{PlanOptions: adoption.PlanOptions{Project: "."}}
+	for i := 0; i < len(args); i++ {
+		switch {
+		case strings.HasPrefix(args[i], "--target="):
+			opts.Target = strings.TrimPrefix(args[i], "--target=")
+		case strings.HasPrefix(args[i], "--from="):
+			opts.From = strings.TrimPrefix(args[i], "--from=")
+		case strings.HasPrefix(args[i], "--project="):
+			opts.Project = strings.TrimPrefix(args[i], "--project=")
+		case args[i] == "--target":
+			i++
+			if i >= len(args) {
+				fmt.Fprintln(stderr, "--target requires a value")
+				return 2
+			}
+			opts.Target = args[i]
+		case args[i] == "--from":
+			i++
+			if i >= len(args) {
+				fmt.Fprintln(stderr, "--from requires a value")
+				return 2
+			}
+			opts.From = args[i]
+		case args[i] == "--project":
+			i++
+			if i >= len(args) {
+				fmt.Fprintln(stderr, "--project requires a value")
+				return 2
+			}
+			opts.Project = args[i]
+		case args[i] == "--dry-run":
+			opts.DryRun = true
+		case args[i] == "--json":
+			opts.JSON = true
+		default:
+			fmt.Fprintf(stderr, "unknown remove flag %q\n", args[i])
+			return 2
+		}
+	}
+	if opts.Target == "" {
+		fmt.Fprintln(stderr, "remove failed: --target is required")
+		return 2
+	}
+	cleanup := func() {}
+	if shouldUsePackArchive(packDir, packArgExplicit) {
+		archive := packDir
+		if !packArgExplicit {
+			archive = "actlane-pack.zip"
+		}
+		tempDir, err := os.MkdirTemp("", "actlane-pack-*")
+		if err != nil {
+			fmt.Fprintf(stderr, "remove failed: %v\n", err)
+			return 1
+		}
+		cleanup = func() { _ = os.RemoveAll(tempDir) }
+		defer cleanup()
+		if err := adoption.ExtractPack(archive, tempDir); err != nil {
+			fmt.Fprintf(stderr, "remove failed: read pack archive: %v\n", err)
+			return 1
+		}
+		packDir = tempDir
+	}
+	loaded, err := pack.Load(packDir)
+	if err != nil {
+		fmt.Fprintf(stderr, "remove failed: %v\n", err)
+		return 1
+	}
+	if err := pack.Validate(loaded); err != nil {
+		fmt.Fprintf(stderr, "remove failed: %v\n", err)
+		return 1
+	}
+	result, err := adoption.RemovePlan(loaded, opts)
+	if opts.JSON {
+		data, jsonErr := adoption.FormatRemoveJSON(result)
+		if jsonErr != nil {
+			fmt.Fprintf(stderr, "remove failed: %v\n", jsonErr)
+			return 1
+		}
+		fmt.Fprintln(stdout, string(data))
+	} else {
+		fmt.Fprint(stdout, adoption.FormatRemoveText(result))
+	}
+	if err != nil {
+		fmt.Fprintf(stderr, "remove failed: %v\n", err)
+		return 1
+	}
+	return 0
+}
+
 func runSchema(args []string, stdout, stderr io.Writer) int {
 	if len(args) == 1 && args[0] == "list" {
 		fmt.Fprintln(stdout, "agent-contract https://actlane.ru/schemas/v1alpha1/agent-contract.schema.json")
@@ -715,7 +1019,7 @@ func runSchema(args []string, stdout, stderr io.Writer) int {
 }
 
 func usage(w io.Writer) {
-	fmt.Fprintln(w, "usage: actlane <version|inspect|import|pack|validate|generate|check|mcp|schema>")
+	fmt.Fprintln(w, "usage: actlane <version|inspect|import|pack|validate|generate|plan|apply|remove|check|mcp|schema>")
 }
 
 func isFlag(value string) bool {

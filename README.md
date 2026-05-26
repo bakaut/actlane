@@ -2,7 +2,7 @@
 
 MCP gives agents hands. Actlane defines the safe lane for every action.
 
-Actlane is a pre-alpha project for portable, policy-aware capability packs for AI agents. The current CLI MVP can import an existing OpenCode setup, normalize it into an Actlane pack, and generate target-specific artifacts for OpenCode and Codex.
+Actlane is a pre-alpha project for portable, policy-aware capability packs for AI agents. The current CLI MVP can import an existing OpenCode setup, normalize it into an Actlane pack, generate target-specific artifacts for OpenCode and Codex, and safely adopt generated Codex files into a repository with `plan`, `apply`, and `remove`.
 
 Actlane is not a production security control, hosted service, MCP gateway, marketplace, or agent framework.
 
@@ -41,13 +41,13 @@ actlane version
 Install options:
 
 ```bash
-ACTLANE_VERSION=v0.3.0-alpha.2 ACTLANE_INSTALL_DIR="$HOME/.local/bin" sh -c "$(curl -fsSL https://actlane.ru/install.sh)"
+ACTLANE_VERSION=v0.3.0-alpha.3 ACTLANE_INSTALL_DIR="$HOME/.local/bin" sh -c "$(curl -fsSL https://actlane.ru/install.sh)"
 ```
 
 Docker:
 
 ```bash
-docker run --rm ghcr.io/bakaut/actlane:0.3.0-alpha.2 version
+docker run --rm ghcr.io/bakaut/actlane:0.3.0-alpha.3 version
 ```
 
 ## Quick Start
@@ -58,6 +58,9 @@ Start from an existing OpenCode project:
 actlane inspect
 actlane import
 actlane pack create
+actlane plan ./packs/create-github-draft-pr --target codex
+actlane apply ./packs/create-github-draft-pr --target codex
+actlane remove ./packs/create-github-draft-pr --target codex
 ```
 
 This creates:
@@ -123,7 +126,7 @@ actlane generate --target codex
 - No production security guarantees.
 - No hosted registry.
 - No marketplace.
-- No full apply/remove lifecycle.
+- No full apply/remove lifecycle for every target yet.
 - No Claude target implementation.
 - No stable `1.0` contract compatibility promise.
 

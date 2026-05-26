@@ -404,6 +404,334 @@ func TestMCPServeAcceptsPolicyBundle(t *testing.T) {
 	}
 }
 
+func TestPlanCodexSafeAdoptionDetectsCreatesAndConflicts(t *testing.T) {
+	packDir := copyPackToTemp(t)
+	projectDir := t.TempDir()
+	writeTestFile(t, filepath.Join(projectDir, "AGENTS.md"), "# Existing guidance\n")
+	writeTestFile(t, filepath.Join(projectDir, ".codex/skills/create-github-draft-pr/SKILL.md"), "user-owned skill\n")
+	var stdout, stderr bytes.Buffer
+
+	code := Main([]string{"generate", packDir, "--target", "codex"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("generate failed: %s", stderr.String())
+	}
+	stdout.Reset()
+	stderr.Reset()
+
+	code = Main([]string{
+		"plan",
+		packDir,
+		"--target", "codex",
+		"--from", filepath.Join(packDir, "generated/codex"),
+		"--project", projectDir,
+	}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("plan failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	output := stdout.String()
+	for _, want := range []string{
+		"Will append Actlane block:",
+		"AGENTS.md",
+		"Will create:",
+		".codex/skills/dushnila/SKILL.md",
+		"source:",
+		"preview:",
+		"sha256:",
+		"Conflicts:",
+		".codex/skills/create-github-draft-pr/SKILL.md",
+		"Apply blocked: 1 conflict(s)",
+	} {
+		if !strings.Contains(output, want) {
+			t.Fatalf("plan output missing %q:\n%s", want, output)
+		}
+	}
+	assertNotExists(t, filepath.Join(projectDir, ".codex/skills/dushnila/SKILL.md"))
+}
+
+func TestPlanRequiresTargetAndDefaultsGeneratedAndCurrentProject(t *testing.T) {
+	packDir := copyPackToTemp(t)
+	projectDir := t.TempDir()
+	var stdout, stderr bytes.Buffer
+
+	code := Main([]string{"generate", packDir, "--target", "codex"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("generate failed: %s", stderr.String())
+	}
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chdir(projectDir); err != nil {
+		t.Fatal(err)
+	}
+	stdout.Reset()
+	stderr.Reset()
+	code = Main([]string{"plan", packDir}, &stdout, &stderr)
+	if code == 0 {
+		t.Fatalf("plan without target should fail\nstdout:\n%s\nstderr:\n%s", stdout.String(), stderr.String())
+	}
+	if !strings.Contains(stderr.String(), "--target is required") {
+		t.Fatalf("plan without target error missing --target requirement:\n%s", stderr.String())
+	}
+	stdout.Reset()
+	stderr.Reset()
+	code = Main([]string{"plan", packDir, "--target", "codex"}, &stdout, &stderr)
+	if chdirErr := os.Chdir(wd); chdirErr != nil {
+		t.Fatal(chdirErr)
+	}
+	if code != 0 {
+		t.Fatalf("plan with defaults failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	output := stdout.String()
+	for _, want := range []string{
+		"Plan target: codex",
+		"Generated: " + filepath.Join(packDir, "generated/codex"),
+		".codex/skills/create-github-draft-pr/SKILL.md",
+		".codex/skills/dushnila/SKILL.md",
+		"AGENTS.md",
+	} {
+		if !strings.Contains(output, want) {
+			t.Fatalf("default plan output missing %q:\n%s", want, output)
+		}
+	}
+}
+
+func TestApplyCodexSafeAdoptionCreatesAndUpdatesIdempotently(t *testing.T) {
+	packDir := copyPackToTemp(t)
+	projectDir := t.TempDir()
+	writeTestFile(t, filepath.Join(projectDir, "AGENTS.md"), "# Existing guidance\n")
+	var stdout, stderr bytes.Buffer
+
+	code := Main([]string{"generate", packDir, "--target", "codex"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("generate failed: %s", stderr.String())
+	}
+	stdout.Reset()
+	stderr.Reset()
+
+	code = Main([]string{"apply", packDir, "--target", "codex", "--project", projectDir}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("apply failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	for _, path := range []string{
+		".codex/skills/create-github-draft-pr/SKILL.md",
+		".codex/skills/dushnila/SKILL.md",
+	} {
+		assertExists(t, filepath.Join(projectDir, path))
+	}
+	agents := readFile(t, filepath.Join(projectDir, "AGENTS.md"))
+	for _, want := range []string{
+		"# Existing guidance",
+		"<!-- actlane:start github-draft-pr-pack/AGENTS.md -->",
+		"<!-- actlane:end github-draft-pr-pack/AGENTS.md -->",
+	} {
+		if !strings.Contains(agents, want) {
+			t.Fatalf("AGENTS.md missing %q:\n%s", want, agents)
+		}
+	}
+
+	stdout.Reset()
+	stderr.Reset()
+	code = Main([]string{"apply", packDir, "--target", "codex", "--project", projectDir}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("second apply failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	agents = readFile(t, filepath.Join(projectDir, "AGENTS.md"))
+	if strings.Count(agents, "<!-- actlane:start github-draft-pr-pack/AGENTS.md -->") != 1 {
+		t.Fatalf("second apply duplicated AGENTS marker:\n%s", agents)
+	}
+	if !strings.Contains(stdout.String(), "Updated Actlane block:") {
+		t.Fatalf("second apply should update owned block:\n%s", stdout.String())
+	}
+}
+
+func TestApplyCodexDryRunWritesNothingAndConflictsBlock(t *testing.T) {
+	packDir := copyPackToTemp(t)
+	projectDir := t.TempDir()
+	var stdout, stderr bytes.Buffer
+
+	code := Main([]string{"generate", packDir, "--target", "codex"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("generate failed: %s", stderr.String())
+	}
+	stdout.Reset()
+	stderr.Reset()
+
+	code = Main([]string{"apply", packDir, "--target", "codex", "--project", projectDir, "--dry-run"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("apply dry-run failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	assertNotExists(t, filepath.Join(projectDir, ".codex/skills/create-github-draft-pr/SKILL.md"))
+	assertNotExists(t, filepath.Join(projectDir, ".codex/skills/dushnila/SKILL.md"))
+
+	writeTestFile(t, filepath.Join(projectDir, ".codex/skills/dushnila/SKILL.md"), "user-owned\n")
+	stdout.Reset()
+	stderr.Reset()
+	code = Main([]string{"apply", packDir, "--target", "codex", "--project", projectDir}, &stdout, &stderr)
+	if code == 0 {
+		t.Fatalf("apply should fail on conflict\nstdout:\n%s\nstderr:\n%s", stdout.String(), stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "Conflicts:") || !strings.Contains(stderr.String(), "apply blocked") {
+		t.Fatalf("apply conflict output missing details\nstdout:\n%s\nstderr:\n%s", stdout.String(), stderr.String())
+	}
+	assertNotExists(t, filepath.Join(projectDir, ".codex/skills/create-github-draft-pr/SKILL.md"))
+}
+
+func TestRemoveCodexSafeAdoptionRemovesOnlyOwnedArtifacts(t *testing.T) {
+	packDir := copyPackToTemp(t)
+	projectDir := t.TempDir()
+	writeTestFile(t, filepath.Join(projectDir, "AGENTS.md"), "# Existing guidance\n")
+	var stdout, stderr bytes.Buffer
+
+	code := Main([]string{"generate", packDir, "--target", "codex"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("generate failed: %s", stderr.String())
+	}
+	stdout.Reset()
+	stderr.Reset()
+	code = Main([]string{"apply", packDir, "--target", "codex", "--project", projectDir}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("apply failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+
+	stdout.Reset()
+	stderr.Reset()
+	code = Main([]string{"remove", packDir, "--target", "codex", "--project", projectDir, "--dry-run"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("remove dry-run failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	assertExists(t, filepath.Join(projectDir, ".codex/skills/dushnila/SKILL.md"))
+
+	stdout.Reset()
+	stderr.Reset()
+	code = Main([]string{"remove", packDir, "--target", "codex", "--project", projectDir}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("remove failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	assertNotExists(t, filepath.Join(projectDir, ".codex/skills/create-github-draft-pr/SKILL.md"))
+	assertNotExists(t, filepath.Join(projectDir, ".codex/skills/dushnila/SKILL.md"))
+	agents := readFile(t, filepath.Join(projectDir, "AGENTS.md"))
+	if !strings.Contains(agents, "# Existing guidance") {
+		t.Fatalf("remove should preserve user AGENTS content:\n%s", agents)
+	}
+	if strings.Contains(agents, "actlane:start") {
+		t.Fatalf("remove should delete Actlane AGENTS block:\n%s", agents)
+	}
+}
+
+func TestRemoveCodexBlocksUserModifiedGeneratedFile(t *testing.T) {
+	packDir := copyPackToTemp(t)
+	projectDir := t.TempDir()
+	var stdout, stderr bytes.Buffer
+
+	code := Main([]string{"generate", packDir, "--target", "codex"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("generate failed: %s", stderr.String())
+	}
+	stdout.Reset()
+	stderr.Reset()
+	code = Main([]string{"apply", packDir, "--target", "codex", "--project", projectDir}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("apply failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	writeTestFile(t, filepath.Join(projectDir, ".codex/skills/dushnila/SKILL.md"), "user modified\n")
+
+	stdout.Reset()
+	stderr.Reset()
+	code = Main([]string{"remove", packDir, "--target", "codex", "--project", projectDir}, &stdout, &stderr)
+	if code == 0 {
+		t.Fatalf("remove should fail on modified generated file\nstdout:\n%s\nstderr:\n%s", stdout.String(), stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "Conflicts:") || !strings.Contains(stderr.String(), "remove blocked") {
+		t.Fatalf("remove conflict output missing details\nstdout:\n%s\nstderr:\n%s", stdout.String(), stderr.String())
+	}
+	assertExists(t, filepath.Join(projectDir, ".codex/skills/create-github-draft-pr/SKILL.md"))
+}
+
+func TestPlanCodexSafeAdoptionJSON(t *testing.T) {
+	packDir := copyPackToTemp(t)
+	projectDir := t.TempDir()
+	var stdout, stderr bytes.Buffer
+
+	code := Main([]string{"generate", packDir, "--target", "codex"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("generate failed: %s", stderr.String())
+	}
+	stdout.Reset()
+	stderr.Reset()
+
+	code = Main([]string{
+		"plan",
+		packDir,
+		"--target", "codex",
+		"--from", filepath.Join(packDir, "generated/codex"),
+		"--project", projectDir,
+		"--json",
+	}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("plan json failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	output := stdout.String()
+	for _, want := range []string{
+		`"target": "codex"`,
+		`"action": "create_file"`,
+		`"targetPath": ".codex/skills/dushnila/SKILL.md"`,
+		`"preview":`,
+		`"sha256":`,
+		`"conflicts": 0`,
+	} {
+		if !strings.Contains(output, want) {
+			t.Fatalf("plan json missing %q:\n%s", want, output)
+		}
+	}
+	for _, unwanted := range []string{
+		`"diff":`,
+		`"content":`,
+	} {
+		if strings.Contains(output, unwanted) {
+			t.Fatalf("plan json should not include %q without explicit flag:\n%s", unwanted, output)
+		}
+	}
+}
+
+func TestPlanCodexSafeAdoptionDiffAndContent(t *testing.T) {
+	packDir := copyPackToTemp(t)
+	projectDir := t.TempDir()
+	var stdout, stderr bytes.Buffer
+
+	code := Main([]string{"generate", packDir, "--target", "codex"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("generate failed: %s", stderr.String())
+	}
+	stdout.Reset()
+	stderr.Reset()
+
+	code = Main([]string{
+		"plan",
+		packDir,
+		"--target", "codex",
+		"--from", filepath.Join(packDir, "generated/codex"),
+		"--project", projectDir,
+		"--diff",
+		"--show-content",
+	}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("plan diff failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	output := stdout.String()
+	for _, want := range []string{
+		"diff:",
+		"--- /dev/null",
+		"+++ .codex/skills/dushnila/SKILL.md",
+		"content:",
+		"name: \"dushnila\"",
+	} {
+		if !strings.Contains(output, want) {
+			t.Fatalf("plan diff output missing %q:\n%s", want, output)
+		}
+	}
+}
+
 func TestCheckUsesResponsibilityContract(t *testing.T) {
 	packDir := copyPackToTemp(t)
 	stdin := strings.NewReader(`{"repo":"bakaut/development","baseBranch":"main","branch":"feature","title":"Test","summary":"Test","files":[".github/workflows/release.yml"],"confirmed":true}`)

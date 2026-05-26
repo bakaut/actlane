@@ -4,7 +4,7 @@ kind: ResponsibilityContract
 
 metadata:
   name: create-github-draft-pr
-  version: 0.3.0-alpha.2
+  version: 0.3.0-alpha.3
   description: >
     Verifiable responsibility contract between human, AI agent,
     repository, tools, and CI.
