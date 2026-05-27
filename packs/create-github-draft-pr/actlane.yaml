@@ -52,6 +52,7 @@ spec:
 
   mcpBindings:
     - mcp/bindings/actlane-safe-gitops.yaml
+    - mcp/bindings/actlane-pack-author.yaml
     - mcp/bindings/github-mcp-draft-pr.yaml
 
   targetProfiles:

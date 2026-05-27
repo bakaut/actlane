@@ -152,6 +152,7 @@ func FormatPlanText(plan *Plan, opts PlanOptions) string {
 		{action: "create_file", title: "Will create:"},
 		{action: "append_owned_block", title: "Will append Actlane block:"},
 		{action: "update_owned_block", title: "Will update Actlane block:"},
+		{action: "update_owned_file", title: "Will update Actlane-owned files:"},
 		{action: "skip_existing_user_file", title: "Will skip unchanged existing files:"},
 		{action: "conflict", title: "Conflicts:"},
 	}
@@ -452,6 +453,11 @@ func planTargetFile(loaded *pack.LoadedPack, targetProfile pack.TargetProfile, f
 	}
 	if file.OwnedBlock {
 		if hasOwnedBlock(string(existing), opts.Marker, ownershipID, markerStyle) {
+			if hasExactOwnedBlock(string(existing), opts.Marker, ownershipID, string(generated), markerStyle) {
+				op.Action = "skip_existing_user_file"
+				op.Reason = "target already matches generated content"
+				return op, nil
+			}
 			op.Action = "update_owned_block"
 			op.Reason = "Actlane ownership marker exists"
 			op.DisplayContent = ownedBlock(opts.Marker, ownershipID, string(generated), markerStyle)
@@ -471,9 +477,20 @@ func planTargetFile(loaded *pack.LoadedPack, targetProfile pack.TargetProfile, f
 			return op, nil
 		}
 		if hasOwnedBlock(string(existing), opts.Marker, ownershipID, markerStyle) {
+			if hasExactOwnedBlock(string(existing), opts.Marker, ownershipID, string(generated), markerStyle) {
+				op.Action = "skip_existing_user_file"
+				op.Reason = "target already matches generated content"
+				return op, nil
+			}
 			op.Action = "update_owned_block"
 			op.Reason = "Actlane ownership marker exists"
 			op.DisplayContent = ownedBlock(opts.Marker, ownershipID, string(generated), markerStyle)
+			op.Diff = ownedBlockDiff(targetRel, opts.Marker, ownershipID, string(generated), markerStyle)
+			return op, nil
+		}
+		if isActlaneOwnedJSONFile(targetRel, existing, loaded.Manifest.Metadata.Name) {
+			op.Action = "update_owned_file"
+			op.Reason = "target is an Actlane-owned JSON file"
 			op.Diff = ownedBlockDiff(targetRel, opts.Marker, ownershipID, string(generated), markerStyle)
 			return op, nil
 		}
@@ -532,6 +549,23 @@ func ownershipID(packName, targetPath string) string {
 func hasOwnedBlock(content, marker, id, style string) bool {
 	start, end := markerBounds(marker, id, style)
 	return strings.Contains(content, start) && strings.Contains(content, end)
+}
+
+func hasExactOwnedBlock(content, marker, id, blockContent, style string) bool {
+	return strings.Contains(content, ownedBlock(marker, id, blockContent, style))
+}
+
+func isActlaneOwnedJSONFile(targetPath string, content []byte, packName string) bool {
+	if targetPath != "policies/policy-bundle.json" {
+		return false
+	}
+	var value struct {
+		Pack string `json:"pack"`
+	}
+	if err := json.Unmarshal(content, &value); err != nil {
+		return false
+	}
+	return value.Pack == packName
 }
 
 func preview(content []byte) PlanPreview {
@@ -609,6 +643,8 @@ func applyStatus(action string, dryRun bool) string {
 		return "appended"
 	case "update_owned_block":
 		return "updated"
+	case "update_owned_file":
+		return "updated"
 	case "skip_existing_user_file":
 		return "skipped"
 	case "conflict":
@@ -662,6 +698,10 @@ func applyOperation(project, marker string, op PlanOperation) error {
 			return fmt.Errorf("update %s: Actlane ownership marker not found", op.TargetPath)
 		}
 		if err := os.WriteFile(targetPath, []byte(next), 0o644); err != nil {
+			return fmt.Errorf("update %s: %w", op.TargetPath, err)
+		}
+	case "update_owned_file":
+		if err := os.WriteFile(targetPath, []byte(op.Content), 0o644); err != nil {
 			return fmt.Errorf("update %s: %w", op.TargetPath, err)
 		}
 	case "skip_existing_user_file":

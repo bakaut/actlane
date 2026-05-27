@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/actlane/actlane/packages/cli/internal/adoption"
+	"github.com/actlane/actlane/packages/cli/internal/authoringmcp"
 	"github.com/actlane/actlane/packages/cli/internal/evaluator"
 	"github.com/actlane/actlane/packages/cli/internal/generator/profile"
 	"github.com/actlane/actlane/packages/cli/internal/mcpserver"
@@ -367,8 +368,12 @@ func runPackInstall(args []string, stdout, stderr io.Writer) int {
 }
 
 func runMCP(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
+	if len(args) >= 2 && (args[0] == "author" || args[0] == "pack-author") {
+		return runMCPAuthor(args[1:], stdin, stdout, stderr)
+	}
 	if len(args) < 1 || args[0] != "serve" {
 		fmt.Fprintln(stderr, "usage: actlane mcp serve (--policy-bundle <policy-bundle.json> | --pack <pack>)")
+		fmt.Fprintln(stderr, "usage: actlane mcp author serve [--pack <pack>]")
 		return 2
 	}
 	packDir := "."
@@ -422,6 +427,33 @@ func runMCP(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	}
 	if err := mcpserver.New(loaded).Serve(stdin, stdout); err != nil {
 		fmt.Fprintf(stderr, "mcp serve failed: %v\n", err)
+		return 1
+	}
+	return 0
+}
+
+func runMCPAuthor(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
+	if len(args) < 1 || args[0] != "serve" {
+		fmt.Fprintln(stderr, "usage: actlane mcp author serve [--pack <pack>]")
+		return 2
+	}
+	packDir := "."
+	for i := 1; i < len(args); i++ {
+		switch args[i] {
+		case "--pack":
+			i++
+			if i >= len(args) {
+				fmt.Fprintln(stderr, "--pack requires a value")
+				return 2
+			}
+			packDir = args[i]
+		default:
+			fmt.Fprintf(stderr, "unknown mcp author serve flag %q\n", args[i])
+			return 2
+		}
+	}
+	if err := authoringmcp.New(packDir).Serve(stdin, stdout); err != nil {
+		fmt.Fprintf(stderr, "mcp author serve failed: %v\n", err)
 		return 1
 	}
 	return 0

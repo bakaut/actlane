@@ -44,6 +44,7 @@ go run ./cmd/actlane generate ../../packs/create-github-draft-pr --target openco
 go run ./cmd/actlane generate ../../packs/create-github-draft-pr --target codex --frozen-lockfile
 go run ./cmd/actlane check --pack ../../packs/create-github-draft-pr --tool github_create_pull_request
 go run ./cmd/actlane mcp serve --policy-bundle ../../packs/create-github-draft-pr/generated/codex/policies/policy-bundle.json
+go run ./cmd/actlane mcp author serve --pack ../../packs/create-github-draft-pr
 go run ./cmd/actlane schema list
 go run ./cmd/actlane schema print capability
 ```

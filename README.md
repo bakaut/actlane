@@ -112,6 +112,7 @@ actlane apply ./packs/create-github-draft-pr --target codex
 actlane remove ./packs/create-github-draft-pr --target codex
 actlane mcp serve --policy-bundle <policy-bundle.json>
 actlane mcp serve --pack <pack>
+actlane mcp author serve --pack <pack>
 actlane schema list
 actlane schema print capability
 ```
@@ -137,6 +138,7 @@ actlane generate --target codex
 - Pack zip create/inspect/install flow.
 - Direct generation from `actlane-pack.zip`.
 - Local MCP policy gate prototype via `actlane mcp serve`.
+- Local pack authoring MCP helper via `actlane mcp author serve`.
 - Manual GitHub Actions workflows for CLI release artifacts and Docker image builds.
 
 ## What Does Not Exist Yet

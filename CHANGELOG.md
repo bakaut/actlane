@@ -16,6 +16,9 @@ SemVer rationale:
 - Added Codex safe adoption of `policies/policy-bundle.json` as an owned generated runtime input.
 - Updated `actlane remove` to safely remove project-local Codex MCP config blocks and policy bundles.
 - Verified `actlane mcp serve --policy-bundle` through JSON-RPC `tools/list` and `tools/call` for allow, deny, stop, and unregistered-tool cases.
+- Added separate Pack Authoring MCP helper at `actlane mcp author serve --pack <pack>` with inspect, validate, plan-change, confirmed apply-change, generate-preview, and explain-errors tools.
+- Added `actlane-pack-author` to the Codex MCP profile for the `create-github-draft-pr` pack.
+- Fixed Codex safe adoption planning so unchanged Actlane-owned blocks are skipped instead of reported as updates forever.
 - Updated README, CLI README, STATUS, workflow defaults, and versioned CLI outputs to `0.3.0-alpha.4`.
 
 ## [0.3.0-alpha.3] - 2026-05-27

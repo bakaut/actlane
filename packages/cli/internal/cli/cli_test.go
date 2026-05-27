@@ -272,6 +272,8 @@ func TestGenerateCodexWritesCodexProfile(t *testing.T) {
 
 	config := readFile(t, filepath.Join(packDir, "generated/codex/codex.config.toml"))
 	for _, want := range []string{
+		"[mcp_servers.actlane-pack-author]",
+		`args = ["mcp", "author", "serve", "--pack", "./packs/create-github-draft-pr"]`,
 		"[mcp_servers.actlane-safe-gitops]",
 		`command = "actlane"`,
 		`args = ["mcp", "serve", "--policy-bundle", "./policies/policy-bundle.json"]`,
@@ -401,6 +403,52 @@ func TestMCPServeAcceptsPolicyBundle(t *testing.T) {
 		if !strings.Contains(output, want) {
 			t.Fatalf("mcp serve with policy bundle missing %q:\n%s", want, output)
 		}
+	}
+}
+
+func TestMCPAuthorServeExposesPackAuthoringTools(t *testing.T) {
+	packDir := copyPackToTemp(t)
+	stdin := strings.NewReader(strings.Join([]string{
+		`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}`,
+		`{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}`,
+		`{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"actlane_pack_inspect","arguments":{}}}`,
+		`{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"actlane_pack_validate","arguments":{}}}`,
+		`{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"actlane_pack_generate_preview","arguments":{"target":"codex"}}}`,
+		`{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"actlane_pack_plan_change","arguments":{"name":"safe-deploy","targets":["codex","opencode"]}}}`,
+		`{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"actlane_pack_apply_change","arguments":{"confirmed":false,"files":[{"path":"skills/safe-apply.yaml","content":"apiVersion: actlane.ru/v1alpha1\nkind: SkillContract\nmetadata:\n  name: safe-apply\nspec:\n  body: |\n    Test.\n"}]}}}`,
+		`{"jsonrpc":"2.0","id":8,"method":"tools/call","params":{"name":"actlane_pack_apply_change","arguments":{"confirmed":true,"files":[{"path":"skills/safe-apply.yaml","content":"apiVersion: actlane.ru/v1alpha1\nkind: SkillContract\nmetadata:\n  name: safe-apply\nspec:\n  body: |\n    Test.\n"}]}}}`,
+		"",
+	}, "\n"))
+	var stdout, stderr bytes.Buffer
+
+	code := MainWithIO([]string{"mcp", "author", "serve", "--pack", packDir}, stdin, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("mcp author serve failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	output := stdout.String()
+	for _, want := range []string{
+		`"name":"actlane-pack-author"`,
+		`"name":"actlane_pack_inspect"`,
+		`"name":"actlane_pack_validate"`,
+		`"name":"actlane_pack_plan_change"`,
+		`"name":"actlane_pack_apply_change"`,
+		`\"name\": \"github-draft-pr-pack\"`,
+		`\"valid\": true`,
+		`\"target\": \"codex\"`,
+		`\"path\": \"generated/codex/AGENTS.md\"`,
+		`\"path\": \"capabilities/safe-deploy.yaml\"`,
+		`\"path\": \"target-profiles/opencode.yaml\"`,
+		`\"mutationPermitted\": false`,
+		`confirmed must be true`,
+		`\"written\": [`,
+		`\"skills/safe-apply.yaml\"`,
+	} {
+		if !strings.Contains(output, want) {
+			t.Fatalf("mcp author output missing %q:\n%s", want, output)
+		}
+	}
+	if got := readFile(t, filepath.Join(packDir, "skills/safe-apply.yaml")); !strings.Contains(got, "name: safe-apply") {
+		t.Fatalf("mcp author apply did not write expected source file:\n%s", got)
 	}
 }
 
@@ -564,8 +612,8 @@ func TestApplyCodexSafeAdoptionCreatesAndUpdatesIdempotently(t *testing.T) {
 	if strings.Count(config, "# actlane:start github-draft-pr-pack/.codex/config.toml") != 1 {
 		t.Fatalf("second apply duplicated Codex config marker:\n%s", config)
 	}
-	if !strings.Contains(stdout.String(), "Updated Actlane block:") {
-		t.Fatalf("second apply should update owned block:\n%s", stdout.String())
+	if !strings.Contains(stdout.String(), "Skipped:") {
+		t.Fatalf("second apply should skip unchanged owned output:\n%s", stdout.String())
 	}
 }
 
