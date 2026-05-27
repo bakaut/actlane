@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.3.0-alpha.4] - 2026-05-27
+
+Sixth SemVer-tagged CLI MVP release.
+
+SemVer rationale:
+
+- prerelease bump from `0.3.0-alpha.3` to `0.3.0-alpha.4` because Codex safe adoption now carries project-local MCP config, policy bundles, and remove lifecycle behavior before `1.0.0`;
+- keeps the `alpha` prerelease channel because target profile and runtime policy contracts are still pre-production.
+
+### Changed
+
+- Changed Codex safe adoption to apply MCP config into project-local `.codex/config.toml`.
+- Added target-profile `markerStyle` support so TOML owned blocks use `# actlane:start/end` markers while Markdown keeps HTML markers.
+- Added Codex safe adoption of `policies/policy-bundle.json` as an owned generated runtime input.
+- Updated `actlane remove` to safely remove project-local Codex MCP config blocks and policy bundles.
+- Verified `actlane mcp serve --policy-bundle` through JSON-RPC `tools/list` and `tools/call` for allow, deny, stop, and unregistered-tool cases.
+- Updated README, CLI README, STATUS, workflow defaults, and versioned CLI outputs to `0.3.0-alpha.4`.
+
 ## [0.3.0-alpha.3] - 2026-05-27
 
 Fifth SemVer-tagged CLI MVP release.
@@ -28,6 +46,7 @@ SemVer rationale:
 - Added Codex `actlane remove <pack> --target codex` with dry-run mode, owned-block removal, generated-file removal, and conflict blocking for user-modified generated files.
 - Changed Codex safe adoption UX so `plan` and `apply` require explicit `--target`, while generated source and project path still default from the pack and current directory.
 - Added safe cleanup for generated Codex adoption output through `actlane remove`.
+- Added Codex safe adoption entries for project-local `.codex/config.toml` MCP configuration and `policies/policy-bundle.json`.
 - Updated release defaults, README examples, and versioned CLI outputs to `0.3.0-alpha.3`.
 - Changed `actlane mcp serve` to call the same evaluator used by `actlane check` instead of owning policy evaluation logic.
 - Changed generated `policy-bundle.json` to include `ResponsibilityContract` input for self-contained runtime evaluation.

@@ -87,7 +87,8 @@
                   "commandContract": { "type": "string" },
                   "agentContract": { "type": "string" },
                   "owned": { "type": "boolean" },
-                  "ownedBlock": { "type": "boolean" }
+                  "ownedBlock": { "type": "boolean" },
+                  "markerStyle": { "type": "string", "enum": ["html", "hash"] }
                 },
                 "additionalProperties": false
               }
@@ -136,7 +137,8 @@
                   "commandContract": { "type": "string" },
                   "agentContract": { "type": "string" },
                   "owned": { "type": "boolean" },
-                  "ownedBlock": { "type": "boolean" }
+                  "ownedBlock": { "type": "boolean" },
+                  "markerStyle": { "type": "string", "enum": ["html", "hash"] }
                 },
                 "additionalProperties": false
               }

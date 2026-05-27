@@ -433,6 +433,8 @@ func TestPlanCodexSafeAdoptionDetectsCreatesAndConflicts(t *testing.T) {
 		"Will append Actlane block:",
 		"AGENTS.md",
 		"Will create:",
+		".codex/config.toml",
+		"policies/policy-bundle.json",
 		".codex/skills/dushnila/SKILL.md",
 		"source:",
 		"preview:",
@@ -488,6 +490,8 @@ func TestPlanRequiresTargetAndDefaultsGeneratedAndCurrentProject(t *testing.T) {
 		"Generated: " + filepath.Join(packDir, "generated/codex"),
 		".codex/skills/create-github-draft-pr/SKILL.md",
 		".codex/skills/dushnila/SKILL.md",
+		".codex/config.toml",
+		"policies/policy-bundle.json",
 		"AGENTS.md",
 	} {
 		if !strings.Contains(output, want) {
@@ -516,8 +520,24 @@ func TestApplyCodexSafeAdoptionCreatesAndUpdatesIdempotently(t *testing.T) {
 	for _, path := range []string{
 		".codex/skills/create-github-draft-pr/SKILL.md",
 		".codex/skills/dushnila/SKILL.md",
+		".codex/config.toml",
+		"policies/policy-bundle.json",
 	} {
 		assertExists(t, filepath.Join(projectDir, path))
+	}
+	config := readFile(t, filepath.Join(projectDir, ".codex/config.toml"))
+	for _, want := range []string{
+		"# actlane:start github-draft-pr-pack/.codex/config.toml",
+		`args = ["mcp", "serve", "--policy-bundle", "./policies/policy-bundle.json"]`,
+		"# actlane:end github-draft-pr-pack/.codex/config.toml",
+	} {
+		if !strings.Contains(config, want) {
+			t.Fatalf("codex.config.toml missing %q:\n%s", want, config)
+		}
+	}
+	policy := readFile(t, filepath.Join(projectDir, "policies/policy-bundle.json"))
+	if !strings.Contains(policy, `"mcpBindings"`) || !strings.Contains(policy, `"actlane-safe-gitops"`) {
+		t.Fatalf("policy bundle should include MCP bindings:\n%s", policy)
 	}
 	agents := readFile(t, filepath.Join(projectDir, "AGENTS.md"))
 	for _, want := range []string{
@@ -539,6 +559,10 @@ func TestApplyCodexSafeAdoptionCreatesAndUpdatesIdempotently(t *testing.T) {
 	agents = readFile(t, filepath.Join(projectDir, "AGENTS.md"))
 	if strings.Count(agents, "<!-- actlane:start github-draft-pr-pack/AGENTS.md -->") != 1 {
 		t.Fatalf("second apply duplicated AGENTS marker:\n%s", agents)
+	}
+	config = readFile(t, filepath.Join(projectDir, ".codex/config.toml"))
+	if strings.Count(config, "# actlane:start github-draft-pr-pack/.codex/config.toml") != 1 {
+		t.Fatalf("second apply duplicated Codex config marker:\n%s", config)
 	}
 	if !strings.Contains(stdout.String(), "Updated Actlane block:") {
 		t.Fatalf("second apply should update owned block:\n%s", stdout.String())
@@ -563,6 +587,8 @@ func TestApplyCodexDryRunWritesNothingAndConflictsBlock(t *testing.T) {
 	}
 	assertNotExists(t, filepath.Join(projectDir, ".codex/skills/create-github-draft-pr/SKILL.md"))
 	assertNotExists(t, filepath.Join(projectDir, ".codex/skills/dushnila/SKILL.md"))
+	assertNotExists(t, filepath.Join(projectDir, ".codex/config.toml"))
+	assertNotExists(t, filepath.Join(projectDir, "policies/policy-bundle.json"))
 
 	writeTestFile(t, filepath.Join(projectDir, ".codex/skills/dushnila/SKILL.md"), "user-owned\n")
 	stdout.Reset()
@@ -610,6 +636,8 @@ func TestRemoveCodexSafeAdoptionRemovesOnlyOwnedArtifacts(t *testing.T) {
 	}
 	assertNotExists(t, filepath.Join(projectDir, ".codex/skills/create-github-draft-pr/SKILL.md"))
 	assertNotExists(t, filepath.Join(projectDir, ".codex/skills/dushnila/SKILL.md"))
+	assertNotExists(t, filepath.Join(projectDir, ".codex/config.toml"))
+	assertNotExists(t, filepath.Join(projectDir, "policies/policy-bundle.json"))
 	agents := readFile(t, filepath.Join(projectDir, "AGENTS.md"))
 	if !strings.Contains(agents, "# Existing guidance") {
 		t.Fatalf("remove should preserve user AGENTS content:\n%s", agents)
@@ -634,7 +662,7 @@ func TestRemoveCodexBlocksUserModifiedGeneratedFile(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("apply failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
 	}
-	writeTestFile(t, filepath.Join(projectDir, ".codex/skills/dushnila/SKILL.md"), "user modified\n")
+	writeTestFile(t, filepath.Join(projectDir, "policies/policy-bundle.json"), "user modified\n")
 
 	stdout.Reset()
 	stderr.Reset()
@@ -646,6 +674,7 @@ func TestRemoveCodexBlocksUserModifiedGeneratedFile(t *testing.T) {
 		t.Fatalf("remove conflict output missing details\nstdout:\n%s\nstderr:\n%s", stdout.String(), stderr.String())
 	}
 	assertExists(t, filepath.Join(projectDir, ".codex/skills/create-github-draft-pr/SKILL.md"))
+	assertExists(t, filepath.Join(projectDir, "policies/policy-bundle.json"))
 }
 
 func TestPlanCodexSafeAdoptionJSON(t *testing.T) {
@@ -676,6 +705,9 @@ func TestPlanCodexSafeAdoptionJSON(t *testing.T) {
 		`"target": "codex"`,
 		`"action": "create_file"`,
 		`"targetPath": ".codex/skills/dushnila/SKILL.md"`,
+		`"targetPath": ".codex/config.toml"`,
+		`"markerStyle": "hash"`,
+		`"targetPath": "policies/policy-bundle.json"`,
 		`"preview":`,
 		`"sha256":`,
 		`"conflicts": 0`,
@@ -723,8 +755,10 @@ func TestPlanCodexSafeAdoptionDiffAndContent(t *testing.T) {
 		"diff:",
 		"--- /dev/null",
 		"+++ .codex/skills/dushnila/SKILL.md",
+		"+++ .codex/config.toml",
 		"content:",
 		"name: \"dushnila\"",
+		"# actlane:start github-draft-pr-pack/.codex/config.toml",
 	} {
 		if !strings.Contains(output, want) {
 			t.Fatalf("plan diff output missing %q:\n%s", want, output)

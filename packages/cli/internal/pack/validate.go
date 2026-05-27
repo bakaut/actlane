@@ -290,6 +290,12 @@ func Validate(loaded *LoadedPack) error {
 			if countTargetFileGenerators(file) > 1 {
 				return fmt.Errorf("target profile %s file %q must use at most one generator", targetProfile.Metadata.Name, file.TargetPath)
 			}
+			if file.MarkerStyle != "" && file.MarkerStyle != "html" && file.MarkerStyle != "hash" {
+				return fmt.Errorf("target profile %s file %q markerStyle must be html or hash", targetProfile.Metadata.Name, file.TargetPath)
+			}
+			if file.MarkerStyle != "" && !file.OwnedBlock {
+				return fmt.Errorf("target profile %s file %q markerStyle requires ownedBlock", targetProfile.Metadata.Name, file.TargetPath)
+			}
 		}
 	}
 

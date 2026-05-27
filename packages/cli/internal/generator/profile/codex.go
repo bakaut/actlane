@@ -32,7 +32,7 @@ func renderCodexConfig(files map[string][]byte, loaded *pack.LoadedPack, targetP
 func renderCodexMCPConfig(bindings []pack.MCPBinding) string {
 	var b strings.Builder
 	b.WriteString("# Generated Actlane MCP config snippet for Codex.\n")
-	b.WriteString("# Merge these tables into ~/.codex/config.toml when Codex does not load project-local config.\n\n")
+	b.WriteString("# Codex loads this file when it is applied to .codex/config.toml in the current project.\n\n")
 	for _, server := range sortedMCPServers(bindings) {
 		command := append([]string{}, server.Command...)
 		command = append(command, server.Args...)

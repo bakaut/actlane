@@ -50,6 +50,7 @@ type ApplyOperation struct {
 	OwnershipID string `json:"ownershipId"`
 	Status      string `json:"status"`
 	Reason      string `json:"reason,omitempty"`
+	MarkerStyle string `json:"markerStyle,omitempty"`
 }
 
 type RemoveResult struct {
@@ -66,6 +67,7 @@ type RemoveOperation struct {
 	OwnershipID string `json:"ownershipId"`
 	Status      string `json:"status"`
 	Reason      string `json:"reason,omitempty"`
+	MarkerStyle string `json:"markerStyle,omitempty"`
 }
 
 type Plan struct {
@@ -86,6 +88,7 @@ type PlanOperation struct {
 	Diff           string      `json:"diff,omitempty"`
 	Content        string      `json:"content,omitempty"`
 	DisplayContent string      `json:"-"`
+	MarkerStyle    string      `json:"markerStyle,omitempty"`
 }
 
 type PlanPreview struct {
@@ -229,6 +232,7 @@ func ApplyPlan(plan *Plan, opts ApplyOptions) (*ApplyResult, error) {
 			OwnershipID: op.OwnershipID,
 			Status:      applyStatus(op.Action, opts.DryRun),
 			Reason:      op.Reason,
+			MarkerStyle: op.MarkerStyle,
 		})
 	}
 	if plan.Conflicts > 0 {
@@ -413,10 +417,12 @@ func planTargetFile(loaded *pack.LoadedPack, targetProfile pack.TargetProfile, f
 	}
 	targetPath := filepath.Join(opts.Project, filepath.FromSlash(targetRel))
 	ownershipID := ownershipID(loaded.Manifest.Metadata.Name, targetRel)
+	markerStyle := markerStyle(file)
 	op := PlanOperation{
 		TargetPath:    targetRel,
 		GeneratedPath: filepath.ToSlash(sourcePath),
 		OwnershipID:   ownershipID,
+		MarkerStyle:   markerStyle,
 	}
 	generated, err := os.ReadFile(sourcePath)
 	if err != nil {
@@ -429,7 +435,7 @@ func planTargetFile(loaded *pack.LoadedPack, targetProfile pack.TargetProfile, f
 	if err != nil {
 		if os.IsNotExist(err) {
 			if file.OwnedBlock {
-				block := ownedBlock(opts.Marker, ownershipID, string(generated))
+				block := ownedBlock(opts.Marker, ownershipID, string(generated), markerStyle)
 				op.Content = block
 				op.DisplayContent = block
 				op.Preview = preview([]byte(block))
@@ -445,17 +451,17 @@ func planTargetFile(loaded *pack.LoadedPack, targetProfile pack.TargetProfile, f
 		return PlanOperation{}, fmt.Errorf("read target file %s: %w", targetPath, err)
 	}
 	if file.OwnedBlock {
-		if hasOwnedBlock(string(existing), opts.Marker, ownershipID) {
+		if hasOwnedBlock(string(existing), opts.Marker, ownershipID, markerStyle) {
 			op.Action = "update_owned_block"
 			op.Reason = "Actlane ownership marker exists"
-			op.DisplayContent = ownedBlock(opts.Marker, ownershipID, string(generated))
-			op.Diff = ownedBlockDiff(targetRel, opts.Marker, ownershipID, string(generated))
+			op.DisplayContent = ownedBlock(opts.Marker, ownershipID, string(generated), markerStyle)
+			op.Diff = ownedBlockDiff(targetRel, opts.Marker, ownershipID, string(generated), markerStyle)
 			return op, nil
 		}
 		op.Action = "append_owned_block"
 		op.Reason = "preserve existing user-owned content"
-		op.DisplayContent = ownedBlock(opts.Marker, ownershipID, string(generated))
-		op.Diff = appendBlockDiff(targetRel, opts.Marker, ownershipID, string(generated))
+		op.DisplayContent = ownedBlock(opts.Marker, ownershipID, string(generated), markerStyle)
+		op.Diff = appendBlockDiff(targetRel, opts.Marker, ownershipID, string(generated), markerStyle)
 		return op, nil
 	}
 	if file.Owned {
@@ -464,11 +470,11 @@ func planTargetFile(loaded *pack.LoadedPack, targetProfile pack.TargetProfile, f
 			op.Reason = "target already matches generated content"
 			return op, nil
 		}
-		if hasOwnedBlock(string(existing), opts.Marker, ownershipID) {
+		if hasOwnedBlock(string(existing), opts.Marker, ownershipID, markerStyle) {
 			op.Action = "update_owned_block"
 			op.Reason = "Actlane ownership marker exists"
-			op.DisplayContent = ownedBlock(opts.Marker, ownershipID, string(generated))
-			op.Diff = ownedBlockDiff(targetRel, opts.Marker, ownershipID, string(generated))
+			op.DisplayContent = ownedBlock(opts.Marker, ownershipID, string(generated), markerStyle)
+			op.Diff = ownedBlockDiff(targetRel, opts.Marker, ownershipID, string(generated), markerStyle)
 			return op, nil
 		}
 		op.Action = "conflict"
@@ -523,9 +529,8 @@ func ownershipID(packName, targetPath string) string {
 	return packName + "/" + targetPath
 }
 
-func hasOwnedBlock(content, marker, id string) bool {
-	start := "<!-- " + marker + ":start " + id + " -->"
-	end := "<!-- " + marker + ":end " + id + " -->"
+func hasOwnedBlock(content, marker, id, style string) bool {
+	start, end := markerBounds(marker, id, style)
 	return strings.Contains(content, start) && strings.Contains(content, end)
 }
 
@@ -558,12 +563,12 @@ func createFileDiff(targetPath, content string) string {
 	return b.String()
 }
 
-func appendBlockDiff(targetPath, marker, id, content string) string {
-	return ownedBlockDiff(targetPath, marker, id, content)
+func appendBlockDiff(targetPath, marker, id, content, style string) string {
+	return ownedBlockDiff(targetPath, marker, id, content, style)
 }
 
-func ownedBlockDiff(targetPath, marker, id, content string) string {
-	block := ownedBlock(marker, id, content)
+func ownedBlockDiff(targetPath, marker, id, content, style string) string {
+	block := ownedBlock(marker, id, content, style)
 	var b strings.Builder
 	fmt.Fprintf(&b, "--- %s\n+++ %s\n@@ actlane:%s\n", targetPath, targetPath, id)
 	for _, line := range strings.Split(strings.TrimRight(block, "\n"), "\n") {
@@ -572,8 +577,25 @@ func ownedBlockDiff(targetPath, marker, id, content string) string {
 	return b.String()
 }
 
-func ownedBlock(marker, id, content string) string {
-	return "<!-- " + marker + ":start " + id + " -->\n" + strings.TrimRight(content, "\n") + "\n<!-- " + marker + ":end " + id + " -->\n"
+func ownedBlock(marker, id, content, style string) string {
+	start, end := markerBounds(marker, id, style)
+	return start + "\n" + strings.TrimRight(content, "\n") + "\n" + end + "\n"
+}
+
+func markerBounds(marker, id, style string) (string, string) {
+	switch style {
+	case "hash":
+		return "# " + marker + ":start " + id, "# " + marker + ":end " + id
+	default:
+		return "<!-- " + marker + ":start " + id + " -->", "<!-- " + marker + ":end " + id + " -->"
+	}
+}
+
+func markerStyle(file pack.TargetProfileFile) string {
+	if file.MarkerStyle == "" {
+		return "html"
+	}
+	return file.MarkerStyle
 }
 
 func applyStatus(action string, dryRun bool) string {
@@ -616,7 +638,7 @@ func applyOperation(project, marker string, op PlanOperation) error {
 		if err != nil {
 			return fmt.Errorf("read %s: %w", op.TargetPath, err)
 		}
-		if hasOwnedBlock(string(existing), marker, op.OwnershipID) {
+		if hasOwnedBlock(string(existing), marker, op.OwnershipID, op.MarkerStyle) {
 			return fmt.Errorf("append %s: Actlane ownership marker already exists", op.TargetPath)
 		}
 		next := string(existing)
@@ -626,7 +648,7 @@ func applyOperation(project, marker string, op PlanOperation) error {
 		if next != "" {
 			next += "\n"
 		}
-		next += ownedBlock(marker, op.OwnershipID, op.Content)
+		next += ownedBlock(marker, op.OwnershipID, op.Content, op.MarkerStyle)
 		if err := os.WriteFile(targetPath, []byte(next), 0o644); err != nil {
 			return fmt.Errorf("append %s: %w", op.TargetPath, err)
 		}
@@ -635,7 +657,7 @@ func applyOperation(project, marker string, op PlanOperation) error {
 		if err != nil {
 			return fmt.Errorf("read %s: %w", op.TargetPath, err)
 		}
-		next, ok := replaceOwnedBlock(string(existing), marker, op.OwnershipID, op.Content)
+		next, ok := replaceOwnedBlock(string(existing), marker, op.OwnershipID, op.Content, op.MarkerStyle)
 		if !ok {
 			return fmt.Errorf("update %s: Actlane ownership marker not found", op.TargetPath)
 		}
@@ -650,9 +672,8 @@ func applyOperation(project, marker string, op PlanOperation) error {
 	return nil
 }
 
-func replaceOwnedBlock(content, marker, id, nextContent string) (string, bool) {
-	start := "<!-- " + marker + ":start " + id + " -->"
-	end := "<!-- " + marker + ":end " + id + " -->"
+func replaceOwnedBlock(content, marker, id, nextContent, style string) (string, bool) {
+	start, end := markerBounds(marker, id, style)
 	startIndex := strings.Index(content, start)
 	if startIndex < 0 {
 		return "", false
@@ -665,7 +686,7 @@ func replaceOwnedBlock(content, marker, id, nextContent string) (string, bool) {
 	if endIndex < len(content) && content[endIndex] == '\n' {
 		endIndex++
 	}
-	return content[:startIndex] + ownedBlock(marker, id, nextContent) + content[endIndex:], true
+	return content[:startIndex] + ownedBlock(marker, id, nextContent, style) + content[endIndex:], true
 }
 
 func planRemoveOperation(project, marker, sourcePath, targetRel, ownershipID string, file pack.TargetProfileFile) RemoveOperation {
@@ -673,6 +694,7 @@ func planRemoveOperation(project, marker, sourcePath, targetRel, ownershipID str
 		Action:      removeAction(file),
 		TargetPath:  targetRel,
 		OwnershipID: ownershipID,
+		MarkerStyle: markerStyle(file),
 	}
 	targetPath := filepath.Join(project, filepath.FromSlash(targetRel))
 	existing, err := os.ReadFile(targetPath)
@@ -687,7 +709,7 @@ func planRemoveOperation(project, marker, sourcePath, targetRel, ownershipID str
 		return op
 	}
 	if file.OwnedBlock {
-		if hasOwnedBlock(string(existing), marker, ownershipID) {
+		if hasOwnedBlock(string(existing), marker, ownershipID, op.MarkerStyle) {
 			op.Status = "updated"
 			op.Reason = "remove Actlane ownership block"
 			return op
@@ -743,9 +765,15 @@ func removeOperation(project, marker string, op RemoveOperation) error {
 		if err != nil {
 			return fmt.Errorf("read %s: %w", op.TargetPath, err)
 		}
-		next, ok := deleteOwnedBlock(string(existing), marker, op.OwnershipID)
+		next, ok := deleteOwnedBlock(string(existing), marker, op.OwnershipID, op.MarkerStyle)
 		if !ok {
 			return fmt.Errorf("remove block %s: Actlane ownership marker not found", op.TargetPath)
+		}
+		if strings.TrimSpace(next) == "" {
+			if err := os.Remove(targetPath); err != nil && !os.IsNotExist(err) {
+				return fmt.Errorf("remove %s: %w", op.TargetPath, err)
+			}
+			return nil
 		}
 		if err := os.WriteFile(targetPath, []byte(next), 0o644); err != nil {
 			return fmt.Errorf("write %s: %w", op.TargetPath, err)
@@ -756,9 +784,8 @@ func removeOperation(project, marker string, op RemoveOperation) error {
 	return nil
 }
 
-func deleteOwnedBlock(content, marker, id string) (string, bool) {
-	start := "<!-- " + marker + ":start " + id + " -->"
-	end := "<!-- " + marker + ":end " + id + " -->"
+func deleteOwnedBlock(content, marker, id, style string) (string, bool) {
+	start, end := markerBounds(marker, id, style)
 	startIndex := strings.Index(content, start)
 	if startIndex < 0 {
 		return "", false

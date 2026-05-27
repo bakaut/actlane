@@ -20,7 +20,7 @@ spec:
     requireDiffPreview: true
 
     projectPaths:
-      configSnippet: codex.config.toml
+      configSnippet: .codex/config.toml
       skillsDir: .codex/skills
       instructionsFile: AGENTS.md
 
@@ -40,6 +40,13 @@ spec:
       - targetPath: AGENTS.md
         generatedPath: generated/codex/AGENTS.md
         ownedBlock: true
+      - targetPath: .codex/config.toml
+        generatedPath: generated/codex/codex.config.toml
+        ownedBlock: true
+        markerStyle: hash
+      - targetPath: policies/policy-bundle.json
+        generatedPath: generated/codex/policies/policy-bundle.json
+        owned: true
 
       - targetPath: .codex/skills/create-github-draft-pr/SKILL.md
         generatedPath: generated/codex/.codex/skills/create-github-draft-pr/SKILL.md

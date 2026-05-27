@@ -2,7 +2,7 @@
 
 Status: pre-alpha / working CLI MVP / no production security guarantees.
 
-Actlane started as a design and specification repository. It now also contains a narrow Go CLI MVP for one OpenCode capability.
+Actlane started as a design and specification repository. It now also contains a narrow Go CLI MVP for one OpenCode/Codex capability.
 
 ## What Exists
 
@@ -13,23 +13,25 @@ Actlane started as a design and specification repository. It now also contains a
 - Documentation for the first intended pack: `safe-gitops`.
 - Hand-written `safe-gitops` pack artifacts and examples.
 - Working Go CLI MVP in `packages/cli`.
-- `inspect`, `import`, `import report`, `pack create`, `pack inspect`, `pack install`, `validate`, `generate`, `--check`, `--frozen-lockfile`, and schema inspection commands.
+- `inspect`, `import`, `import report`, `pack create`, `pack inspect`, `pack install`, `validate`, `generate`, `plan`, `apply`, `remove`, `check`, `mcp serve`, `--check`, `--frozen-lockfile`, and schema inspection commands.
 - First executable MVP pack: `packs/create-github-draft-pr`.
 - Generated OpenCode and Codex artifacts, target-local policy bundles, and `actlane.lock`.
+- Codex safe adoption into `.codex/skills`, `.codex/config.toml`, `AGENTS.md`, and `policies/policy-bundle.json`.
+- Local MCP policy evaluator via `actlane mcp serve --policy-bundle <policy-bundle.json>`.
 - Brownfield OpenCode import into `.actlane/` with inferred capability, policy, MCP binding, command, agent, skill, target profile, report, and lockfile artifacts.
 - Manual GitHub Actions release workflow for Linux, macOS, and Windows CLI artifacts.
 
 ## What Does Not Exist Yet
 
 - No production-ready CLI contract.
-- No runtime service.
-- No MCP gateway.
+- No production runtime service.
+- No production MCP gateway.
 - No hosted registry.
 - No marketplace.
 - No production security guarantees.
-- No apply/remove lifecycle for existing projects.
+- No apply/remove lifecycle for every target yet.
 - No Claude or broad multi-target adapter matrix in the working CLI.
-- No `plan apply` lifecycle yet.
+- No registry-backed pack install/apply lifecycle yet.
 
 ## Intended Next Step
 
@@ -50,5 +52,7 @@ go test ./...
 go run ./cmd/actlane inspect --from ../../packs/create-github-draft-pr/generated/opencode
 go run ./cmd/actlane validate ../../packs/create-github-draft-pr
 go run ./cmd/actlane generate ../../packs/create-github-draft-pr --target opencode --check
-go run ./cmd/actlane generate ../../packs/create-github-draft-pr --target opencode --frozen-lockfile
+go run ./cmd/actlane generate ../../packs/create-github-draft-pr --target codex --check
+go run ./cmd/actlane plan ../../packs/create-github-draft-pr --target codex
+go run ./cmd/actlane mcp serve --policy-bundle ../../packs/create-github-draft-pr/generated/codex/policies/policy-bundle.json
 ```

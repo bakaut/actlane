@@ -389,6 +389,7 @@ type TargetProfileFile struct {
 	AgentContract   string `yaml:"agentContract"`
 	Owned           bool   `yaml:"owned"`
 	OwnedBlock      bool   `yaml:"ownedBlock"`
+	MarkerStyle     string `yaml:"markerStyle"`
 }
 
 type TargetProfileTransforms struct {

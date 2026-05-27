@@ -41,26 +41,32 @@ actlane version
 Install options:
 
 ```bash
-ACTLANE_VERSION=v0.3.0-alpha.3 ACTLANE_INSTALL_DIR="$HOME/.local/bin" sh -c "$(curl -fsSL https://actlane.ru/install.sh)"
+ACTLANE_VERSION=v0.3.0-alpha.4 ACTLANE_INSTALL_DIR="$HOME/.local/bin" sh -c "$(curl -fsSL https://actlane.ru/install.sh)"
 ```
 
 Docker:
 
 ```bash
-docker run --rm ghcr.io/bakaut/actlane:0.3.0-alpha.3 version
+docker run --rm ghcr.io/bakaut/actlane:0.3.0-alpha.4 version
 ```
 
 ## Quick Start
 
-Start from an existing OpenCode project:
+Try the bundled MVP pack in this repository:
+
+```bash
+actlane generate ./packs/create-github-draft-pr --target codex
+actlane plan ./packs/create-github-draft-pr --target codex
+actlane apply ./packs/create-github-draft-pr --target codex
+actlane remove ./packs/create-github-draft-pr --target codex
+```
+
+Capture an existing OpenCode project into a portable pack zip:
 
 ```bash
 actlane inspect
 actlane import
 actlane pack create
-actlane plan ./packs/create-github-draft-pr --target codex
-actlane apply ./packs/create-github-draft-pr --target codex
-actlane remove ./packs/create-github-draft-pr --target codex
 ```
 
 This creates:
@@ -76,6 +82,12 @@ actlane generate --target codex
 ```
 
 Actlane will use `./actlane-pack.zip` as the source when `.actlane/actlane.yaml` is not present.
+
+For Codex adoption, `actlane apply <pack> --target codex` writes project-local MCP config to `.codex/config.toml`. Run Codex from the project root and it will include the local MCP servers:
+
+```bash
+codex mcp list
+```
 
 ## Current CLI
 
@@ -93,6 +105,12 @@ actlane validate <pack>
 actlane generate <pack> --target opencode
 actlane generate <pack> --target codex
 actlane generate --target codex
+actlane generate <pack> --target codex --check
+actlane check --pack <pack> --tool github_create_pull_request
+actlane plan ./packs/create-github-draft-pr --target codex
+actlane apply ./packs/create-github-draft-pr --target codex
+actlane remove ./packs/create-github-draft-pr --target codex
+actlane mcp serve --policy-bundle <policy-bundle.json>
 actlane mcp serve --pack <pack>
 actlane schema list
 actlane schema print capability
