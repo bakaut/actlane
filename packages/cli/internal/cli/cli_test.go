@@ -1128,6 +1128,55 @@ Use the GitHub draft PR workflow.
 	assertExists(t, filepath.Join(installedDir, "generated/codex/actlane.lock"))
 }
 
+func TestPackInitCreatesValidScaffoldAndDoesNotOverwrite(t *testing.T) {
+	outDir := filepath.Join(t.TempDir(), "packs", "safe-deploy")
+	var stdout, stderr bytes.Buffer
+
+	code := Main([]string{"pack", "init", "safe-deploy", "--out", outDir, "--targets", "codex,opencode"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("pack init failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	for _, path := range []string{
+		"actlane.yaml",
+		"capabilities/safe-deploy.yaml",
+		"policies/safe-deploy-policy.yaml",
+		"mcp/bindings/safe-deploy.yaml",
+		"skills/safe-deploy.yaml",
+		"target-profiles/codex.yaml",
+		"target-profiles/opencode.yaml",
+	} {
+		assertExists(t, filepath.Join(outDir, path))
+	}
+	if !strings.Contains(stdout.String(), "initialized pack") || !strings.Contains(stdout.String(), "actlane generate") {
+		t.Fatalf("pack init output should include next steps:\n%s", stdout.String())
+	}
+
+	stdout.Reset()
+	stderr.Reset()
+	code = Main([]string{"validate", outDir}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("validate initialized pack failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+
+	stdout.Reset()
+	stderr.Reset()
+	code = Main([]string{"generate", outDir, "--target", "codex"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("generate initialized codex pack failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	assertExists(t, filepath.Join(outDir, "generated/codex/.codex/skills/safe-deploy/SKILL.md"))
+
+	stdout.Reset()
+	stderr.Reset()
+	code = Main([]string{"pack", "init", "safe-deploy", "--out", outDir}, &stdout, &stderr)
+	if code == 0 {
+		t.Fatalf("pack init should not overwrite existing files\nstdout:\n%s\nstderr:\n%s", stdout.String(), stderr.String())
+	}
+	if !strings.Contains(stderr.String(), "existing files") {
+		t.Fatalf("pack init overwrite error missing details:\n%s", stderr.String())
+	}
+}
+
 func repoRoot(t *testing.T) string {
 	t.Helper()
 	wd, err := os.Getwd()

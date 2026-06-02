@@ -15,10 +15,11 @@ import (
 	"github.com/actlane/actlane/packages/cli/internal/generator/profile"
 	"github.com/actlane/actlane/packages/cli/internal/mcpserver"
 	"github.com/actlane/actlane/packages/cli/internal/pack"
+	"github.com/actlane/actlane/packages/cli/internal/scaffold"
 	"github.com/actlane/actlane/packages/cli/internal/schema"
 )
 
-const version = "0.3.0-alpha.4"
+const version = "0.3.0-alpha.5"
 
 func Main(args []string, stdout, stderr io.Writer) int {
 	return MainWithIO(args, os.Stdin, stdout, stderr)
@@ -212,10 +213,12 @@ func runImportReport(args []string, stdout, stderr io.Writer) int {
 
 func runPack(args []string, stdout, stderr io.Writer) int {
 	if len(args) == 0 {
-		fmt.Fprintln(stderr, "usage: actlane pack <create|inspect|install>")
+		fmt.Fprintln(stderr, "usage: actlane pack <init|create|inspect|install>")
 		return 2
 	}
 	switch args[0] {
+	case "init":
+		return runPackInit(args[1:], stdout, stderr)
 	case "create":
 		return runPackCreate(args[1:], stdout, stderr)
 	case "inspect":
@@ -226,6 +229,86 @@ func runPack(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "unknown pack command %q\n", args[0])
 		return 2
 	}
+}
+
+func runPackInit(args []string, stdout, stderr io.Writer) int {
+	if len(args) == 0 || isFlag(args[0]) {
+		fmt.Fprintln(stderr, "usage: actlane pack init <name> [--out <dir>] [--targets codex] [--force]")
+		return 2
+	}
+	name := scaffold.CleanName(args[0])
+	opts := struct {
+		Out     string
+		Targets []string
+		Force   bool
+	}{
+		Out:     filepath.Join("packs", name),
+		Targets: []string{"codex"},
+	}
+	for i := 1; i < len(args); i++ {
+		switch {
+		case strings.HasPrefix(args[i], "--out="):
+			opts.Out = strings.TrimPrefix(args[i], "--out=")
+		case strings.HasPrefix(args[i], "--targets="):
+			opts.Targets = splitTargets(strings.TrimPrefix(args[i], "--targets="))
+		case strings.HasPrefix(args[i], "--target="):
+			opts.Targets = []string{strings.TrimPrefix(args[i], "--target=")}
+		case args[i] == "--out":
+			i++
+			if i >= len(args) {
+				fmt.Fprintln(stderr, "--out requires a value")
+				return 2
+			}
+			opts.Out = args[i]
+		case args[i] == "--targets":
+			i++
+			if i >= len(args) {
+				fmt.Fprintln(stderr, "--targets requires a value")
+				return 2
+			}
+			opts.Targets = splitTargets(args[i])
+		case args[i] == "--target":
+			i++
+			if i >= len(args) {
+				fmt.Fprintln(stderr, "--target requires a value")
+				return 2
+			}
+			opts.Targets = []string{args[i]}
+		case args[i] == "--force":
+			opts.Force = true
+		default:
+			fmt.Fprintf(stderr, "unknown pack init flag %q\n", args[i])
+			return 2
+		}
+	}
+	files := scaffold.Plan(scaffold.Options{Name: name, Targets: opts.Targets})
+	written, skipped, err := scaffold.Write(opts.Out, files, opts.Force)
+	if len(skipped) > 0 {
+		fmt.Fprintf(stderr, "pack init failed: existing files: %s\n", strings.Join(skipped, ", "))
+		return 1
+	}
+	if err != nil {
+		fmt.Fprintf(stderr, "pack init failed: %v\n", err)
+		return 1
+	}
+	loaded, err := pack.Load(opts.Out)
+	if err != nil {
+		fmt.Fprintf(stderr, "pack init failed: %v\n", err)
+		return 1
+	}
+	if err := pack.Validate(loaded); err != nil {
+		fmt.Fprintf(stderr, "pack init failed: %v\n", err)
+		return 1
+	}
+	fmt.Fprintf(stdout, "initialized pack: %s\n", opts.Out)
+	fmt.Fprintln(stdout, "Written:")
+	for _, path := range written {
+		fmt.Fprintf(stdout, "- %s\n", path)
+	}
+	fmt.Fprintln(stdout, "Next:")
+	fmt.Fprintf(stdout, "  actlane generate %s --target %s\n", opts.Out, opts.Targets[0])
+	fmt.Fprintf(stdout, "  actlane plan %s --target %s --project .\n", opts.Out, opts.Targets[0])
+	return 0
 }
 
 func runPackCreate(args []string, stdout, stderr io.Writer) int {
@@ -1068,6 +1151,20 @@ func shouldUsePackArchive(packDir string, explicit bool) bool {
 	}
 	info, err := os.Stat("actlane-pack.zip")
 	return err == nil && !info.IsDir()
+}
+
+func splitTargets(value string) []string {
+	var targets []string
+	for _, part := range strings.Split(value, ",") {
+		target := strings.TrimSpace(part)
+		if target != "" {
+			targets = append(targets, target)
+		}
+	}
+	if len(targets) == 0 {
+		return []string{"codex"}
+	}
+	return targets
 }
 
 func sortedObjectKinds(values map[string]int) []string {

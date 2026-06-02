@@ -13,8 +13,9 @@ Actlane started as a design and specification repository. It now also contains a
 - Documentation for the first intended pack: `safe-gitops`.
 - Hand-written `safe-gitops` pack artifacts and examples.
 - Working Go CLI MVP in `packages/cli`.
-- `inspect`, `import`, `import report`, `pack create`, `pack inspect`, `pack install`, `validate`, `generate`, `plan`, `apply`, `remove`, `check`, `mcp serve`, `mcp author serve`, `--check`, `--frozen-lockfile`, and schema inspection commands.
+- `inspect`, `import`, `import report`, `pack init`, `pack create`, `pack inspect`, `pack install`, `validate`, `generate`, `plan`, `apply`, `remove`, `check`, `mcp serve`, `mcp author serve`, `--check`, `--frozen-lockfile`, and schema inspection commands.
 - First executable MVP pack: `packs/create-github-draft-pr`.
+- Minimal source pack scaffold creation via `actlane pack init <name>`.
 - Generated OpenCode and Codex artifacts, target-local policy bundles, and `actlane.lock`.
 - Codex safe adoption into `.codex/skills`, `.codex/config.toml`, `AGENTS.md`, and `policies/policy-bundle.json`.
 - Local MCP policy evaluator via `actlane mcp serve --policy-bundle <policy-bundle.json>`.
@@ -51,6 +52,7 @@ Current validation path:
 cd packages/cli
 go test ./...
 go run ./cmd/actlane inspect --from ../../packs/create-github-draft-pr/generated/opencode
+go run ./cmd/actlane pack init demo-pack --out /tmp/actlane-demo-pack --targets codex,opencode
 go run ./cmd/actlane validate ../../packs/create-github-draft-pr
 go run ./cmd/actlane generate ../../packs/create-github-draft-pr --target opencode --check
 go run ./cmd/actlane generate ../../packs/create-github-draft-pr --target codex --check

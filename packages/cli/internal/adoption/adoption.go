@@ -491,7 +491,7 @@ func importedManifest(capabilityName, skillName, commandName, agentName string, 
 	if len(d.MCPServers) > 0 {
 		spec["mcpBindings"] = []string{"mcp/bindings/" + capabilityName + ".yaml"}
 	}
-	return doc("CapabilityPack", "imported-"+d.Runtime+"-pack", "0.3.0-alpha.4", "Imported "+d.Runtime+" project.", spec, importedAnnotations(d, "", false))
+	return doc("CapabilityPack", "imported-"+d.Runtime+"-pack", "0.3.0-alpha.5", "Imported "+d.Runtime+" project.", spec, importedAnnotations(d, "", false))
 }
 
 func importedCapability(name, skillName, commandName, agentName, policyName string, d Discovery) map[string]any {

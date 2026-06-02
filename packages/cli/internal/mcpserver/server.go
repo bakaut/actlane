@@ -191,7 +191,7 @@ func (s *Server) handle(req request) response {
 			},
 			"serverInfo": map[string]any{
 				"name":    "actlane-safe-gitops",
-				"version": "0.3.0-alpha.4",
+				"version": "0.3.0-alpha.5",
 			},
 		})
 	case "tools/list":

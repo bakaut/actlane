@@ -6,15 +6,15 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 	"sort"
 	"strings"
 
 	"github.com/actlane/actlane/packages/cli/internal/generator/profile"
 	"github.com/actlane/actlane/packages/cli/internal/pack"
+	"github.com/actlane/actlane/packages/cli/internal/scaffold"
 )
 
-const serverVersion = "0.3.0-alpha.4"
+const serverVersion = "0.3.0-alpha.5"
 
 type Server struct {
 	packDir string
@@ -261,57 +261,18 @@ type planChangeResult struct {
 	MutationPermitted bool              `json:"mutationPermitted"`
 	RequiresApply     bool              `json:"requiresApply"`
 	SourceOfTruth     string            `json:"sourceOfTruth"`
-	Files             []plannedFile     `json:"files"`
+	Files             []scaffold.File   `json:"files"`
 	Notes             []string          `json:"notes"`
 	Boundaries        map[string]string `json:"boundaries"`
 }
 
-type plannedFile struct {
-	Path    string `json:"path"`
-	Purpose string `json:"purpose"`
-	Content string `json:"content"`
-}
-
 func planChange(args map[string]any) planChangeResult {
-	name := cleanName(stringArg(args, "name", "new-capability"))
+	name := scaffold.CleanName(stringArg(args, "name", "new-capability"))
 	targets := stringSliceArg(args, "targets")
 	if len(targets) == 0 {
 		targets = []string{"codex"}
 	}
-	files := []plannedFile{
-		{
-			Path:    "actlane.yaml",
-			Purpose: "CapabilityPack manifest that references source contracts.",
-			Content: packManifestProposal(name, targets),
-		},
-		{
-			Path:    "capabilities/" + name + ".yaml",
-			Purpose: "Capability source of truth for intent, interface, policy refs, MCP binding refs, and reporting.",
-			Content: capabilityProposal(name),
-		},
-		{
-			Path:    "policies/" + name + "-policy.yaml",
-			Purpose: "Safety policy for allow, deny, mutation, limits, and approval behavior.",
-			Content: policyProposal(name),
-		},
-		{
-			Path:    "mcp/bindings/" + name + ".yaml",
-			Purpose: "Runtime MCP binding and real downstream tool mapping.",
-			Content: mcpBindingProposal(name),
-		},
-		{
-			Path:    "skills/" + name + ".yaml",
-			Purpose: "Portable skill directory contract: SKILL.md body plus optional resources.",
-			Content: skillProposal(name),
-		},
-	}
-	for _, target := range targets {
-		files = append(files, plannedFile{
-			Path:    "target-profiles/" + cleanName(target) + ".yaml",
-			Purpose: "Target runtime file layout and generated file mapping.",
-			Content: targetProfileProposal(cleanName(target), name),
-		})
-	}
+	files := scaffold.Plan(scaffold.Options{Name: name, Targets: targets})
 	return planChangeResult{
 		MutationPermitted: false,
 		RequiresApply:     true,
@@ -356,21 +317,7 @@ func (s *Server) applyChange(args map[string]any) applyChangeResult {
 		return applyChangeResult{Applied: false, Pack: packDir, Diagnostics: []string{err.Error()}}
 	}
 	overwrite := boolArg(args, "overwrite", false)
-	var skipped []string
-	safePaths := make([]string, 0, len(files))
-	for _, file := range files {
-		rel, err := safeSourcePath(file.Path)
-		if err != nil {
-			return applyChangeResult{Applied: false, Pack: packDir, Diagnostics: []string{err.Error()}}
-		}
-		safePaths = append(safePaths, rel)
-		target := filepath.Join(packDir, filepath.FromSlash(rel))
-		if _, err := os.Stat(target); err == nil && !overwrite {
-			skipped = append(skipped, rel)
-		} else if err != nil && !os.IsNotExist(err) {
-			return applyChangeResult{Applied: false, Pack: packDir, Diagnostics: []string{err.Error()}}
-		}
-	}
+	written, skipped, err := scaffold.Write(packDir, files, overwrite)
 	if len(skipped) > 0 {
 		return applyChangeResult{
 			Applied:     false,
@@ -379,17 +326,8 @@ func (s *Server) applyChange(args map[string]any) applyChangeResult {
 			Diagnostics: []string{"one or more files already exist; pass overwrite=true only after explicit confirmation"},
 		}
 	}
-	var written []string
-	for i, file := range files {
-		rel := safePaths[i]
-		target := filepath.Join(packDir, filepath.FromSlash(rel))
-		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
-			return applyChangeResult{Applied: false, Pack: packDir, Written: written, Diagnostics: []string{err.Error()}}
-		}
-		if err := os.WriteFile(target, []byte(file.Content), 0o644); err != nil {
-			return applyChangeResult{Applied: false, Pack: packDir, Written: written, Diagnostics: []string{err.Error()}}
-		}
-		written = append(written, rel)
+	if err != nil {
+		return applyChangeResult{Applied: false, Pack: packDir, Written: written, Diagnostics: []string{err.Error()}}
 	}
 	applied := len(written) > 0
 	return applyChangeResult{
@@ -542,7 +480,7 @@ func boolArg(args map[string]any, key string, fallback bool) bool {
 	return boolean
 }
 
-func plannedFilesArg(args map[string]any) ([]plannedFile, error) {
+func plannedFilesArg(args map[string]any) ([]scaffold.File, error) {
 	raw, ok := args["files"]
 	if !ok {
 		return nil, fmt.Errorf("files are required")
@@ -551,7 +489,7 @@ func plannedFilesArg(args map[string]any) ([]plannedFile, error) {
 	if !ok {
 		return nil, fmt.Errorf("files must be an array")
 	}
-	files := make([]plannedFile, 0, len(values))
+	files := make([]scaffold.File, 0, len(values))
 	for _, value := range values {
 		object, ok := value.(map[string]any)
 		if !ok {
@@ -562,53 +500,9 @@ func plannedFilesArg(args map[string]any) ([]plannedFile, error) {
 		if strings.TrimSpace(path) == "" {
 			return nil, fmt.Errorf("each file must include path")
 		}
-		files = append(files, plannedFile{Path: path, Content: content})
+		files = append(files, scaffold.File{Path: path, Content: content})
 	}
 	return files, nil
-}
-
-func safeSourcePath(value string) (string, error) {
-	value = filepath.ToSlash(strings.TrimSpace(value))
-	if value == "" {
-		return "", fmt.Errorf("file path is required")
-	}
-	if strings.HasPrefix(value, "/") {
-		return "", fmt.Errorf("absolute paths are not allowed: %s", value)
-	}
-	cleaned := filepath.ToSlash(filepath.Clean(filepath.FromSlash(value)))
-	if cleaned == "." || strings.HasPrefix(cleaned, "../") || cleaned == ".." {
-		return "", fmt.Errorf("path traversal is not allowed: %s", value)
-	}
-	if strings.HasPrefix(cleaned, "generated/") || cleaned == "generated" {
-		return "", fmt.Errorf("authoring MCP must not write generated output: %s", value)
-	}
-	if strings.HasPrefix(cleaned, ".git/") || cleaned == ".git" {
-		return "", fmt.Errorf("authoring MCP must not write git internals: %s", value)
-	}
-	return cleaned, nil
-}
-
-func cleanName(value string) string {
-	value = strings.ToLower(strings.TrimSpace(value))
-	var b strings.Builder
-	lastDash := false
-	for _, r := range value {
-		allowed := (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9')
-		if allowed {
-			b.WriteRune(r)
-			lastDash = false
-			continue
-		}
-		if !lastDash {
-			b.WriteByte('-')
-			lastDash = true
-		}
-	}
-	cleaned := strings.Trim(b.String(), "-")
-	if cleaned == "" {
-		return "new-capability"
-	}
-	return cleaned
 }
 
 func capabilityNames(loaded *pack.LoadedPack) []string {
@@ -688,115 +582,6 @@ func supportedTargets(loaded *pack.LoadedPack) []string {
 func sorted(values []string) []string {
 	sort.Strings(values)
 	return values
-}
-
-func packManifestProposal(name string, targets []string) string {
-	var b strings.Builder
-	b.WriteString("apiVersion: actlane.ru/v1alpha1\n")
-	b.WriteString("kind: CapabilityPack\n")
-	b.WriteString("metadata:\n")
-	b.WriteString("  name: " + name + "-pack\n")
-	b.WriteString("  version: 0.1.0-alpha.1\n")
-	b.WriteString("spec:\n")
-	b.WriteString("  capabilities:\n")
-	b.WriteString("    - capabilities/" + name + ".yaml\n")
-	b.WriteString("  policies:\n")
-	b.WriteString("    - policies/" + name + "-policy.yaml\n")
-	b.WriteString("  mcpBindings:\n")
-	b.WriteString("    - mcp/bindings/" + name + ".yaml\n")
-	b.WriteString("  skills:\n")
-	b.WriteString("    - skills/" + name + ".yaml\n")
-	b.WriteString("  targetProfiles:\n")
-	for _, target := range targets {
-		b.WriteString("    - target-profiles/" + cleanName(target) + ".yaml\n")
-	}
-	return b.String()
-}
-
-func capabilityProposal(name string) string {
-	return fmt.Sprintf(`apiVersion: actlane.ru/v1alpha1
-kind: Capability
-metadata:
-  name: %[1]s
-  description: TODO describe the safe action.
-spec:
-  intent:
-    type: TODO
-    whenToUse:
-      - TODO
-    whenNotToUse:
-      - TODO
-  policyRef:
-    name: %[1]s-policy
-  executionRef:
-    name: %[1]s
-  reporting:
-    policyDecision: true
-`, name)
-}
-
-func policyProposal(name string) string {
-	return fmt.Sprintf(`apiVersion: actlane.ru/v1alpha1
-kind: ToolCallPolicy
-metadata:
-  name: %[1]s-policy
-spec:
-  match:
-    capabilities:
-      - %[1]s
-  validate:
-    confirmation:
-      field: confirmed
-      mustBe: true
-`, name)
-}
-
-func mcpBindingProposal(name string) string {
-	return fmt.Sprintf(`apiVersion: actlane.ru/v1alpha1
-kind: MCPBinding
-metadata:
-  name: %[1]s
-spec:
-  capabilityRef:
-    name: %[1]s
-  strategy:
-    type: gate
-    handler: actlane.policy.evaluate
-`, name)
-}
-
-func skillProposal(name string) string {
-	return fmt.Sprintf(`apiVersion: actlane.ru/v1alpha1
-kind: SkillContract
-metadata:
-  name: %[1]s
-  description: TODO describe when this skill should be used.
-spec:
-  body: |
-    TODO write agent-facing workflow instructions.
-`, name)
-}
-
-func targetProfileProposal(target, name string) string {
-	target = cleanName(target)
-	return fmt.Sprintf(`apiVersion: actlane.ru/v1alpha1
-kind: TargetProfile
-metadata:
-  name: %[1]s
-spec:
-  target: %[1]s
-  output:
-    root: generated/%[1]s
-  generate:
-    skills: true
-    mcp: true
-  %[1]s:
-    files:
-      - targetPath: .%[1]s/skills/%[2]s/SKILL.md
-        generatedPath: generated/%[1]s/.%[1]s/skills/%[2]s/SKILL.md
-        skillContract: %[2]s
-        owned: true
-`, target, name)
 }
 
 func writeResponse(w io.Writer, resp response) error {

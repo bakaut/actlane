@@ -41,13 +41,13 @@ actlane version
 Install options:
 
 ```bash
-ACTLANE_VERSION=v0.3.0-alpha.4 ACTLANE_INSTALL_DIR="$HOME/.local/bin" sh -c "$(curl -fsSL https://actlane.ru/install.sh)"
+ACTLANE_VERSION=v0.3.0-alpha.5 ACTLANE_INSTALL_DIR="$HOME/.local/bin" sh -c "$(curl -fsSL https://actlane.ru/install.sh)"
 ```
 
 Docker:
 
 ```bash
-docker run --rm ghcr.io/bakaut/actlane:0.3.0-alpha.4 version
+docker run --rm ghcr.io/actlane/actlane:0.3.0-alpha.5 version
 ```
 
 ## Quick Start
@@ -59,6 +59,14 @@ actlane generate ./packs/create-github-draft-pr --target codex
 actlane plan ./packs/create-github-draft-pr --target codex
 actlane apply ./packs/create-github-draft-pr --target codex
 actlane remove ./packs/create-github-draft-pr --target codex
+```
+
+Create a new minimal source pack without hand-writing the folder structure:
+
+```bash
+actlane pack init safe-deploy
+actlane validate ./packs/safe-deploy
+actlane generate ./packs/safe-deploy --target codex
 ```
 
 Capture an existing OpenCode project into a portable pack zip:
@@ -98,6 +106,7 @@ actlane version
 actlane inspect
 actlane import
 actlane import report
+actlane pack init <name>
 actlane pack create
 actlane pack inspect actlane-pack.zip
 actlane pack install actlane-pack.zip --target codex
@@ -134,6 +143,7 @@ actlane generate --target codex
 - OpenCode target generation.
 - Codex target generation.
 - Brownfield OpenCode import into Actlane contracts.
+- Source pack scaffold creation via `actlane pack init <name>`.
 - Import of OpenCode MCP servers and permission-derived MCP tool bindings.
 - Pack zip create/inspect/install flow.
 - Direct generation from `actlane-pack.zip`.

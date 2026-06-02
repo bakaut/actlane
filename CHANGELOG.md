@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.3.0-alpha.5] - 2026-06-02
+
+Seventh SemVer-tagged CLI MVP release.
+
+SemVer rationale:
+
+- prerelease bump from `0.3.0-alpha.4` to `0.3.0-alpha.5` because source pack scaffolding adds a new CLI authoring workflow before `1.0.0`;
+- keeps the `alpha` prerelease channel because pack contracts, target profiles, and runtime policy behavior are still pre-production.
+
+### Changed
+
+- Added `actlane pack init <name>` for creating a minimal valid source pack scaffold without hand-writing folders.
+- Added shared scaffold templates reused by CLI `pack init` and Pack Authoring MCP plan/apply flows.
+- Added pack-init coverage for Codex and OpenCode target profile scaffolds, validation, generation, and non-overwrite behavior.
+- Updated README, CLI README, STATUS, workflow defaults, and versioned CLI outputs to `0.3.0-alpha.5`.
+
 ## [0.3.0-alpha.4] - 2026-05-27
 
 Sixth SemVer-tagged CLI MVP release.

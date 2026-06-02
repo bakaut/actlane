@@ -12,13 +12,13 @@ actlane version
 Override install options:
 
 ```bash
-ACTLANE_VERSION=v0.3.0-alpha.4 ACTLANE_INSTALL_DIR="$HOME/.local/bin" sh -c "$(curl -fsSL https://actlane.ru/install.sh)"
+ACTLANE_VERSION=v0.3.0-alpha.5 ACTLANE_INSTALL_DIR="$HOME/.local/bin" sh -c "$(curl -fsSL https://actlane.ru/install.sh)"
 ```
 
 Docker:
 
 ```bash
-docker run --rm ghcr.io/bakaut/actlane:0.3.0-alpha.4 version
+docker run --rm ghcr.io/actlane/actlane:0.3.0-alpha.5 version
 ```
 
 Implemented MVP commands:
@@ -28,6 +28,7 @@ go run ./cmd/actlane version
 go run ./cmd/actlane inspect
 go run ./cmd/actlane import
 go run ./cmd/actlane import report
+go run ./cmd/actlane pack init safe-deploy --out ../../packs/safe-deploy
 go run ./cmd/actlane pack create
 go run ./cmd/actlane pack inspect actlane-pack.zip
 go run ./cmd/actlane pack install actlane-pack.zip --target codex
