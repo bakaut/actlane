@@ -78,6 +78,14 @@
           "type": "array",
           "items": { "type": "string" }
         },
+        "runtimeProfiles": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "evidence": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
         "policies": {
           "type": "array",
           "minItems": 1,

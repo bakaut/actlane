@@ -10,7 +10,7 @@ import (
 	"github.com/actlane/actlane/packages/cli/internal/pack"
 )
 
-const generatorVersion = "actlane-go-profile-0.3.0-alpha.5"
+const generatorVersion = "actlane-go-profile-0.3.0-alpha.6"
 
 type lockfile struct {
 	LockfileVersion int                   `json:"lockfileVersion"`
@@ -116,6 +116,12 @@ func buildLockfile(loaded *pack.LoadedPack, files map[string][]byte, target, loc
 	}
 	for _, contract := range loaded.Contracts {
 		sourceDigests[relToRoot(loaded.Root, contract.Path)] = digest(contract.Raw)
+	}
+	for _, runtimeProfile := range loaded.RuntimeProfiles {
+		sourceDigests[relToRoot(loaded.Root, runtimeProfile.Path)] = digest(runtimeProfile.Raw)
+	}
+	for _, evidence := range loaded.Evidence {
+		sourceDigests[relToRoot(loaded.Root, evidence.Path)] = digest(evidence.Raw)
 	}
 	for _, policy := range loaded.Policies {
 		sourceDigests[relToRoot(loaded.Root, policy.Path)] = digest(policy.Raw)

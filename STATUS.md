@@ -16,6 +16,8 @@ Actlane started as a design and specification repository. It now also contains a
 - `inspect`, `import`, `import report`, `pack init`, `pack create`, `pack inspect`, `pack install`, `validate`, `generate`, `plan`, `apply`, `remove`, `check`, `mcp serve`, `mcp author serve`, `--check`, `--frozen-lockfile`, and schema inspection commands.
 - First executable MVP pack: `packs/create-github-draft-pr`.
 - Minimal source pack scaffold creation via `actlane pack init <name>`.
+- RuntimeProfile and EvidenceContract MVP for advisory MCP broker classification.
+- Read-only `actlane_classify` MCP tool in `actlane mcp serve --pack <pack>`.
 - Generated OpenCode and Codex artifacts, target-local policy bundles, and `actlane.lock`.
 - Codex safe adoption into `.codex/skills`, `.codex/config.toml`, `AGENTS.md`, and `policies/policy-bundle.json`.
 - Local MCP policy evaluator via `actlane mcp serve --policy-bundle <policy-bundle.json>`.
@@ -58,5 +60,6 @@ go run ./cmd/actlane generate ../../packs/create-github-draft-pr --target openco
 go run ./cmd/actlane generate ../../packs/create-github-draft-pr --target codex --check
 go run ./cmd/actlane plan ../../packs/create-github-draft-pr --target codex
 go run ./cmd/actlane mcp serve --policy-bundle ../../packs/create-github-draft-pr/generated/codex/policies/policy-bundle.json
+go run ./cmd/actlane mcp serve --pack ../../packs/create-github-draft-pr
 go run ./cmd/actlane mcp author serve --pack ../../packs/create-github-draft-pr
 ```

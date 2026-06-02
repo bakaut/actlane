@@ -83,6 +83,12 @@ spec:
   responsibilityRef:
     name: create-github-draft-pr
 
+  runtimeRef:
+    name: create-github-draft-pr
+
+  evidenceRef:
+    name: create-github-draft-pr
+
   reporting:
     includeChangedFiles: true
     includePolicyDecision: true

@@ -19,7 +19,7 @@ import (
 	"github.com/actlane/actlane/packages/cli/internal/schema"
 )
 
-const version = "0.3.0-alpha.5"
+const version = "0.3.0-alpha.6"
 
 func Main(args []string, stdout, stderr io.Writer) int {
 	return MainWithIO(args, os.Stdin, stdout, stderr)
@@ -330,7 +330,7 @@ func runPackInit(args []string, stdout, stderr io.Writer) int {
 }
 
 func packInitUsage() string {
-	return "usage: actlane pack init <name> [--out <dir>] [--targets codex] [--contracts capability,policy,mcp,skill,target-profile] [--force]"
+	return "usage: actlane pack init <name> [--out <dir>] [--targets codex] [--contracts capability,policy,mcp,skill,target-profile] [--force]\ncontracts: default or comma-list; all includes command,agent,responsibility,runtime-profile,evidence"
 }
 
 func runPackCreate(args []string, stdout, stderr io.Writer) int {
@@ -1135,7 +1135,9 @@ func runSchema(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stdout, "capability https://actlane.ru/schemas/v1alpha1/capability.schema.json")
 		fmt.Fprintln(stdout, "capability-pack https://actlane.ru/schemas/v1alpha1/capability-pack.schema.json")
 		fmt.Fprintln(stdout, "command-contract https://actlane.ru/schemas/v1alpha1/command-contract.schema.json")
+		fmt.Fprintln(stdout, "evidence-contract https://actlane.ru/schemas/v1alpha1/evidence-contract.schema.json")
 		fmt.Fprintln(stdout, "mcp-binding https://actlane.ru/schemas/v1alpha1/mcp-binding.schema.json")
+		fmt.Fprintln(stdout, "runtime-profile https://actlane.ru/schemas/v1alpha1/runtime-profile.schema.json")
 		fmt.Fprintln(stdout, "skill-contract https://actlane.ru/schemas/v1alpha1/skill-contract.schema.json")
 		fmt.Fprintln(stdout, "tool-call-policy https://actlane.ru/schemas/v1alpha1/tool-call-policy.schema.json")
 		fmt.Fprintln(stdout, "target-profile https://actlane.ru/schemas/v1alpha1/target-profile.schema.json")

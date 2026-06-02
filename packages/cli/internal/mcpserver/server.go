@@ -191,7 +191,7 @@ func (s *Server) handle(req request) response {
 			},
 			"serverInfo": map[string]any{
 				"name":    "actlane-safe-gitops",
-				"version": "0.3.0-alpha.5",
+				"version": "0.3.0-alpha.6",
 			},
 		})
 	case "tools/list":
@@ -213,6 +213,13 @@ func (s *Server) handle(req request) response {
 
 func (s *Server) tools() []map[string]any {
 	var tools []map[string]any
+	if len(s.loaded.RuntimeProfiles) > 0 {
+		tools = append(tools, map[string]any{
+			"name":        "actlane_classify",
+			"description": "Classify a user task against Actlane runtime profiles and return advisory mode, risk flags, candidate capabilities, and required evidence.",
+			"inputSchema": classifyInputSchema(),
+		})
+	}
 	for _, binding := range s.loaded.MCPBindings {
 		if binding.Spec.Strategy.Handler != "actlane.policy.evaluate" {
 			continue
@@ -232,6 +239,19 @@ func (s *Server) tools() []map[string]any {
 }
 
 func (s *Server) callTool(name string, args map[string]any) (toolResult, error) {
+	if name == "actlane_classify" {
+		result := s.classify(args)
+		text, err := json.MarshalIndent(result, "", "  ")
+		if err != nil {
+			return toolResult{}, err
+		}
+		return toolResult{
+			Content: []toolContent{{
+				Type: "text",
+				Text: string(text),
+			}},
+		}, nil
+	}
 	binding, tool, ok := s.generatedTool(name)
 	if !ok {
 		return toolResult{}, fmt.Errorf("unknown tool %q", name)
@@ -271,6 +291,288 @@ func (s *Server) generatedTool(name string) (pack.MCPBinding, pack.MCPGeneratedT
 		}
 	}
 	return pack.MCPBinding{}, pack.MCPGeneratedTool{}, false
+}
+
+type classificationResult struct {
+	WorkType              string   `json:"workType"`
+	RiskFlags             []string `json:"riskFlags"`
+	TechHints             []string `json:"techHints"`
+	Mode                  string   `json:"mode"`
+	Confidence            string   `json:"confidence"`
+	CandidateCapabilities []string `json:"candidateCapabilities"`
+	RequiredEvidence      []string `json:"requiredEvidence"`
+	NextStep              string   `json:"nextStep"`
+	RuntimeProfile        string   `json:"runtimeProfile,omitempty"`
+	EvidenceContract      string   `json:"evidenceContract,omitempty"`
+}
+
+func (s *Server) classify(args map[string]any) classificationResult {
+	task := lowerStringArg(args, "task")
+	diffSummary := lowerStringArg(args, "diff_summary")
+	if diffSummary == "" {
+		diffSummary = lowerStringArg(args, "diffSummary")
+	}
+	files := stringSliceArg(args, "changed_files")
+	if len(files) == 0 {
+		files = stringSliceArg(args, "changedFiles")
+	}
+	profile := s.runtimeProfileForTask(task, files, diffSummary)
+	capabilities := append([]string{}, profile.Spec.CandidateCapabilities...)
+	if len(capabilities) == 0 && profile.Spec.CapabilityRef.Name != "" {
+		capabilities = []string{profile.Spec.CapabilityRef.Name}
+	}
+	workType := detectWorkType(task, diffSummary, files, profile)
+	riskFlags := detectRiskFlags(task, diffSummary, files, profile)
+	if riskFlags == nil {
+		riskFlags = []string{}
+	}
+	mode := profile.Spec.DefaultMode
+	if mode == "" {
+		mode = "advise"
+	}
+	humanBoundary := false
+	if hasAny(riskFlags, profile.Spec.HighRisk.Flags) {
+		if profile.Spec.HighRisk.Mode != "" {
+			mode = profile.Spec.HighRisk.Mode
+		}
+		humanBoundary = profile.Spec.HighRisk.RequireHumanBoundary
+	}
+	evidence := s.evidenceForCapability(profile.Spec.CapabilityRef.Name)
+	requiredEvidence := append([]string{}, evidence.Spec.SummaryFields...)
+	if requiredEvidence == nil {
+		requiredEvidence = []string{}
+	}
+	nextStep := profile.Spec.Recommendations.NextStep
+	if humanBoundary && profile.Spec.Recommendations.HumanBoundaryNextStep != "" {
+		nextStep = profile.Spec.Recommendations.HumanBoundaryNextStep
+	} else if nextStep == "" {
+		nextStep = "Continue with existing tools; use Actlane policy checks before mutating downstream actions."
+	}
+	return classificationResult{
+		WorkType:              workType,
+		RiskFlags:             riskFlags,
+		TechHints:             detectTechHints(task, diffSummary, files, profile),
+		Mode:                  mode,
+		Confidence:            confidence(workType, riskFlags),
+		CandidateCapabilities: capabilities,
+		RequiredEvidence:      requiredEvidence,
+		NextStep:              nextStep,
+		RuntimeProfile:        profile.Metadata.Name,
+		EvidenceContract:      evidence.Metadata.Name,
+	}
+}
+
+func (s *Server) runtimeProfileForTask(task string, files []string, diffSummary string) pack.RuntimeProfile {
+	if len(s.loaded.RuntimeProfiles) == 0 {
+		return pack.RuntimeProfile{Spec: pack.RuntimeProfileSpec{DefaultMode: "advise"}}
+	}
+	return s.loaded.RuntimeProfiles[0]
+}
+
+func (s *Server) evidenceForCapability(capability string) pack.EvidenceContract {
+	for _, evidence := range s.loaded.Evidence {
+		if evidence.Spec.CapabilityRef.Name == capability {
+			return evidence
+		}
+	}
+	if len(s.loaded.Evidence) > 0 {
+		return s.loaded.Evidence[0]
+	}
+	return pack.EvidenceContract{}
+}
+
+func detectWorkType(task, diffSummary string, files []string, profile pack.RuntimeProfile) string {
+	text := strings.Join(append([]string{task, diffSummary}, lowerFiles(files)...), " ")
+	counts := map[string]int{}
+	addIfMatch(counts, "ci_change", text, append([]string{".github/workflows", "workflow", "ci", "actions"}, profile.Spec.ClassificationKeywords.CI...))
+	addIfMatch(counts, "docs_change", text, append([]string{".md", "readme", "docs", "documentation"}, profile.Spec.ClassificationKeywords.Docs...))
+	addIfMatch(counts, "test_change", text, append([]string{"test", "_test", "spec", "pytest"}, profile.Spec.ClassificationKeywords.Tests...))
+	addIfMatch(counts, "dependency_change", text, append([]string{"go.mod", "go.sum", "package.json", "package-lock", "dependency", "dependencies"}, profile.Spec.ClassificationKeywords.Dependency...))
+	addIfMatch(counts, "config_change", text, append([]string{".yaml", ".yml", ".toml", ".json", "config"}, profile.Spec.ClassificationKeywords.Config...))
+	addIfMatch(counts, "code_change", text, append([]string{".go", ".py", ".js", ".ts", ".java", "code"}, profile.Spec.ClassificationKeywords.Code...))
+	if len(counts) == 0 {
+		if len(profile.Spec.WorkTypes) > 0 {
+			return profile.Spec.WorkTypes[0]
+		}
+		return "unknown_or_mixed"
+	}
+	best := ""
+	bestCount := 0
+	ties := 0
+	for workType, count := range counts {
+		if count > bestCount {
+			best = workType
+			bestCount = count
+			ties = 1
+		} else if count == bestCount {
+			ties++
+		}
+	}
+	if ties > 1 {
+		return "unknown_or_mixed"
+	}
+	return best
+}
+
+func detectRiskFlags(task, diffSummary string, files []string, profile pack.RuntimeProfile) []string {
+	text := strings.Join(append([]string{task, diffSummary}, lowerFiles(files)...), " ")
+	var risks []string
+	if containsAny(text, []string{".env", "secret", "token", "password", "credential", "private_key", "secrets/"}) {
+		risks = append(risks, "secrets_sensitive")
+	}
+	if containsAny(text, []string{"prod", "production", "deploy", "release", "live"}) {
+		risks = append(risks, "production_sensitive")
+	}
+	if containsAny(text, []string{"destroy", "delete", "drop", "force push", "terraform apply", "kubectl apply", "kubectl delete"}) {
+		risks = append(risks, "destructive_operation")
+	}
+	if containsAny(text, []string{"security", "auth", "permission", "rbac", "oauth", "vulnerability"}) {
+		risks = append(risks, "security_sensitive")
+	}
+	if containsAny(text, []string{"api", "public endpoint", "breaking change"}) {
+		risks = append(risks, "public_api_sensitive")
+	}
+	return filterAllowedRisks(uniqueStrings(risks), profile.Spec.RiskFlags)
+}
+
+func detectTechHints(task, diffSummary string, files []string, profile pack.RuntimeProfile) []string {
+	text := strings.Join(append([]string{task, diffSummary}, lowerFiles(files)...), " ")
+	var hints []string
+	for _, hint := range profile.Spec.TechHints {
+		if strings.Contains(text, strings.ToLower(hint)) {
+			hints = append(hints, hint)
+		}
+	}
+	if containsAny(text, []string{"github", "pull request", "pr", ".github"}) {
+		hints = append(hints, "github")
+	}
+	if containsAny(text, []string{"git", "branch", "commit"}) {
+		hints = append(hints, "git")
+	}
+	return uniqueStrings(hints)
+}
+
+func addIfMatch(counts map[string]int, workType, text string, needles []string) {
+	for _, needle := range needles {
+		if needle != "" && strings.Contains(text, strings.ToLower(needle)) {
+			counts[workType]++
+		}
+	}
+}
+
+func confidence(workType string, riskFlags []string) string {
+	if workType == "unknown_or_mixed" {
+		return "low"
+	}
+	if len(riskFlags) > 0 {
+		return "medium"
+	}
+	return "high"
+}
+
+func filterAllowedRisks(values, allowed []string) []string {
+	if len(allowed) == 0 {
+		return values
+	}
+	allowedSet := map[string]bool{}
+	for _, value := range allowed {
+		allowedSet[value] = true
+	}
+	var filtered []string
+	for _, value := range values {
+		if allowedSet[value] {
+			filtered = append(filtered, value)
+		}
+	}
+	return filtered
+}
+
+func lowerFiles(files []string) []string {
+	values := make([]string, 0, len(files))
+	for _, file := range files {
+		values = append(values, strings.ToLower(file))
+	}
+	return values
+}
+
+func containsAny(text string, needles []string) bool {
+	for _, needle := range needles {
+		if strings.Contains(text, needle) {
+			return true
+		}
+	}
+	return false
+}
+
+func hasAny(values, needles []string) bool {
+	if len(values) == 0 || len(needles) == 0 {
+		return false
+	}
+	set := map[string]bool{}
+	for _, value := range values {
+		set[value] = true
+	}
+	for _, needle := range needles {
+		if set[needle] {
+			return true
+		}
+	}
+	return false
+}
+
+func uniqueStrings(values []string) []string {
+	seen := map[string]bool{}
+	var unique []string
+	for _, value := range values {
+		if value == "" || seen[value] {
+			continue
+		}
+		seen[value] = true
+		unique = append(unique, value)
+	}
+	return unique
+}
+
+func lowerStringArg(args map[string]any, key string) string {
+	value, _ := args[key].(string)
+	return strings.ToLower(value)
+}
+
+func stringSliceArg(args map[string]any, key string) []string {
+	raw, ok := args[key]
+	if !ok {
+		return nil
+	}
+	values, ok := raw.([]any)
+	if !ok {
+		if stringsValue, ok := raw.([]string); ok {
+			return stringsValue
+		}
+		return nil
+	}
+	result := make([]string, 0, len(values))
+	for _, value := range values {
+		if stringValue, ok := value.(string); ok {
+			result = append(result, stringValue)
+		}
+	}
+	return result
+}
+
+func classifyInputSchema() map[string]any {
+	return map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"task":           map[string]any{"type": "string"},
+			"changed_files":  map[string]any{"type": "array", "items": map[string]any{"type": "string"}},
+			"changedFiles":   map[string]any{"type": "array", "items": map[string]any{"type": "string"}},
+			"branch":         map[string]any{"type": "string"},
+			"diff_summary":   map[string]any{"type": "string"},
+			"diffSummary":    map[string]any{"type": "string"},
+			"existing_tools": map[string]any{"type": "array", "items": map[string]any{"type": "string"}},
+		},
+		"additionalProperties": true,
+	}
 }
 
 func inputSchema() map[string]any {

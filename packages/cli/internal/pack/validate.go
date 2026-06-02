@@ -96,6 +96,28 @@ func Validate(loaded *LoadedPack) error {
 		}
 	}
 
+	runtimeProfiles := map[string]bool{}
+	for _, runtimeProfile := range loaded.RuntimeProfiles {
+		if err := validateRuntimeProfile(runtimeProfile, capabilities); err != nil {
+			return err
+		}
+		if runtimeProfiles[runtimeProfile.Metadata.Name] {
+			return fmt.Errorf("duplicate runtime profile %s", runtimeProfile.Metadata.Name)
+		}
+		runtimeProfiles[runtimeProfile.Metadata.Name] = true
+	}
+
+	evidenceContracts := map[string]bool{}
+	for _, evidence := range loaded.Evidence {
+		if err := validateEvidenceContract(evidence, capabilities); err != nil {
+			return err
+		}
+		if evidenceContracts[evidence.Metadata.Name] {
+			return fmt.Errorf("duplicate evidence contract %s", evidence.Metadata.Name)
+		}
+		evidenceContracts[evidence.Metadata.Name] = true
+	}
+
 	skills := map[string]bool{}
 	for _, skill := range loaded.Skills {
 		if skill.APIVersion != "actlane.ru/v1alpha1" {
@@ -253,6 +275,12 @@ func Validate(loaded *LoadedPack) error {
 		if capability.Spec.ResponsibilityRef.Name != "" && !contracts[capability.Spec.ResponsibilityRef.Name] {
 			return fmt.Errorf("capability %s references missing responsibility contract %s", capability.Metadata.Name, capability.Spec.ResponsibilityRef.Name)
 		}
+		if capability.Spec.RuntimeRef.Name != "" && !runtimeProfiles[capability.Spec.RuntimeRef.Name] {
+			return fmt.Errorf("capability %s references missing runtime profile %s", capability.Metadata.Name, capability.Spec.RuntimeRef.Name)
+		}
+		if capability.Spec.EvidenceRef.Name != "" && !evidenceContracts[capability.Spec.EvidenceRef.Name] {
+			return fmt.Errorf("capability %s references missing evidence contract %s", capability.Metadata.Name, capability.Spec.EvidenceRef.Name)
+		}
 	}
 
 	for _, contract := range loaded.Contracts {
@@ -313,6 +341,169 @@ func Validate(loaded *LoadedPack) error {
 	}
 
 	return nil
+}
+
+func validateRuntimeProfile(runtimeProfile RuntimeProfile, capabilities map[string]bool) error {
+	if runtimeProfile.APIVersion != "actlane.ru/v1alpha1" {
+		return fmt.Errorf("runtime profile %s apiVersion must be actlane.ru/v1alpha1", runtimeProfile.Metadata.Name)
+	}
+	if runtimeProfile.Kind != "RuntimeProfile" {
+		return fmt.Errorf("runtime profile %s kind must be RuntimeProfile", runtimeProfile.Metadata.Name)
+	}
+	if !kebabName.MatchString(runtimeProfile.Metadata.Name) {
+		return fmt.Errorf("runtime profile metadata.name must be kebab-case")
+	}
+	if runtimeProfile.Spec.CapabilityRef.Name == "" {
+		return fmt.Errorf("runtime profile %s spec.capabilityRef.name is required", runtimeProfile.Metadata.Name)
+	}
+	if !capabilities[runtimeProfile.Spec.CapabilityRef.Name] {
+		return fmt.Errorf("runtime profile %s references missing capability %s", runtimeProfile.Metadata.Name, runtimeProfile.Spec.CapabilityRef.Name)
+	}
+	if err := validateEnum(runtimeProfile.Metadata.Name, "runtime profile", "defaultMode", runtimeProfile.Spec.DefaultMode, allowedRuntimeModes()); err != nil {
+		return err
+	}
+	for _, workType := range runtimeProfile.Spec.WorkTypes {
+		if err := validateEnum(runtimeProfile.Metadata.Name, "runtime profile", "workTypes", workType, allowedWorkTypes()); err != nil {
+			return err
+		}
+	}
+	for _, riskFlag := range runtimeProfile.Spec.RiskFlags {
+		if err := validateEnum(runtimeProfile.Metadata.Name, "runtime profile", "riskFlags", riskFlag, allowedRiskFlags()); err != nil {
+			return err
+		}
+	}
+	if runtimeProfile.Spec.HighRisk.Mode != "" {
+		if err := validateEnum(runtimeProfile.Metadata.Name, "runtime profile", "highRisk.mode", runtimeProfile.Spec.HighRisk.Mode, allowedRuntimeModes()); err != nil {
+			return err
+		}
+	}
+	for _, riskFlag := range runtimeProfile.Spec.HighRisk.Flags {
+		if err := validateEnum(runtimeProfile.Metadata.Name, "runtime profile", "highRisk.flags", riskFlag, allowedRiskFlags()); err != nil {
+			return err
+		}
+	}
+	if containsKeyDeepRaw(runtimeProfile.Raw, "targetPath") || containsKeyDeepRaw(runtimeProfile.Raw, "generatedPath") || containsKeyDeepRaw(runtimeProfile.Raw, "markerStyle") || containsKeyDeepRaw(runtimeProfile.Raw, "ownedBlock") {
+		return fmt.Errorf("runtime profile %s must not define target profile paths", runtimeProfile.Metadata.Name)
+	}
+	if containsKeyDeepRaw(runtimeProfile.Raw, "mcpservers") || containsKeyDeepRaw(runtimeProfile.Raw, "requiredTools") || containsKeyDeepRaw(runtimeProfile.Raw, "command") || containsKeyDeepRaw(runtimeProfile.Raw, "env") || containsKeyDeepRaw(runtimeProfile.Raw, "environment") {
+		return fmt.Errorf("runtime profile %s must not define exact MCP server or tool wiring", runtimeProfile.Metadata.Name)
+	}
+	if containsPolicyRule(runtimeProfile.Raw) {
+		return fmt.Errorf("runtime profile %s must not define policy rules", runtimeProfile.Metadata.Name)
+	}
+	return nil
+}
+
+func validateEvidenceContract(evidence EvidenceContract, capabilities map[string]bool) error {
+	if evidence.APIVersion != "actlane.ru/v1alpha1" {
+		return fmt.Errorf("evidence contract %s apiVersion must be actlane.ru/v1alpha1", evidence.Metadata.Name)
+	}
+	if evidence.Kind != "EvidenceContract" {
+		return fmt.Errorf("evidence contract %s kind must be EvidenceContract", evidence.Metadata.Name)
+	}
+	if !kebabName.MatchString(evidence.Metadata.Name) {
+		return fmt.Errorf("evidence contract metadata.name must be kebab-case")
+	}
+	if evidence.Spec.CapabilityRef.Name == "" {
+		return fmt.Errorf("evidence contract %s spec.capabilityRef.name is required", evidence.Metadata.Name)
+	}
+	if !capabilities[evidence.Spec.CapabilityRef.Name] {
+		return fmt.Errorf("evidence contract %s references missing capability %s", evidence.Metadata.Name, evidence.Spec.CapabilityRef.Name)
+	}
+	if len(evidence.Spec.SummaryFields) == 0 {
+		return fmt.Errorf("evidence contract %s spec.summaryFields is required", evidence.Metadata.Name)
+	}
+	for _, field := range evidence.Spec.SummaryFields {
+		if err := validateEnum(evidence.Metadata.Name, "evidence contract", "summaryFields", field, allowedEvidenceFields()); err != nil {
+			return err
+		}
+	}
+	if evidence.Spec.RawOutput.Default != "" {
+		if err := validateEnum(evidence.Metadata.Name, "evidence contract", "rawOutput.default", evidence.Spec.RawOutput.Default, map[string]bool{"compact": true, "summary": true, "redacted_summary": true, "none": true}); err != nil {
+			return err
+		}
+	}
+	if containsKeyDeepRaw(evidence.Raw, "targetPath") || containsKeyDeepRaw(evidence.Raw, "generatedPath") || containsKeyDeepRaw(evidence.Raw, "markerStyle") || containsKeyDeepRaw(evidence.Raw, "ownedBlock") {
+		return fmt.Errorf("evidence contract %s must not define target profile paths", evidence.Metadata.Name)
+	}
+	if containsKeyDeepRaw(evidence.Raw, "mcpservers") || containsKeyDeepRaw(evidence.Raw, "requiredTools") || containsKeyDeepRaw(evidence.Raw, "command") || containsKeyDeepRaw(evidence.Raw, "env") || containsKeyDeepRaw(evidence.Raw, "environment") {
+		return fmt.Errorf("evidence contract %s must not define exact MCP server or tool wiring", evidence.Metadata.Name)
+	}
+	if containsPolicyRule(evidence.Raw) {
+		return fmt.Errorf("evidence contract %s must not define policy rules", evidence.Metadata.Name)
+	}
+	return nil
+}
+
+func validateEnum(name, kind, field, value string, allowed map[string]bool) error {
+	if value == "" {
+		return fmt.Errorf("%s %s spec.%s is required", kind, name, field)
+	}
+	if !allowed[value] {
+		return fmt.Errorf("%s %s spec.%s has invalid value %q", kind, name, field, value)
+	}
+	return nil
+}
+
+func allowedRuntimeModes() map[string]bool {
+	return map[string]bool{"observe": true, "advise": true, "guarded": true, "enforce": true, "read-only": true, "human-boundary-required": true}
+}
+
+func allowedWorkTypes() map[string]bool {
+	return map[string]bool{
+		"docs_change":           true,
+		"test_change":           true,
+		"code_change":           true,
+		"dependency_change":     true,
+		"config_change":         true,
+		"ci_change":             true,
+		"infra_change":          true,
+		"deployment_change":     true,
+		"data_migration_change": true,
+		"unknown_or_mixed":      true,
+	}
+}
+
+func allowedRiskFlags() map[string]bool {
+	return map[string]bool{
+		"secrets_sensitive":     true,
+		"production_sensitive":  true,
+		"destructive_operation": true,
+		"security_sensitive":    true,
+		"public_api_sensitive":  true,
+	}
+}
+
+func allowedEvidenceFields() map[string]bool {
+	return map[string]bool{
+		"policy_decision": true,
+		"changed_files":   true,
+		"branch":          true,
+		"draft_pr_url":    true,
+		"pr_url":          true,
+		"checks_run":      true,
+		"blocked_paths":   true,
+		"residual_risk":   true,
+		"summary":         true,
+		"evidence_id":     true,
+	}
+}
+
+func containsPolicyRule(raw []byte) bool {
+	for _, key := range []string{"allow", "deny", "mutate", "requiresApproval", "approval", "forbidPaths", "limits", "branchPrefix"} {
+		if containsKeyDeepRaw(raw, key) {
+			return true
+		}
+	}
+	return false
+}
+
+func containsKeyDeepRaw(raw []byte, key string) bool {
+	spec, ok := rawSpec(raw)
+	if !ok {
+		return false
+	}
+	return containsKeyDeep(spec, key)
 }
 
 func specHasKey(raw []byte, key string) bool {

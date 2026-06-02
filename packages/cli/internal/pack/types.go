@@ -26,6 +26,8 @@ type PackSpec struct {
 	Commands        []string       `yaml:"commands"`
 	Agents          []string       `yaml:"agents"`
 	Contracts       []string       `yaml:"contracts"`
+	RuntimeProfiles []string       `yaml:"runtimeProfiles"`
+	Evidence        []string       `yaml:"evidence"`
 	Policies        []string       `yaml:"policies"`
 	MCPBindings     []string       `yaml:"mcpBindings"`
 	Targets         []string       `yaml:"targets"`
@@ -65,6 +67,8 @@ type CapabilitySpec struct {
 	PolicyRef         LocalRef                     `yaml:"policyRef"`
 	ExecutionRef      LocalRef                     `yaml:"executionRef"`
 	ResponsibilityRef LocalRef                     `yaml:"responsibilityRef"`
+	RuntimeRef        LocalRef                     `yaml:"runtimeRef"`
+	EvidenceRef       LocalRef                     `yaml:"evidenceRef"`
 	WorkflowHints     []WorkflowHint               `yaml:"workflowHints"`
 	Projections       CapabilityProjections        `yaml:"projections"`
 	Reporting         map[string]bool              `yaml:"reporting"`
@@ -473,6 +477,76 @@ type ResponsibilityContract struct {
 	Raw      []byte         `yaml:"-"`
 }
 
+type RuntimeProfile struct {
+	Document `yaml:",inline"`
+	Spec     RuntimeProfileSpec `yaml:"spec"`
+	Path     string             `yaml:"-"`
+	Raw      []byte             `yaml:"-"`
+}
+
+type RuntimeProfileSpec struct {
+	CapabilityRef          LocalRef                   `yaml:"capabilityRef"`
+	DefaultMode            string                     `yaml:"defaultMode"`
+	WorkTypes              []string                   `yaml:"workTypes"`
+	RiskFlags              []string                   `yaml:"riskFlags"`
+	TechHints              []string                   `yaml:"techHints"`
+	CandidateCapabilities  []string                   `yaml:"candidateCapabilities"`
+	HighRisk               RuntimeHighRisk            `yaml:"highRisk"`
+	Recommendations        RuntimeRecommendations     `yaml:"recommendations"`
+	ClassificationKeywords RuntimeClassificationHints `yaml:"classificationKeywords"`
+}
+
+type RuntimeHighRisk struct {
+	Mode                 string   `yaml:"mode"`
+	RequireHumanBoundary bool     `yaml:"requireHumanBoundary"`
+	Flags                []string `yaml:"flags"`
+}
+
+type RuntimeRecommendations struct {
+	NextStep              string `yaml:"nextStep"`
+	HumanBoundaryNextStep string `yaml:"humanBoundaryNextStep"`
+}
+
+type RuntimeClassificationHints struct {
+	Docs       []string `yaml:"docs"`
+	Tests      []string `yaml:"tests"`
+	Code       []string `yaml:"code"`
+	Config     []string `yaml:"config"`
+	CI         []string `yaml:"ci"`
+	Dependency []string `yaml:"dependency"`
+}
+
+type EvidenceContract struct {
+	Document `yaml:",inline"`
+	Spec     EvidenceContractSpec `yaml:"spec"`
+	Path     string               `yaml:"-"`
+	Raw      []byte               `yaml:"-"`
+}
+
+type EvidenceContractSpec struct {
+	CapabilityRef     LocalRef          `yaml:"capabilityRef"`
+	Categories        []string          `yaml:"categories"`
+	SummaryFields     []string          `yaml:"summaryFields"`
+	RawOutput         EvidenceRawOutput `yaml:"rawOutput"`
+	Redaction         EvidenceRedaction `yaml:"redaction"`
+	DeliveryChecklist []string          `yaml:"deliveryChecklist"`
+	EvidenceID        EvidenceID        `yaml:"evidenceId"`
+	Extra             map[string]any    `yaml:",inline"`
+}
+
+type EvidenceRawOutput struct {
+	Default string `yaml:"default"`
+}
+
+type EvidenceRedaction struct {
+	Secrets bool `yaml:"secrets"`
+	Tokens  bool `yaml:"tokens"`
+}
+
+type EvidenceID struct {
+	Prefix string `yaml:"prefix"`
+}
+
 type MCPBinding struct {
 	Document `yaml:",inline"`
 	Spec     MCPBindingSpec `yaml:"spec"`
@@ -516,16 +590,18 @@ type MCPGeneratedTool struct {
 }
 
 type LoadedPack struct {
-	Root           string
-	ManifestPath   string
-	Manifest       CapabilityPack
-	ManifestRaw    []byte
-	Capabilities   []Capability
-	Skills         []SkillContract
-	Commands       []CommandContract
-	Agents         []AgentContract
-	Contracts      []ResponsibilityContract
-	Policies       []Policy
-	MCPBindings    []MCPBinding
-	TargetProfiles []TargetProfile
+	Root            string
+	ManifestPath    string
+	Manifest        CapabilityPack
+	ManifestRaw     []byte
+	Capabilities    []Capability
+	Skills          []SkillContract
+	Commands        []CommandContract
+	Agents          []AgentContract
+	Contracts       []ResponsibilityContract
+	RuntimeProfiles []RuntimeProfile
+	Evidence        []EvidenceContract
+	Policies        []Policy
+	MCPBindings     []MCPBinding
+	TargetProfiles  []TargetProfile
 }

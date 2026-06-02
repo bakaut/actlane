@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://actlane.ru/schemas/v1alpha1/evidence-contract.schema.json",
+  "title": "Actlane EvidenceContract",
+  "type": "object",
+  "required": ["apiVersion", "kind", "metadata", "spec"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "apiVersion": { "const": "actlane.ru/v1alpha1" },
+    "kind": { "const": "EvidenceContract" },
+    "metadata": {
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name": { "type": "string", "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$" },
+        "description": { "type": "string" },
+        "labels": { "type": "object", "additionalProperties": { "type": "string" } }
+      },
+      "additionalProperties": false
+    },
+    "spec": {
+      "type": "object",
+      "required": ["capabilityRef", "summaryFields", "rawOutput"],
+      "properties": {
+        "capabilityRef": { "$ref": "#/$defs/localRef" },
+        "categories": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "summaryFields": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/summaryField" }
+        },
+        "rawOutput": {
+          "type": "object",
+          "required": ["default"],
+          "properties": {
+            "default": { "enum": ["compact", "summary", "redacted_summary", "none"] }
+          },
+          "additionalProperties": false
+        },
+        "redaction": {
+          "type": "object",
+          "properties": {
+            "secrets": { "type": "boolean" },
+            "tokens": { "type": "boolean" }
+          },
+          "additionalProperties": false
+        },
+        "deliveryChecklist": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "evidenceId": {
+          "type": "object",
+          "properties": {
+            "prefix": { "type": "string" }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "$defs": {
+    "localRef": {
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name": { "type": "string", "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$" }
+      },
+      "additionalProperties": false
+    },
+    "summaryField": {
+      "enum": ["policy_decision", "changed_files", "branch", "draft_pr_url", "pr_url", "checks_run", "blocked_paths", "residual_risk", "summary", "evidence_id"]
+    }
+  },
+  "additionalProperties": false
+}

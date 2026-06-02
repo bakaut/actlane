@@ -111,6 +111,36 @@ func Load(root string) (*LoadedPack, error) {
 		loaded.Contracts = append(loaded.Contracts, contract)
 	}
 
+	for _, rel := range manifest.Spec.RuntimeProfiles {
+		path := filepath.Join(packRoot, rel)
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			return nil, fmt.Errorf("read runtime profile %s: %w", rel, err)
+		}
+		var runtimeProfile RuntimeProfile
+		if err := yaml.Unmarshal(raw, &runtimeProfile); err != nil {
+			return nil, fmt.Errorf("parse runtime profile %s: %w", rel, err)
+		}
+		runtimeProfile.Path = path
+		runtimeProfile.Raw = raw
+		loaded.RuntimeProfiles = append(loaded.RuntimeProfiles, runtimeProfile)
+	}
+
+	for _, rel := range manifest.Spec.Evidence {
+		path := filepath.Join(packRoot, rel)
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			return nil, fmt.Errorf("read evidence contract %s: %w", rel, err)
+		}
+		var evidence EvidenceContract
+		if err := yaml.Unmarshal(raw, &evidence); err != nil {
+			return nil, fmt.Errorf("parse evidence contract %s: %w", rel, err)
+		}
+		evidence.Path = path
+		evidence.Raw = raw
+		loaded.Evidence = append(loaded.Evidence, evidence)
+	}
+
 	for _, rel := range manifest.Spec.Policies {
 		path := filepath.Join(packRoot, rel)
 		raw, err := os.ReadFile(path)

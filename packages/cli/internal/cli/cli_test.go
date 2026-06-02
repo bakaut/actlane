@@ -68,6 +68,22 @@ func TestValidateContractBoundaries(t *testing.T) {
 			},
 			want: "must not define spec.acceptanceCriteria",
 		},
+		{
+			name: "runtime-target-path",
+			path: "runtime-profiles/create-github-draft-pr.yaml",
+			edit: func(content string) string {
+				return content + "\n  targetPath: .codex/config.toml\n"
+			},
+			want: "must not define target profile paths",
+		},
+		{
+			name: "evidence-policy-rule",
+			path: "evidence/create-github-draft-pr.yaml",
+			edit: func(content string) string {
+				return content + "\n  deny:\n    - reason: keep policy out\n"
+			},
+			want: "must not define policy rules",
+		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -368,6 +384,41 @@ func TestMCPServeListsAndCallsPolicyTools(t *testing.T) {
 	} {
 		if !strings.Contains(output, want) {
 			t.Fatalf("mcp output missing %q:\n%s", want, output)
+		}
+	}
+}
+
+func TestMCPServeClassifiesWithRuntimeAndEvidenceContracts(t *testing.T) {
+	packDir := copyPackToTemp(t)
+	stdin := strings.NewReader(strings.Join([]string{
+		`{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}`,
+		`{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"actlane_classify","arguments":{"task":"Prepare a safe GitHub draft PR for reviewed README changes","changed_files":["README.md"],"branch":"main","diff_summary":"docs only update"}}}`,
+		`{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"actlane_classify","arguments":{"task":"Create PR with .env token update","changed_files":[".env"],"branch":"main","diff_summary":"SECRET_TOKEN changed"}}}`,
+		"",
+	}, "\n"))
+	var stdout, stderr bytes.Buffer
+
+	code := MainWithIO([]string{"mcp", "serve", "--pack", packDir}, stdin, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("mcp classify failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	output := stdout.String()
+	for _, want := range []string{
+		`"name":"actlane_classify"`,
+		`\"workType\": \"docs_change\"`,
+		`\"mode\": \"advise\"`,
+		`\"candidateCapabilities\": [`,
+		`\"create-github-draft-pr\"`,
+		`\"requiredEvidence\": [`,
+		`\"policy_decision\"`,
+		`\"draft_pr_url\"`,
+		`\"riskFlags\": [`,
+		`\"secrets_sensitive\"`,
+		`\"mode\": \"read-only\"`,
+		`human boundary`,
+	} {
+		if !strings.Contains(output, want) {
+			t.Fatalf("mcp classify output missing %q:\n%s", want, output)
 		}
 	}
 }
@@ -1213,6 +1264,8 @@ func TestPackInitCreatesRequestedContracts(t *testing.T) {
 		"commands/thefirm.yaml",
 		"agents/thefirm.yaml",
 		"contracts/thefirm.yaml",
+		"runtime-profiles/thefirm.yaml",
+		"evidence/thefirm.yaml",
 		"target-profiles/codex.yaml",
 		"target-profiles/opencode.yaml",
 	} {

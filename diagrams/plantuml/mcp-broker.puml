@@ -1,0 +1,233 @@
+@startuml
+title Actlane MCP Broker — Safe Dynamic Capability Flow
+
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam activity {
+  BackgroundColor #F8F8F8
+  BorderColor #333333
+  FontSize 13
+}
+skinparam diamond {
+  BackgroundColor #FFF3CD
+  BorderColor #333333
+}
+skinparam note {
+  BackgroundColor #EEF7FF
+  BorderColor #4A90E2
+}
+
+|AI Coder Agent|
+
+start
+
+:User task received;
+note right
+Example:
+"Поправь sandbox terraform"
+"Обнови зависимость"
+"Почини деплой"
+end note
+
+:Call stable MCP tool:
+actlane_classify;
+
+|Actlane MCP Broker|
+
+:Collect facts;
+note right
+Inputs:
+- user task
+- repo tree
+- changed files
+- git diff
+- branch
+- existing configs
+- .actlane/policy.yaml
+end note
+
+:Detect primary work type;
+
+note right
+Primary work types:
+- docs_change
+- test_change
+- code_change
+- dependency_change
+- config_change
+- ci_change
+- infra_change
+- deployment_change
+- data_migration_change
+- unknown_or_mixed
+end note
+
+:Detect risk flags;
+
+note right
+Risk flags:
+- secrets_sensitive
+- production_sensitive
+- destructive_operation
+- security_sensitive
+- public_api_sensitive
+end note
+
+if (Intent clear?) then (yes)
+  :Build Intent Envelope;
+else (no)
+  :Set work_type = unknown_or_mixed;
+  :Reduce permissions;
+endif
+
+:Match technology hints;
+
+note right
+Technology hints are not core intents.
+They only select profiles.
+
+Examples:
+- terraform
+- nodejs/npm
+- python/fastapi
+- kubernetes
+- docker
+- ios
+end note
+
+:Select candidate profiles;
+
+note right
+Examples:
+- terraform_readonly
+- nodejs_dependency
+- python_web
+- generic_docs
+- ci_pipeline
+- k8s_readonly
+end note
+
+:Apply Policy Engine;
+
+if (Secrets detected?) then (yes)
+  :Block unsafe actions;
+  :Allow only explain/summarize;
+  -> blocked
+else (no)
+endif
+
+if (Production or destructive?) then (yes)
+  :Require human boundary;
+  :Allow read-only / diagnostic capabilities;
+else (no)
+  :Allow profile capabilities;
+endif
+
+:Return classification result;
+
+|AI Coder Agent|
+
+:Call stable MCP tool:
+actlane_load_capability;
+
+|Actlane MCP Broker|
+
+:Load selected capability contract;
+
+note right
+Capability contract contains:
+- allowed operations
+- forbidden operations
+- required evidence
+- max output budget
+- human boundary
+end note
+
+:Return compact capability contract;
+
+|AI Coder Agent|
+
+:Call stable MCP tool:
+actlane_run_capability;
+
+|Actlane MCP Broker|
+
+:Validate requested operation
+against policy + capability contract;
+
+if (Operation allowed?) then (yes)
+  :Execute via adapter;
+else (no)
+  :Reject with reason;
+  :Suggest safe next step;
+  stop
+endif
+
+|Tool Adapter Layer|
+
+:Run real tool or command;
+
+note right
+Examples:
+- terraform fmt/validate/plan
+- npm test/build/audit
+- pytest/ruff/mypy
+- github/gitlab CI query
+- k8s readonly inspect
+end note
+
+|Actlane MCP Broker|
+
+:Capture raw output;
+:Store full output in Evidence Store;
+:Compress context output;
+
+note right
+Raw logs do not go back
+to the agent by default.
+
+Agent receives:
+- summary
+- risk
+- evidence_id
+- next allowed actions
+end note
+
+:Return evidence summary;
+
+|AI Coder Agent|
+
+:Use summary to continue work;
+
+if (Files / commands / facts changed?) then (yes)
+  :Call actlane_classify again;
+  note right
+Runtime reclassification protects
+against intent drift.
+  end note
+  |Actlane MCP Broker|
+  :Recompute work type, risk flags, permissions;
+  |AI Coder Agent|
+else (no)
+endif
+
+:Call actlane_prepare_delivery
+or actlane_explain;
+
+|Actlane MCP Broker|
+
+:Generate final safety summary;
+:Attach evidence ids;
+:Explain residual risk;
+:State human boundary if needed;
+
+|AI Coder Agent|
+
+:Show user:
+- what changed
+- what was checked
+- what is risky
+- what needs human approval;
+
+stop
+@enduml

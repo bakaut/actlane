@@ -1,0 +1,103 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://actlane.ru/schemas/v1alpha1/runtime-profile.schema.json",
+  "title": "Actlane RuntimeProfile",
+  "type": "object",
+  "required": ["apiVersion", "kind", "metadata", "spec"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "apiVersion": { "const": "actlane.ru/v1alpha1" },
+    "kind": { "const": "RuntimeProfile" },
+    "metadata": {
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name": { "type": "string", "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$" },
+        "description": { "type": "string" },
+        "labels": { "type": "object", "additionalProperties": { "type": "string" } }
+      },
+      "additionalProperties": false
+    },
+    "spec": {
+      "type": "object",
+      "required": ["capabilityRef", "defaultMode", "workTypes", "riskFlags"],
+      "properties": {
+        "capabilityRef": { "$ref": "#/$defs/localRef" },
+        "defaultMode": { "$ref": "#/$defs/runtimeMode" },
+        "workTypes": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/workType" }
+        },
+        "riskFlags": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/riskFlag" }
+        },
+        "techHints": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "candidateCapabilities": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$" }
+        },
+        "highRisk": {
+          "type": "object",
+          "properties": {
+            "mode": { "$ref": "#/$defs/runtimeMode" },
+            "requireHumanBoundary": { "type": "boolean" },
+            "flags": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/riskFlag" }
+            }
+          },
+          "additionalProperties": false
+        },
+        "recommendations": {
+          "type": "object",
+          "properties": {
+            "nextStep": { "type": "string" },
+            "humanBoundaryNextStep": { "type": "string" }
+          },
+          "additionalProperties": false
+        },
+        "classificationKeywords": {
+          "type": "object",
+          "properties": {
+            "docs": { "$ref": "#/$defs/stringList" },
+            "tests": { "$ref": "#/$defs/stringList" },
+            "code": { "$ref": "#/$defs/stringList" },
+            "config": { "$ref": "#/$defs/stringList" },
+            "ci": { "$ref": "#/$defs/stringList" },
+            "dependency": { "$ref": "#/$defs/stringList" }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "$defs": {
+    "localRef": {
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name": { "type": "string", "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$" }
+      },
+      "additionalProperties": false
+    },
+    "runtimeMode": {
+      "enum": ["observe", "advise", "guarded", "enforce", "read-only", "human-boundary-required"]
+    },
+    "workType": {
+      "enum": ["docs_change", "test_change", "code_change", "dependency_change", "config_change", "ci_change", "infra_change", "deployment_change", "data_migration_change", "unknown_or_mixed"]
+    },
+    "riskFlag": {
+      "enum": ["secrets_sensitive", "production_sensitive", "destructive_operation", "security_sensitive", "public_api_sensitive"]
+    },
+    "stringList": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  },
+  "additionalProperties": false
+}

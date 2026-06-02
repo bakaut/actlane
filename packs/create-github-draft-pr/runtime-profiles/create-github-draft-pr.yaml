@@ -1,0 +1,74 @@
+$schema: https://actlane.ru/schemas/v1alpha1/runtime-profile.schema.json
+apiVersion: actlane.ru/v1alpha1
+kind: RuntimeProfile
+
+metadata:
+  name: create-github-draft-pr
+  description: Advisory runtime classification for safe GitHub draft PR preparation.
+
+spec:
+  capabilityRef:
+    name: create-github-draft-pr
+
+  defaultMode: advise
+
+  workTypes:
+    - docs_change
+    - test_change
+    - code_change
+    - config_change
+    - ci_change
+    - unknown_or_mixed
+
+  riskFlags:
+    - secrets_sensitive
+    - destructive_operation
+    - production_sensitive
+    - security_sensitive
+    - public_api_sensitive
+
+  techHints:
+    - git
+    - github
+
+  candidateCapabilities:
+    - create-github-draft-pr
+
+  highRisk:
+    mode: read-only
+    requireHumanBoundary: true
+    flags:
+      - secrets_sensitive
+      - destructive_operation
+      - production_sensitive
+
+  recommendations:
+    nextStep: Continue with the existing workflow and use Actlane policy checks before mutating GitHub state.
+    humanBoundaryNextStep: Stop before mutation, report the risk, and ask for explicit human boundary approval.
+
+  classificationKeywords:
+    docs:
+      - readme
+      - docs
+      - .md
+    tests:
+      - test
+      - spec
+    code:
+      - .go
+      - .py
+      - .js
+      - .ts
+    config:
+      - config
+      - .yaml
+      - .toml
+      - .json
+    ci:
+      - .github/workflows
+      - workflow
+      - ci
+    dependency:
+      - go.mod
+      - package.json
+      - dependency

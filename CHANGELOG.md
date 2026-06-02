@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.3.0-alpha.6] - 2026-06-03
+
+Eighth SemVer-tagged CLI MVP release.
+
+SemVer rationale:
+
+- prerelease bump from `0.3.0-alpha.5` to `0.3.0-alpha.6` because the broker advisory MVP adds new contract kinds and an MCP tool before `1.0.0`;
+- keeps the `alpha` prerelease channel because RuntimeProfile, EvidenceContract, and broker behavior are still pre-production.
+
+### Changed
+
+- Added `RuntimeProfile` and `EvidenceContract` contract loading, validation, schemas, source digests, and `create-github-draft-pr` examples.
+- Added `Capability.spec.runtimeRef` and `Capability.spec.evidenceRef` validation.
+- Added read-only `actlane_classify` to `actlane mcp serve --pack <pack>` for advisory work type, risk, mode, candidate capability, and required evidence classification.
+- Extended `pack init --contracts all` scaffold output with runtime profile and evidence contract source files.
+- Updated README, CLI README, STATUS, workflow defaults, and versioned CLI outputs to `0.3.0-alpha.6`.
+
 ## [0.3.0-alpha.5] - 2026-06-02
 
 Seventh SemVer-tagged CLI MVP release.

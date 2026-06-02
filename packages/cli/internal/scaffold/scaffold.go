@@ -30,6 +30,8 @@ const (
 	ContractCommand        = "command"
 	ContractAgent          = "agent"
 	ContractResponsibility = "responsibility"
+	ContractRuntimeProfile = "runtime-profile"
+	ContractEvidence       = "evidence"
 	ContractTargetProfile  = "target-profile"
 )
 
@@ -96,6 +98,20 @@ func Plan(opts Options) ([]File, error) {
 			Content: responsibilityProposal(name),
 		})
 	}
+	if contracts.Has(ContractRuntimeProfile) {
+		files = append(files, File{
+			Path:    "runtime-profiles/" + name + ".yaml",
+			Purpose: "Runtime routing contract for work type, risk flags, mode, and candidate capabilities.",
+			Content: runtimeProfileProposal(name),
+		})
+	}
+	if contracts.Has(ContractEvidence) {
+		files = append(files, File{
+			Path:    "evidence/" + name + ".yaml",
+			Purpose: "Compact evidence contract for required summary fields and raw-output boundary.",
+			Content: evidenceProposal(name),
+		})
+	}
 	for _, target := range targets {
 		if contracts.Has(ContractTargetProfile) {
 			files = append(files, File{
@@ -131,6 +147,8 @@ func AllContracts() []string {
 		ContractCommand,
 		ContractAgent,
 		ContractResponsibility,
+		ContractRuntimeProfile,
+		ContractEvidence,
 		ContractTargetProfile,
 	}
 }
@@ -294,6 +312,10 @@ func normalizeContract(value string) (string, error) {
 		return ContractAgent, nil
 	case "responsibility", "responsibilities", "responsibility-contract", "responsibility-contracts", "responsibilitycontract", "responsibilitycontracts", "contract", "contracts":
 		return ContractResponsibility, nil
+	case "runtime", "runtime-profile", "runtime-profiles", "runtimeprofile", "runtimeprofiles":
+		return ContractRuntimeProfile, nil
+	case "evidence", "evidence-contract", "evidence-contracts", "evidencecontract", "evidencecontracts":
+		return ContractEvidence, nil
 	case "target-profile", "target-profiles", "targetprofile", "targetprofiles", "profile", "profiles":
 		return ContractTargetProfile, nil
 	default:
@@ -338,6 +360,14 @@ func packManifestProposal(name string, targets []string, contracts ContractSet) 
 		b.WriteString("  contracts:\n")
 		b.WriteString("    - contracts/" + name + ".yaml\n")
 	}
+	if contracts.Has(ContractRuntimeProfile) {
+		b.WriteString("  runtimeProfiles:\n")
+		b.WriteString("    - runtime-profiles/" + name + ".yaml\n")
+	}
+	if contracts.Has(ContractEvidence) {
+		b.WriteString("  evidence:\n")
+		b.WriteString("    - evidence/" + name + ".yaml\n")
+	}
 	if contracts.Has(ContractTargetProfile) {
 		b.WriteString("  targetProfiles:\n")
 		for _, target := range targets {
@@ -361,6 +391,14 @@ func capabilityProposal(name string, contracts ContractSet) string {
 	}
 	if contracts.Has(ContractResponsibility) {
 		refs.WriteString("  responsibilityRef:\n")
+		refs.WriteString("    name: " + name + "\n")
+	}
+	if contracts.Has(ContractRuntimeProfile) {
+		refs.WriteString("  runtimeRef:\n")
+		refs.WriteString("    name: " + name + "\n")
+	}
+	if contracts.Has(ContractEvidence) {
+		refs.WriteString("  evidenceRef:\n")
 		refs.WriteString("    name: " + name + "\n")
 	}
 	if contracts.Has(ContractMCPBinding) {
@@ -519,6 +557,73 @@ spec:
       - TODO describe required evidence.
   humanApproval:
     required: false
+`, name)
+}
+
+func runtimeProfileProposal(name string) string {
+	return fmt.Sprintf(`apiVersion: actlane.ru/v1alpha1
+kind: RuntimeProfile
+metadata:
+  name: %[1]s
+  description: TODO describe runtime classification for this capability.
+spec:
+  capabilityRef:
+    name: %[1]s
+  defaultMode: advise
+  workTypes:
+    - docs_change
+    - code_change
+    - config_change
+    - unknown_or_mixed
+  riskFlags:
+    - secrets_sensitive
+    - destructive_operation
+    - production_sensitive
+    - security_sensitive
+  techHints: []
+  candidateCapabilities:
+    - %[1]s
+  highRisk:
+    mode: read-only
+    requireHumanBoundary: true
+    flags:
+      - secrets_sensitive
+      - destructive_operation
+      - production_sensitive
+  recommendations:
+    nextStep: Continue with the existing workflow and use Actlane policy checks before mutation.
+    humanBoundaryNextStep: Stop before mutation, report the risk, and ask for explicit human boundary approval.
+`, name)
+}
+
+func evidenceProposal(name string) string {
+	return fmt.Sprintf(`apiVersion: actlane.ru/v1alpha1
+kind: EvidenceContract
+metadata:
+  name: %[1]s
+  description: TODO describe compact evidence required for this capability.
+spec:
+  capabilityRef:
+    name: %[1]s
+  categories:
+    - policy
+    - risk
+  summaryFields:
+    - policy_decision
+    - changed_files
+    - branch
+    - residual_risk
+  rawOutput:
+    default: summary
+  redaction:
+    secrets: true
+    tokens: true
+  deliveryChecklist:
+    - Report the policy decision.
+    - Report changed files.
+    - Report residual risk and human approval needs.
+  evidenceId:
+    prefix: %[1]s
 `, name)
 }
 

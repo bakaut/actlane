@@ -57,6 +57,8 @@
         "policyRef": { "$ref": "#/$defs/localRef" },
         "executionRef": { "$ref": "#/$defs/localRef" },
         "responsibilityRef": { "$ref": "#/$defs/localRef" },
+        "runtimeRef": { "$ref": "#/$defs/localRef" },
+        "evidenceRef": { "$ref": "#/$defs/localRef" },
         "workflowHints": {
           "type": "array",
           "items": {

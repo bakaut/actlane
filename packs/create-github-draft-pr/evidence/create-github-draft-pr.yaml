@@ -1,0 +1,46 @@
+$schema: https://actlane.ru/schemas/v1alpha1/evidence-contract.schema.json
+apiVersion: actlane.ru/v1alpha1
+kind: EvidenceContract
+
+metadata:
+  name: create-github-draft-pr
+  description: Compact evidence summary required for GitHub draft PR preparation.
+
+spec:
+  capabilityRef:
+    name: create-github-draft-pr
+
+  categories:
+    - policy
+    - git
+    - github
+    - checks
+    - risk
+
+  summaryFields:
+    - policy_decision
+    - changed_files
+    - branch
+    - draft_pr_url
+    - checks_run
+    - blocked_paths
+    - residual_risk
+
+  rawOutput:
+    default: summary
+
+  redaction:
+    secrets: true
+    tokens: true
+
+  deliveryChecklist:
+    - Report the policy decision.
+    - Report changed files.
+    - Report the branch name.
+    - Report the draft PR URL when available.
+    - Report checks that were run or explicitly skipped.
+    - Report blocked paths.
+    - Report residual risk and human approval needs.
+
+  evidenceId:
+    prefix: github-draft-pr
