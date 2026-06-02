@@ -232,15 +232,20 @@ func runPack(args []string, stdout, stderr io.Writer) int {
 }
 
 func runPackInit(args []string, stdout, stderr io.Writer) int {
+	if len(args) > 0 && (args[0] == "--help" || args[0] == "-h") {
+		fmt.Fprintln(stdout, packInitUsage())
+		return 0
+	}
 	if len(args) == 0 || isFlag(args[0]) {
-		fmt.Fprintln(stderr, "usage: actlane pack init <name> [--out <dir>] [--targets codex] [--force]")
+		fmt.Fprintln(stderr, packInitUsage())
 		return 2
 	}
 	name := scaffold.CleanName(args[0])
 	opts := struct {
-		Out     string
-		Targets []string
-		Force   bool
+		Out       string
+		Targets   []string
+		Contracts []string
+		Force     bool
 	}{
 		Out:     filepath.Join("packs", name),
 		Targets: []string{"codex"},
@@ -253,6 +258,8 @@ func runPackInit(args []string, stdout, stderr io.Writer) int {
 			opts.Targets = splitTargets(strings.TrimPrefix(args[i], "--targets="))
 		case strings.HasPrefix(args[i], "--target="):
 			opts.Targets = []string{strings.TrimPrefix(args[i], "--target=")}
+		case strings.HasPrefix(args[i], "--contracts="):
+			opts.Contracts = splitTargets(strings.TrimPrefix(args[i], "--contracts="))
 		case args[i] == "--out":
 			i++
 			if i >= len(args) {
@@ -274,6 +281,13 @@ func runPackInit(args []string, stdout, stderr io.Writer) int {
 				return 2
 			}
 			opts.Targets = []string{args[i]}
+		case args[i] == "--contracts":
+			i++
+			if i >= len(args) {
+				fmt.Fprintln(stderr, "--contracts requires a value")
+				return 2
+			}
+			opts.Contracts = splitTargets(args[i])
 		case args[i] == "--force":
 			opts.Force = true
 		default:
@@ -281,7 +295,11 @@ func runPackInit(args []string, stdout, stderr io.Writer) int {
 			return 2
 		}
 	}
-	files := scaffold.Plan(scaffold.Options{Name: name, Targets: opts.Targets})
+	files, err := scaffold.Plan(scaffold.Options{Name: name, Targets: opts.Targets, Contracts: opts.Contracts})
+	if err != nil {
+		fmt.Fprintf(stderr, "pack init failed: %v\n", err)
+		return 2
+	}
 	written, skipped, err := scaffold.Write(opts.Out, files, opts.Force)
 	if len(skipped) > 0 {
 		fmt.Fprintf(stderr, "pack init failed: existing files: %s\n", strings.Join(skipped, ", "))
@@ -309,6 +327,10 @@ func runPackInit(args []string, stdout, stderr io.Writer) int {
 	fmt.Fprintf(stdout, "  actlane generate %s --target %s\n", opts.Out, opts.Targets[0])
 	fmt.Fprintf(stdout, "  actlane plan %s --target %s --project .\n", opts.Out, opts.Targets[0])
 	return 0
+}
+
+func packInitUsage() string {
+	return "usage: actlane pack init <name> [--out <dir>] [--targets codex] [--contracts capability,policy,mcp,skill,target-profile] [--force]"
 }
 
 func runPackCreate(args []string, stdout, stderr io.Writer) int {

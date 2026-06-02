@@ -29,6 +29,7 @@ go run ./cmd/actlane inspect
 go run ./cmd/actlane import
 go run ./cmd/actlane import report
 go run ./cmd/actlane pack init safe-deploy --out ../../packs/safe-deploy
+go run ./cmd/actlane pack init thefirm --out ../../packs/thefirm --targets codex,opencode --contracts all
 go run ./cmd/actlane pack create
 go run ./cmd/actlane pack inspect actlane-pack.zip
 go run ./cmd/actlane pack install actlane-pack.zip --target codex

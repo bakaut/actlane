@@ -12,6 +12,7 @@ SemVer rationale:
 ### Changed
 
 - Added `actlane pack init <name>` for creating a minimal valid source pack scaffold without hand-writing folders.
+- Added `actlane pack init --contracts` so users can choose which source contracts to scaffold, including `all` for capability, policy, MCP binding, skill, command, agent, responsibility, and target profile files.
 - Added shared scaffold templates reused by CLI `pack init` and Pack Authoring MCP plan/apply flows.
 - Added pack-init coverage for Codex and OpenCode target profile scaffolds, validation, generation, and non-overwrite behavior.
 - Updated README, CLI README, STATUS, workflow defaults, and versioned CLI outputs to `0.3.0-alpha.5`.

@@ -272,7 +272,17 @@ func planChange(args map[string]any) planChangeResult {
 	if len(targets) == 0 {
 		targets = []string{"codex"}
 	}
-	files := scaffold.Plan(scaffold.Options{Name: name, Targets: targets})
+	contracts := stringSliceArg(args, "contracts")
+	files, err := scaffold.Plan(scaffold.Options{Name: name, Targets: targets, Contracts: contracts})
+	if err != nil {
+		return planChangeResult{
+			MutationPermitted: false,
+			RequiresApply:     false,
+			SourceOfTruth:     "Actlane YAML contracts and adjacent source files",
+			Notes:             []string{err.Error()},
+			Boundaries:        contractBoundaries(),
+		}
+	}
 	return planChangeResult{
 		MutationPermitted: false,
 		RequiresApply:     true,
@@ -283,13 +293,20 @@ func planChange(args map[string]any) planChangeResult {
 			"Generated target output must be produced by the normal Actlane generator.",
 			"Review and confirm before applying any proposed source files.",
 		},
-		Boundaries: map[string]string{
-			"Capability":     "safe action contract",
-			"ToolCallPolicy": "safety behavior",
-			"MCPBinding":     "real runtime tools",
-			"SkillContract":  "portable skill directory",
-			"TargetProfile":  "target runtime file layout",
-		},
+		Boundaries: contractBoundaries(),
+	}
+}
+
+func contractBoundaries() map[string]string {
+	return map[string]string{
+		"Capability":             "safe action contract",
+		"ToolCallPolicy":         "safety behavior",
+		"MCPBinding":             "real runtime tools",
+		"SkillContract":          "portable skill directory",
+		"CommandContract":        "portable command entrypoint",
+		"AgentContract":          "portable agent role and activation",
+		"ResponsibilityContract": "risk, evidence, and approval semantics",
+		"TargetProfile":          "target runtime file layout",
 	}
 }
 

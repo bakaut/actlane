@@ -69,6 +69,13 @@ actlane validate ./packs/safe-deploy
 actlane generate ./packs/safe-deploy --target codex
 ```
 
+Create a fuller scaffold with command, agent, and responsibility contracts:
+
+```bash
+actlane pack init thefirm --targets codex,opencode --contracts all
+actlane plan ./packs/thefirm --target codex --project .
+```
+
 Capture an existing OpenCode project into a portable pack zip:
 
 ```bash
@@ -106,7 +113,7 @@ actlane version
 actlane inspect
 actlane import
 actlane import report
-actlane pack init <name>
+actlane pack init <name> [--contracts capability,policy,mcp,skill,target-profile]
 actlane pack create
 actlane pack inspect actlane-pack.zip
 actlane pack install actlane-pack.zip --target codex

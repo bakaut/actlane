@@ -1147,6 +1147,13 @@ func TestPackInitCreatesValidScaffoldAndDoesNotOverwrite(t *testing.T) {
 	} {
 		assertExists(t, filepath.Join(outDir, path))
 	}
+	for _, path := range []string{
+		"commands/safe-deploy.yaml",
+		"agents/safe-deploy.yaml",
+		"contracts/safe-deploy.yaml",
+	} {
+		assertNotExists(t, filepath.Join(outDir, path))
+	}
 	if !strings.Contains(stdout.String(), "initialized pack") || !strings.Contains(stdout.String(), "actlane generate") {
 		t.Fatalf("pack init output should include next steps:\n%s", stdout.String())
 	}
@@ -1175,6 +1182,73 @@ func TestPackInitCreatesValidScaffoldAndDoesNotOverwrite(t *testing.T) {
 	if !strings.Contains(stderr.String(), "existing files") {
 		t.Fatalf("pack init overwrite error missing details:\n%s", stderr.String())
 	}
+}
+
+func TestPackInitHelpShowsContracts(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+
+	code := Main([]string{"pack", "init", "--help"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("pack init --help failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "--contracts") || !strings.Contains(stdout.String(), "capability,policy,mcp,skill,target-profile") {
+		t.Fatalf("pack init --help should describe contracts option:\n%s", stdout.String())
+	}
+}
+
+func TestPackInitCreatesRequestedContracts(t *testing.T) {
+	outDir := filepath.Join(t.TempDir(), "packs", "thefirm")
+	var stdout, stderr bytes.Buffer
+
+	code := Main([]string{"pack", "init", "thefirm", "--out", outDir, "--targets", "codex,opencode", "--contracts", "all"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("pack init all failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	for _, path := range []string{
+		"actlane.yaml",
+		"capabilities/thefirm.yaml",
+		"policies/thefirm-policy.yaml",
+		"mcp/bindings/thefirm.yaml",
+		"skills/thefirm.yaml",
+		"commands/thefirm.yaml",
+		"agents/thefirm.yaml",
+		"contracts/thefirm.yaml",
+		"target-profiles/codex.yaml",
+		"target-profiles/opencode.yaml",
+	} {
+		assertExists(t, filepath.Join(outDir, path))
+	}
+
+	stdout.Reset()
+	stderr.Reset()
+	code = Main([]string{"validate", outDir}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("validate initialized all-contract pack failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+
+	stdout.Reset()
+	stderr.Reset()
+	code = Main([]string{"generate", outDir, "--target", "opencode"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("generate initialized opencode all-contract pack failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	assertExists(t, filepath.Join(outDir, "generated/opencode/.opencode/commands/thefirm.md"))
+	assertExists(t, filepath.Join(outDir, "generated/opencode/.opencode/agents/thefirm.md"))
+	assertExists(t, filepath.Join(outDir, "generated/opencode/.opencode/skills/thefirm/SKILL.md"))
+}
+
+func TestPackInitRejectsInvalidContractList(t *testing.T) {
+	outDir := filepath.Join(t.TempDir(), "packs", "broken")
+	var stdout, stderr bytes.Buffer
+
+	code := Main([]string{"pack", "init", "broken", "--out", outDir, "--contracts", "capability,policy"}, &stdout, &stderr)
+	if code == 0 {
+		t.Fatalf("pack init should reject missing target-profile\nstdout:\n%s\nstderr:\n%s", stdout.String(), stderr.String())
+	}
+	if !strings.Contains(stderr.String(), "target-profile") {
+		t.Fatalf("pack init missing target-profile error should be explicit:\n%s", stderr.String())
+	}
+	assertNotExists(t, filepath.Join(outDir, "actlane.yaml"))
 }
 
 func repoRoot(t *testing.T) string {
