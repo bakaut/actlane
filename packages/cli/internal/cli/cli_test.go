@@ -423,6 +423,54 @@ func TestMCPServeClassifiesWithRuntimeAndEvidenceContracts(t *testing.T) {
 	}
 }
 
+func TestMCPServeLoadsCompactCapabilityView(t *testing.T) {
+	packDir := copyPackToTemp(t)
+	stdin := strings.NewReader(strings.Join([]string{
+		`{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}`,
+		`{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"actlane_load_capability","arguments":{"name":"create-github-draft-pr"}}}`,
+		"",
+	}, "\n"))
+	var stdout, stderr bytes.Buffer
+
+	code := MainWithIO([]string{"mcp", "serve", "--pack", packDir}, stdin, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("mcp load capability failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	output := stdout.String()
+	for _, want := range []string{
+		`"name":"actlane_load_capability"`,
+		`\"name\": \"create-github-draft-pr\"`,
+		`\"policyRef\": \"github-draft-pr-policy\"`,
+		`\"executionRef\": \"github-mcp-draft-pr\"`,
+		`\"responsibilityRef\": \"create-github-draft-pr\"`,
+		`\"runtimeRef\": \"create-github-draft-pr\"`,
+		`\"evidenceRef\": \"create-github-draft-pr\"`,
+		`\"requiredEvidence\": [`,
+		`\"draft_pr_url\"`,
+		`\"policy\": {`,
+		`\"confirmation\": {`,
+		`\"forbidPaths\": [`,
+		`\"downstreamTools\": [`,
+		`\"create_pull_request\"`,
+		`\"policyGateTools\": [`,
+		`\"create_github_draft_pr_enforce\"`,
+		`\"humanBoundary\": {`,
+	} {
+		if !strings.Contains(output, want) {
+			t.Fatalf("mcp load capability output missing %q:\n%s", want, output)
+		}
+	}
+	for _, forbidden := range []string{
+		`ghcr.io/github/github-mcp-server`,
+		`GITHUB_PERSONAL_ACCESS_TOKEN`,
+		`"command": [`,
+	} {
+		if strings.Contains(output, forbidden) {
+			t.Fatalf("mcp load capability output leaked %q:\n%s", forbidden, output)
+		}
+	}
+}
+
 func TestMCPServeAcceptsPolicyBundle(t *testing.T) {
 	packDir := copyPackToTemp(t)
 	var stdout, stderr bytes.Buffer

@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.3.0-alpha.7] - 2026-06-03
+
+Ninth SemVer-tagged CLI MVP release.
+
+SemVer rationale:
+
+- prerelease bump from `0.3.0-alpha.6` to `0.3.0-alpha.7` because the broker capability-loading phase adds a new MCP tool and compact runtime API before `1.0.0`;
+- keeps the `alpha` prerelease channel because the full broker flow is still being implemented in phases.
+
+### Changed
+
+- Added read-only `actlane_load_capability` to `actlane mcp serve --pack <pack>`.
+- Added compact capability view derived from YAML contracts, including refs, interface, policy summary, responsibility boundary, required evidence, downstream tool summary, policy gate tools, and runtime profile summary.
+- Added broker tests proving `actlane_load_capability` does not leak downstream server command/env details and does not mutate or execute tools.
+- Updated README, CLI README, STATUS, workflow defaults, and versioned CLI outputs to `0.3.0-alpha.7`.
+
 ## [0.3.0-alpha.6] - 2026-06-03
 
 Eighth SemVer-tagged CLI MVP release.

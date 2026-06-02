@@ -191,7 +191,7 @@ func (s *Server) handle(req request) response {
 			},
 			"serverInfo": map[string]any{
 				"name":    "actlane-safe-gitops",
-				"version": "0.3.0-alpha.6",
+				"version": "0.3.0-alpha.7",
 			},
 		})
 	case "tools/list":
@@ -220,6 +220,13 @@ func (s *Server) tools() []map[string]any {
 			"inputSchema": classifyInputSchema(),
 		})
 	}
+	if len(s.loaded.Capabilities) > 0 {
+		tools = append(tools, map[string]any{
+			"name":        "actlane_load_capability",
+			"description": "Return a compact Actlane capability view derived from source contracts without mutation or execution.",
+			"inputSchema": loadCapabilityInputSchema(),
+		})
+	}
 	for _, binding := range s.loaded.MCPBindings {
 		if binding.Spec.Strategy.Handler != "actlane.policy.evaluate" {
 			continue
@@ -241,6 +248,22 @@ func (s *Server) tools() []map[string]any {
 func (s *Server) callTool(name string, args map[string]any) (toolResult, error) {
 	if name == "actlane_classify" {
 		result := s.classify(args)
+		text, err := json.MarshalIndent(result, "", "  ")
+		if err != nil {
+			return toolResult{}, err
+		}
+		return toolResult{
+			Content: []toolContent{{
+				Type: "text",
+				Text: string(text),
+			}},
+		}, nil
+	}
+	if name == "actlane_load_capability" {
+		result, err := s.loadCapability(args)
+		if err != nil {
+			return toolResult{}, err
+		}
 		text, err := json.MarshalIndent(result, "", "  ")
 		if err != nil {
 			return toolResult{}, err
@@ -291,6 +314,232 @@ func (s *Server) generatedTool(name string) (pack.MCPBinding, pack.MCPGeneratedT
 		}
 	}
 	return pack.MCPBinding{}, pack.MCPGeneratedTool{}, false
+}
+
+type capabilityView struct {
+	Name                string                  `json:"name"`
+	Title               string                  `json:"title,omitempty"`
+	Description         string                  `json:"description,omitempty"`
+	Intent              intentView              `json:"intent"`
+	Inputs              any                     `json:"inputs,omitempty"`
+	Outputs             any                     `json:"outputs,omitempty"`
+	PolicyRef           string                  `json:"policyRef,omitempty"`
+	ExecutionRef        string                  `json:"executionRef,omitempty"`
+	ResponsibilityRef   string                  `json:"responsibilityRef,omitempty"`
+	RuntimeRef          string                  `json:"runtimeRef,omitempty"`
+	EvidenceRef         string                  `json:"evidenceRef,omitempty"`
+	Policy              capabilityPolicyView    `json:"policy"`
+	Responsibility      responsibilityView      `json:"responsibility"`
+	RequiredEvidence    []string                `json:"requiredEvidence"`
+	DownstreamTools     []downstreamToolView    `json:"downstreamTools"`
+	PolicyGateTools     []pack.MCPGeneratedTool `json:"policyGateTools"`
+	Runtime             runtimeView             `json:"runtime"`
+	RawYAMLIncluded     bool                    `json:"rawYamlIncluded"`
+	MutationOrExecution bool                    `json:"mutationOrExecution"`
+}
+
+type intentView struct {
+	Type         string   `json:"type,omitempty"`
+	WhenToUse    []string `json:"whenToUse,omitempty"`
+	WhenNotToUse []string `json:"whenNotToUse,omitempty"`
+}
+
+type capabilityPolicyView struct {
+	Name         string                  `json:"name,omitempty"`
+	Confirmation pack.PolicyConfirmation `json:"confirmation,omitempty"`
+	ForbidPaths  []string                `json:"forbidPaths,omitempty"`
+	Limits       pack.PolicyLimits       `json:"limits,omitempty"`
+	Approval     pack.PolicyApproval     `json:"approval,omitempty"`
+	Defaults     map[string]any          `json:"defaults,omitempty"`
+	BranchPrefix string                  `json:"branchPrefix,omitempty"`
+	Audit        pack.PolicyAudit        `json:"audit,omitempty"`
+}
+
+type responsibilityView struct {
+	Name          string `json:"name,omitempty"`
+	HumanBoundary any    `json:"humanBoundary,omitempty"`
+	Evidence      any    `json:"evidence,omitempty"`
+	Risk          any    `json:"risk,omitempty"`
+	Checks        any    `json:"checks,omitempty"`
+}
+
+type downstreamToolView struct {
+	Binding        string   `json:"binding"`
+	Server         string   `json:"server,omitempty"`
+	Name           string   `json:"name"`
+	Toolset        string   `json:"toolset,omitempty"`
+	RequiredScopes []string `json:"requiredScopes,omitempty"`
+}
+
+type runtimeView struct {
+	Name                  string   `json:"name,omitempty"`
+	DefaultMode           string   `json:"defaultMode,omitempty"`
+	WorkTypes             []string `json:"workTypes,omitempty"`
+	RiskFlags             []string `json:"riskFlags,omitempty"`
+	CandidateCapabilities []string `json:"candidateCapabilities,omitempty"`
+}
+
+func (s *Server) loadCapability(args map[string]any) (capabilityView, error) {
+	name := stringArg(args, "name")
+	if name == "" {
+		name = stringArg(args, "capability")
+	}
+	capability, ok := s.capabilityByName(name)
+	if !ok {
+		if name == "" && len(s.loaded.Capabilities) == 1 {
+			capability = s.loaded.Capabilities[0]
+			ok = true
+		}
+	}
+	if !ok {
+		return capabilityView{}, fmt.Errorf("unknown capability %q", name)
+	}
+	policy := s.policyForCapability(capability)
+	responsibility := s.responsibilityForCapability(capability.Spec.ResponsibilityRef.Name)
+	evidence := s.evidenceForCapability(capability.Metadata.Name)
+	runtimeProfile := s.runtimeProfileForCapability(capability.Metadata.Name)
+	downstreamTools, policyGateTools := s.toolSummariesForCapability(capability.Metadata.Name)
+	return capabilityView{
+		Name:                capability.Metadata.Name,
+		Title:               capability.Metadata.Title,
+		Description:         capability.Metadata.Description,
+		Intent:              capabilityIntentView(capability.Spec.Intent),
+		Inputs:              capabilityInputs(capability),
+		Outputs:             capabilityOutputs(capability),
+		PolicyRef:           capability.Spec.PolicyRef.Name,
+		ExecutionRef:        capability.Spec.ExecutionRef.Name,
+		ResponsibilityRef:   capability.Spec.ResponsibilityRef.Name,
+		RuntimeRef:          capability.Spec.RuntimeRef.Name,
+		EvidenceRef:         capability.Spec.EvidenceRef.Name,
+		Policy:              policy,
+		Responsibility:      responsibility,
+		RequiredEvidence:    nonNilStrings(evidence.Spec.SummaryFields),
+		DownstreamTools:     downstreamTools,
+		PolicyGateTools:     policyGateTools,
+		Runtime:             runtimeProfile,
+		RawYAMLIncluded:     false,
+		MutationOrExecution: false,
+	}, nil
+}
+
+func capabilityIntentView(intent pack.CapabilityIntent) intentView {
+	return intentView{
+		Type:         intent.Type,
+		WhenToUse:    nonNilStrings(intent.WhenToUse),
+		WhenNotToUse: nonNilStrings(intent.WhenNotToUse),
+	}
+}
+
+func (s *Server) capabilityByName(name string) (pack.Capability, bool) {
+	for _, capability := range s.loaded.Capabilities {
+		if capability.Metadata.Name == name {
+			return capability, true
+		}
+	}
+	return pack.Capability{}, false
+}
+
+func (s *Server) policyForCapability(capability pack.Capability) capabilityPolicyView {
+	for _, policy := range s.loaded.Policies {
+		if policy.Metadata.Name == capability.Spec.PolicyRef.Name || policyMatchesCapability(policy, capability.Metadata.Name) {
+			return capabilityPolicyView{
+				Name:         policy.Metadata.Name,
+				Confirmation: policy.Spec.Validate.Confirmation,
+				ForbidPaths:  nonNilStrings(policy.Spec.Validate.ForbidPaths),
+				Limits:       policy.Spec.Validate.Limits,
+				Approval:     policy.Spec.Approval,
+				Defaults:     policy.Spec.Mutate.Defaults,
+				BranchPrefix: policy.Spec.Mutate.Ensure.BranchPrefix,
+				Audit:        policy.Spec.Audit,
+			}
+		}
+	}
+	return capabilityPolicyView{}
+}
+
+func policyMatchesCapability(policy pack.Policy, capability string) bool {
+	for _, value := range policy.Spec.Match.Capabilities {
+		if value == capability {
+			return true
+		}
+	}
+	return false
+}
+
+func (s *Server) responsibilityForCapability(name string) responsibilityView {
+	for _, responsibility := range s.loaded.Contracts {
+		if responsibility.Metadata.Name != name {
+			continue
+		}
+		return responsibilityView{
+			Name:          responsibility.Metadata.Name,
+			HumanBoundary: responsibility.Spec["humanBoundary"],
+			Evidence:      responsibility.Spec["evidence"],
+			Risk:          responsibility.Spec["risk"],
+			Checks:        responsibility.Spec["checks"],
+		}
+	}
+	return responsibilityView{}
+}
+
+func (s *Server) runtimeProfileForCapability(capability string) runtimeView {
+	for _, runtimeProfile := range s.loaded.RuntimeProfiles {
+		if runtimeProfile.Spec.CapabilityRef.Name != capability {
+			continue
+		}
+		return runtimeView{
+			Name:                  runtimeProfile.Metadata.Name,
+			DefaultMode:           runtimeProfile.Spec.DefaultMode,
+			WorkTypes:             nonNilStrings(runtimeProfile.Spec.WorkTypes),
+			RiskFlags:             nonNilStrings(runtimeProfile.Spec.RiskFlags),
+			CandidateCapabilities: nonNilStrings(runtimeProfile.Spec.CandidateCapabilities),
+		}
+	}
+	return runtimeView{}
+}
+
+func (s *Server) toolSummariesForCapability(capability string) ([]downstreamToolView, []pack.MCPGeneratedTool) {
+	var downstream []downstreamToolView
+	var policyGate []pack.MCPGeneratedTool
+	for _, binding := range s.loaded.MCPBindings {
+		if binding.Spec.CapabilityRef.Name != capability {
+			continue
+		}
+		if binding.Spec.Strategy.Handler == "actlane.policy.evaluate" {
+			policyGate = append(policyGate, generatedTools(binding)...)
+			continue
+		}
+		for _, tool := range binding.Spec.RequiredTools {
+			downstream = append(downstream, downstreamToolView{
+				Binding:        binding.Metadata.Name,
+				Server:         tool.Server,
+				Name:           tool.Name,
+				Toolset:        tool.Toolset,
+				RequiredScopes: nonNilStrings(tool.RequiredScopes),
+			})
+		}
+	}
+	return downstream, policyGate
+}
+
+func capabilityInputs(capability pack.Capability) any {
+	if len(capability.Spec.Interface.Input) > 0 {
+		return capability.Spec.Interface.Input
+	}
+	if len(capability.Spec.Inputs) > 0 {
+		return capability.Spec.Inputs
+	}
+	return nil
+}
+
+func capabilityOutputs(capability pack.Capability) any {
+	if len(capability.Spec.Interface.Output) > 0 {
+		return capability.Spec.Interface.Output
+	}
+	if len(capability.Spec.Outputs) > 0 {
+		return capability.Spec.Outputs
+	}
+	return nil
 }
 
 type classificationResult struct {
@@ -538,6 +787,18 @@ func lowerStringArg(args map[string]any, key string) string {
 	return strings.ToLower(value)
 }
 
+func stringArg(args map[string]any, key string) string {
+	value, _ := args[key].(string)
+	return value
+}
+
+func nonNilStrings(values []string) []string {
+	if values == nil {
+		return []string{}
+	}
+	return values
+}
+
 func stringSliceArg(args map[string]any, key string) []string {
 	raw, ok := args[key]
 	if !ok {
@@ -557,6 +818,17 @@ func stringSliceArg(args map[string]any, key string) []string {
 		}
 	}
 	return result
+}
+
+func loadCapabilityInputSchema() map[string]any {
+	return map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"name":       map[string]any{"type": "string"},
+			"capability": map[string]any{"type": "string"},
+		},
+		"additionalProperties": false,
+	}
 }
 
 func classifyInputSchema() map[string]any {
