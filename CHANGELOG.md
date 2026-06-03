@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.3.0-alpha.9] - 2026-06-03
+
+Eleventh SemVer-tagged CLI MVP release.
+
+SemVer rationale:
+
+- prerelease bump from `0.3.0-alpha.8` to `0.3.0-alpha.9` because the MCP broker now returns adapter execution records and compact evidence summaries before `1.0.0`;
+- keeps the `alpha` prerelease channel because external MCP adapter calls and durable evidence storage are still disabled in the MVP.
+
+### Changed
+
+- Extended `actlane_run_capability` with `adapterExecutions` derived only from `MCPBinding.requiredTools`.
+- Added compact `evidence` output derived from `EvidenceContract.summaryFields`, raw-output policy, redaction flags, delivery checklist, and deterministic evidence id prefix.
+- Added read-only `actlane_get_evidence` for retrieving session-local evidence by id or latest marker.
+- Kept external MCP execution disabled by default; broker responses record planned adapter executions without leaking MCP server command/env.
+- Updated broker tests for adapter/evidence output, deny-mode evidence, command/env non-leakage, and versioned CLI output.
+- Updated README, CLI README, STATUS, workflow defaults, and pack metadata to `0.3.0-alpha.9`.
+
 ## [0.3.0-alpha.8] - 2026-06-03
 
 Tenth SemVer-tagged CLI MVP release.

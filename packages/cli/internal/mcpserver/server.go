@@ -2,6 +2,8 @@ package mcpserver
 
 import (
 	"bufio"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -12,7 +14,9 @@ import (
 )
 
 type Server struct {
-	loaded *pack.LoadedPack
+	loaded           *pack.LoadedPack
+	evidenceStore    map[string]evidenceSummary
+	latestEvidenceID string
 }
 
 type PolicyBundle struct {
@@ -87,7 +91,7 @@ type toolContent struct {
 }
 
 func New(loaded *pack.LoadedPack) *Server {
-	return &Server{loaded: loaded}
+	return &Server{loaded: loaded, evidenceStore: map[string]evidenceSummary{}}
 }
 
 func NewFromPolicyBundle(bundle PolicyBundle) *Server {
@@ -191,7 +195,7 @@ func (s *Server) handle(req request) response {
 			},
 			"serverInfo": map[string]any{
 				"name":    "actlane-safe-gitops",
-				"version": "0.3.0-alpha.8",
+				"version": "0.3.0-alpha.9",
 			},
 		})
 	case "tools/list":
@@ -230,6 +234,11 @@ func (s *Server) tools() []map[string]any {
 			"name":        "actlane_run_capability",
 			"description": "Evaluate and prepare a guarded capability run through Actlane policy and MCPBinding-derived downstream plan.",
 			"inputSchema": runCapabilityInputSchema(),
+		})
+		tools = append(tools, map[string]any{
+			"name":        "actlane_get_evidence",
+			"description": "Return compact evidence captured during this Actlane MCP session by id or latest marker.",
+			"inputSchema": getEvidenceInputSchema(),
 		})
 	}
 	for _, binding := range s.loaded.MCPBindings {
@@ -297,6 +306,22 @@ func (s *Server) callTool(name string, args map[string]any) (toolResult, error) 
 			}},
 		}, nil
 	}
+	if name == "actlane_get_evidence" {
+		result, err := s.getEvidence(args)
+		if err != nil {
+			return toolResult{}, err
+		}
+		text, err := json.MarshalIndent(result, "", "  ")
+		if err != nil {
+			return toolResult{}, err
+		}
+		return toolResult{
+			Content: []toolContent{{
+				Type: "text",
+				Text: string(text),
+			}},
+		}, nil
+	}
 	binding, tool, ok := s.generatedTool(name)
 	if !ok {
 		return toolResult{}, fmt.Errorf("unknown tool %q", name)
@@ -356,12 +381,42 @@ type runCapabilityResult struct {
 	ResponsibilityRefs    []string             `json:"responsibilityRefs,omitempty"`
 	DownstreamPlan        []evaluator.NextCall `json:"downstreamPlan,omitempty"`
 	AdapterSource         string               `json:"adapterSource"`
+	AdapterExecutions     []adapterExecution   `json:"adapterExecutions,omitempty"`
+	Evidence              evidenceSummary      `json:"evidence"`
 	Execution             executionResult      `json:"execution"`
 }
 
 type executionResult struct {
 	Performed bool   `json:"performed"`
 	Reason    string `json:"reason"`
+}
+
+type adapterExecution struct {
+	ID             string   `json:"id"`
+	Binding        string   `json:"binding"`
+	Server         string   `json:"server"`
+	Tool           string   `json:"tool"`
+	Status         string   `json:"status"`
+	Performed      bool     `json:"performed"`
+	Reason         string   `json:"reason"`
+	RequiredScopes []string `json:"requiredScopes,omitempty"`
+	EvidenceID     string   `json:"evidenceId"`
+}
+
+type evidenceSummary struct {
+	ID                string         `json:"id"`
+	Contract          string         `json:"contract,omitempty"`
+	SummaryFields     []string       `json:"summaryFields"`
+	Values            map[string]any `json:"values"`
+	MissingFields     []string       `json:"missingFields,omitempty"`
+	RawOutput         string         `json:"rawOutput,omitempty"`
+	Redacted          bool           `json:"redacted"`
+	DeliveryChecklist []string       `json:"deliveryChecklist,omitempty"`
+}
+
+type evidenceLookupResult struct {
+	Source   string          `json:"source"`
+	Evidence evidenceSummary `json:"evidence"`
 }
 
 func (s *Server) runCapability(args map[string]any) (runCapabilityResult, error) {
@@ -393,6 +448,9 @@ func (s *Server) runCapability(args map[string]any) (runCapabilityResult, error)
 		Capability: capability.Metadata.Name,
 		Input:      input,
 	})
+	evidence := s.buildEvidenceSummary(capability.Metadata.Name, eval)
+	s.storeEvidence(evidence)
+	adapterExecutions := s.buildAdapterExecutions(capability.Metadata.Name, eval.Next, evidence.ID)
 	return runCapabilityResult{
 		Capability:            eval.Capability,
 		Mode:                  eval.Mode,
@@ -411,10 +469,31 @@ func (s *Server) runCapability(args map[string]any) (runCapabilityResult, error)
 		ResponsibilityRefs:    nonNilStrings(eval.ResponsibilityRefs),
 		DownstreamPlan:        eval.Next,
 		AdapterSource:         "MCPBinding",
+		AdapterExecutions:     adapterExecutions,
+		Evidence:              evidence,
 		Execution: executionResult{
 			Performed: false,
-			Reason:    "adapter execution is planned but not executed by this MVP",
+			Reason:    "adapter executions are recorded but external MCP calls are not executed by this MVP",
 		},
+	}, nil
+}
+
+func (s *Server) getEvidence(args map[string]any) (evidenceLookupResult, error) {
+	id := stringArg(args, "id")
+	latest, _ := args["latest"].(bool)
+	if latest || id == "" {
+		id = s.latestEvidenceID
+	}
+	if id == "" {
+		return evidenceLookupResult{}, fmt.Errorf("no evidence has been captured in this MCP session")
+	}
+	evidence, ok := s.evidenceStore[id]
+	if !ok {
+		return evidenceLookupResult{}, fmt.Errorf("unknown evidence %q", id)
+	}
+	return evidenceLookupResult{
+		Source:   "evidenceStore",
+		Evidence: evidence,
 	}, nil
 }
 
@@ -915,6 +994,142 @@ func capabilityInputFromTopLevel(args map[string]any) map[string]any {
 	return input
 }
 
+func (s *Server) buildEvidenceSummary(capability string, eval evaluator.Evaluation) evidenceSummary {
+	contract := s.evidenceForCapability(capability)
+	fields := nonNilStrings(contract.Spec.SummaryFields)
+	values := evidenceValues(eval)
+	filtered := map[string]any{}
+	var missing []string
+	for _, field := range fields {
+		value, ok := values[field]
+		if !ok || isEmptyEvidenceValue(value) {
+			missing = append(missing, field)
+			continue
+		}
+		filtered[field] = value
+	}
+	rawOutput := contract.Spec.RawOutput.Default
+	if rawOutput == "" {
+		rawOutput = "summary"
+	}
+	return evidenceSummary{
+		ID:                evidenceID(contract, capability, eval),
+		Contract:          contract.Metadata.Name,
+		SummaryFields:     fields,
+		Values:            filtered,
+		MissingFields:     missing,
+		RawOutput:         rawOutput,
+		Redacted:          contract.Spec.Redaction.Secrets || contract.Spec.Redaction.Tokens,
+		DeliveryChecklist: nonNilStrings(contract.Spec.DeliveryChecklist),
+	}
+}
+
+func (s *Server) storeEvidence(evidence evidenceSummary) {
+	if evidence.ID == "" {
+		return
+	}
+	s.evidenceStore[evidence.ID] = evidence
+	s.latestEvidenceID = evidence.ID
+}
+
+func evidenceValues(eval evaluator.Evaluation) map[string]any {
+	return map[string]any{
+		"policy_decision": eval.PolicyDecision,
+		"changed_files":   stringSliceArg(eval.MutatedInput, "files"),
+		"branch":          eval.MutatedInput["branch"],
+		"draft_pr_url":    firstNonEmpty(eval.MutatedInput["draft_pr_url"], eval.MutatedInput["draftPrUrl"]),
+		"checks_run":      nonNilStrings(eval.RequiredChecks),
+		"blocked_paths":   blockedPaths(eval.Reasons),
+		"residual_risk":   eval.Risk,
+	}
+}
+
+func evidenceID(contract pack.EvidenceContract, capability string, eval evaluator.Evaluation) string {
+	prefix := contract.Spec.EvidenceID.Prefix
+	if prefix == "" {
+		prefix = capability
+	}
+	data, _ := json.Marshal(map[string]any{
+		"capability": capability,
+		"decision":   eval.PolicyDecision,
+		"input":      eval.MutatedInput,
+	})
+	sum := sha256.Sum256(data)
+	return prefix + "-" + hex.EncodeToString(sum[:])[:12]
+}
+
+func firstNonEmpty(values ...any) any {
+	for _, value := range values {
+		if !isEmptyEvidenceValue(value) {
+			return value
+		}
+	}
+	return nil
+}
+
+func blockedPaths(reasons []string) []string {
+	var paths []string
+	for _, reason := range reasons {
+		const prefix = "file is forbidden: "
+		if strings.HasPrefix(reason, prefix) {
+			paths = append(paths, strings.TrimPrefix(reason, prefix))
+		}
+	}
+	return paths
+}
+
+func isEmptyEvidenceValue(value any) bool {
+	if value == nil {
+		return true
+	}
+	switch typed := value.(type) {
+	case string:
+		return typed == ""
+	case []string:
+		return len(typed) == 0
+	case []any:
+		return len(typed) == 0
+	default:
+		return false
+	}
+}
+
+func (s *Server) buildAdapterExecutions(capability string, calls []evaluator.NextCall, evidenceID string) []adapterExecution {
+	if len(calls) == 0 {
+		return nil
+	}
+	var executions []adapterExecution
+	for index, call := range calls {
+		binding, tool := s.bindingToolForCall(capability, call)
+		executions = append(executions, adapterExecution{
+			ID:             fmt.Sprintf("%s-adapter-%d", evidenceID, index+1),
+			Binding:        binding.Metadata.Name,
+			Server:         call.Server,
+			Tool:           call.Tool,
+			Status:         "planned",
+			Performed:      false,
+			Reason:         "external MCP adapter execution is disabled in this MVP",
+			RequiredScopes: nonNilStrings(tool.RequiredScopes),
+			EvidenceID:     evidenceID,
+		})
+	}
+	return executions
+}
+
+func (s *Server) bindingToolForCall(capability string, call evaluator.NextCall) (pack.MCPBinding, pack.MCPToolBinding) {
+	for _, binding := range s.loaded.MCPBindings {
+		if binding.Spec.CapabilityRef.Name != capability || binding.Spec.Strategy.Handler == "actlane.policy.evaluate" {
+			continue
+		}
+		for _, tool := range binding.Spec.RequiredTools {
+			if tool.Server == call.Server && tool.Server+"_"+tool.Name == call.Tool {
+				return binding, tool
+			}
+		}
+	}
+	return pack.MCPBinding{}, pack.MCPToolBinding{}
+}
+
 func nonNilStrings(values []string) []string {
 	if values == nil {
 		return []string{}
@@ -956,6 +1171,17 @@ func runCapabilityInputSchema() map[string]any {
 			},
 		},
 		"additionalProperties": true,
+	}
+}
+
+func getEvidenceInputSchema() map[string]any {
+	return map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"id":     map[string]any{"type": "string"},
+			"latest": map[string]any{"type": "boolean"},
+		},
+		"additionalProperties": false,
 	}
 }
 
