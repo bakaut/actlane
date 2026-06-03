@@ -17,8 +17,9 @@ Actlane started as a design and specification repository. It now also contains a
 - First executable MVP pack: `packs/create-github-draft-pr`.
 - Minimal source pack scaffold creation via `actlane pack init <name>`.
 - RuntimeProfile and EvidenceContract MVP for advisory MCP broker classification.
-- `actlane_classify`, `actlane_load_capability`, policy-gated `actlane_run_capability`, and read-only `actlane_get_evidence` MCP tools in `actlane mcp serve --pack <pack>`.
+- `actlane_classify`, `actlane_load_capability`, policy-gated `actlane_run_capability`, read-only `actlane_get_evidence`, and read-only `actlane_prepare_delivery` MCP tools in `actlane mcp serve --pack <pack>`.
 - MCP broker adapter execution records and session-local compact evidence summaries derived from `MCPBinding` and `EvidenceContract`.
+- MCP broker delivery summaries combining evaluator output, responsibility boundaries, compact evidence, adapter records, and residual risk.
 - Generated OpenCode and Codex artifacts, target-local policy bundles, and `actlane.lock`.
 - Codex safe adoption into `.codex/skills`, `.codex/config.toml`, `AGENTS.md`, and `policies/policy-bundle.json`.
 - Local MCP policy evaluator via `actlane mcp serve --policy-bundle <policy-bundle.json>`.

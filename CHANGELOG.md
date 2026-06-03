@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.3.0-alpha.10] - 2026-06-03
+
+Twelfth SemVer-tagged CLI MVP release.
+
+SemVer rationale:
+
+- prerelease bump from `0.3.0-alpha.9` to `0.3.0-alpha.10` because the MCP broker now exposes `actlane_prepare_delivery` before `1.0.0`;
+- keeps the `alpha` prerelease channel because external MCP adapter calls and durable evidence storage remain disabled in the MVP.
+
+### Changed
+
+- Added read-only `actlane_prepare_delivery` to prepare a final delivery summary from the latest or selected Actlane run.
+- Delivery summaries combine evaluator output, `ResponsibilityContract` risk/human boundary decisions, compact `EvidenceContract` evidence, adapter execution records, and residual risk.
+- Added session-local run storage keyed by evidence id so delivery summaries can be prepared after `actlane_run_capability`.
+- Updated broker tests for classify/load/run/evidence/delivery flow and command/env non-leakage.
+- Updated README, CLI README, STATUS, ADR handoff, workflow defaults, and pack metadata to `0.3.0-alpha.10`.
+
 ## [0.3.0-alpha.9] - 2026-06-03
 
 Eleventh SemVer-tagged CLI MVP release.

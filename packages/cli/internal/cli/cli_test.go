@@ -478,6 +478,7 @@ func TestMCPServeRunsCapabilityThroughPolicyGate(t *testing.T) {
 		`{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"actlane_run_capability","arguments":{"name":"create-github-draft-pr","mode":"enforce","input":{"repo":"bakaut/development","baseBranch":"main","branch":"feature","title":"Test","summary":"Test","files":["README.md"],"confirmed":true}}}}`,
 		`{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"actlane_run_capability","arguments":{"name":"create-github-draft-pr","mode":"enforce","input":{"repo":"unknown/repo","baseBranch":"main","branch":"feature","title":"Test","summary":"Test","files":[".env"],"confirmed":false}}}}`,
 		`{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"actlane_get_evidence","arguments":{"latest":true}}}`,
+		`{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"actlane_prepare_delivery","arguments":{"latest":true}}}`,
 		"",
 	}, "\n"))
 	var stdout, stderr bytes.Buffer
@@ -490,6 +491,7 @@ func TestMCPServeRunsCapabilityThroughPolicyGate(t *testing.T) {
 	for _, want := range []string{
 		`"name":"actlane_run_capability"`,
 		`"name":"actlane_get_evidence"`,
+		`"name":"actlane_prepare_delivery"`,
 		`\"capability\": \"create-github-draft-pr\"`,
 		`\"policyDecision\": \"allow\"`,
 		`\"branch\": \"gpt/feature\"`,
@@ -511,6 +513,16 @@ func TestMCPServeRunsCapabilityThroughPolicyGate(t *testing.T) {
 		`\"draft_pr_url\"`,
 		`\"source\": \"evidenceStore\"`,
 		`\"blocked_paths\": [`,
+		`\"delivery\": {`,
+		`\"summary\": \"Actlane broker prepared create-github-draft-pr with policy decision deny.\"`,
+		`\"whatChanged\": [`,
+		`\"README.md\"`,
+		`\"whatWasChecked\": [`,
+		`\"security-scan\"`,
+		`\"risk\": \"critical\"`,
+		`\"humanApprovalRequired\": true`,
+		`\"requiresApproval\": true`,
+		`\"evidenceId\": \"github-draft-pr-`,
 		`\"execution\": {`,
 		`\"performed\": false`,
 		`\"reason\": \"adapter executions are recorded but external MCP calls are not executed by this MVP\"`,

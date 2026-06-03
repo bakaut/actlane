@@ -41,13 +41,13 @@ actlane version
 Install options:
 
 ```bash
-ACTLANE_VERSION=v0.3.0-alpha.9 ACTLANE_INSTALL_DIR="$HOME/.local/bin" sh -c "$(curl -fsSL https://actlane.ru/install.sh)"
+ACTLANE_VERSION=v0.3.0-alpha.10 ACTLANE_INSTALL_DIR="$HOME/.local/bin" sh -c "$(curl -fsSL https://actlane.ru/install.sh)"
 ```
 
 Docker:
 
 ```bash
-docker run --rm ghcr.io/actlane/actlane:0.3.0-alpha.9 version
+docker run --rm ghcr.io/actlane/actlane:0.3.0-alpha.10 version
 ```
 
 ## Quick Start
@@ -128,7 +128,7 @@ actlane apply ./packs/create-github-draft-pr --target codex
 actlane remove ./packs/create-github-draft-pr --target codex
 actlane mcp serve --policy-bundle <policy-bundle.json>
 actlane mcp serve --pack <pack>
-actlane mcp serve --pack <pack> # exposes actlane_classify, actlane_load_capability, actlane_run_capability, and actlane_get_evidence
+actlane mcp serve --pack <pack> # exposes classify/load/run/evidence/delivery broker tools
 actlane mcp author serve --pack <pack>
 actlane schema list
 actlane schema print capability
@@ -153,8 +153,9 @@ actlane generate --target codex
 - Brownfield OpenCode import into Actlane contracts.
 - Source pack scaffold creation via `actlane pack init <name>`.
 - Runtime and evidence contracts for advisory broker classification.
-- `actlane_classify`, `actlane_load_capability`, policy-gated `actlane_run_capability`, and read-only `actlane_get_evidence` MCP broker tools for packs with runtime/evidence contracts.
+- `actlane_classify`, `actlane_load_capability`, policy-gated `actlane_run_capability`, read-only `actlane_get_evidence`, and read-only `actlane_prepare_delivery` MCP broker tools for packs with runtime/evidence contracts.
 - MCP broker adapter execution records and session-local compact evidence summaries derived from `MCPBinding` and `EvidenceContract`.
+- MCP broker delivery summaries combining evaluator output, responsibility boundaries, compact evidence, adapter records, and residual risk.
 - Import of OpenCode MCP servers and permission-derived MCP tool bindings.
 - Pack zip create/inspect/install flow.
 - Direct generation from `actlane-pack.zip`.

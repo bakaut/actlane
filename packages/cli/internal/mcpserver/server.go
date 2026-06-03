@@ -16,6 +16,7 @@ import (
 type Server struct {
 	loaded           *pack.LoadedPack
 	evidenceStore    map[string]evidenceSummary
+	runStore         map[string]runCapabilityResult
 	latestEvidenceID string
 }
 
@@ -91,7 +92,11 @@ type toolContent struct {
 }
 
 func New(loaded *pack.LoadedPack) *Server {
-	return &Server{loaded: loaded, evidenceStore: map[string]evidenceSummary{}}
+	return &Server{
+		loaded:        loaded,
+		evidenceStore: map[string]evidenceSummary{},
+		runStore:      map[string]runCapabilityResult{},
+	}
 }
 
 func NewFromPolicyBundle(bundle PolicyBundle) *Server {
@@ -195,7 +200,7 @@ func (s *Server) handle(req request) response {
 			},
 			"serverInfo": map[string]any{
 				"name":    "actlane-safe-gitops",
-				"version": "0.3.0-alpha.9",
+				"version": "0.3.0-alpha.10",
 			},
 		})
 	case "tools/list":
@@ -239,6 +244,11 @@ func (s *Server) tools() []map[string]any {
 			"name":        "actlane_get_evidence",
 			"description": "Return compact evidence captured during this Actlane MCP session by id or latest marker.",
 			"inputSchema": getEvidenceInputSchema(),
+		})
+		tools = append(tools, map[string]any{
+			"name":        "actlane_prepare_delivery",
+			"description": "Prepare a final read-only delivery summary from the latest Actlane run and compact evidence.",
+			"inputSchema": prepareDeliveryInputSchema(),
 		})
 	}
 	for _, binding := range s.loaded.MCPBindings {
@@ -308,6 +318,22 @@ func (s *Server) callTool(name string, args map[string]any) (toolResult, error) 
 	}
 	if name == "actlane_get_evidence" {
 		result, err := s.getEvidence(args)
+		if err != nil {
+			return toolResult{}, err
+		}
+		text, err := json.MarshalIndent(result, "", "  ")
+		if err != nil {
+			return toolResult{}, err
+		}
+		return toolResult{
+			Content: []toolContent{{
+				Type: "text",
+				Text: string(text),
+			}},
+		}, nil
+	}
+	if name == "actlane_prepare_delivery" {
+		result, err := s.prepareDelivery(args)
 		if err != nil {
 			return toolResult{}, err
 		}
@@ -419,6 +445,31 @@ type evidenceLookupResult struct {
 	Evidence evidenceSummary `json:"evidence"`
 }
 
+type deliveryResult struct {
+	Delivery deliverySummary `json:"delivery"`
+}
+
+type deliverySummary struct {
+	Capability               string             `json:"capability"`
+	Summary                  string             `json:"summary"`
+	PolicyDecision           string             `json:"policyDecision"`
+	Allowed                  bool               `json:"allowed"`
+	Risk                     string             `json:"risk,omitempty"`
+	ResidualRisk             string             `json:"residualRisk,omitempty"`
+	HumanApprovalRequired    bool               `json:"humanApprovalRequired"`
+	RequiresApproval         bool               `json:"requiresApproval"`
+	Stop                     bool               `json:"stop,omitempty"`
+	WhatChanged              []string           `json:"whatChanged"`
+	WhatWasChecked           []string           `json:"whatWasChecked"`
+	Risky                    []string           `json:"risky,omitempty"`
+	RequiresHumanResolution  []string           `json:"requiresHumanResolution,omitempty"`
+	EvidenceID               string             `json:"evidenceId"`
+	Evidence                 evidenceSummary    `json:"evidence"`
+	AdapterExecutions        []adapterExecution `json:"adapterExecutions,omitempty"`
+	ExternalExecutionPlanned bool               `json:"externalExecutionPlanned"`
+	ExternalExecutionDone    bool               `json:"externalExecutionDone"`
+}
+
 func (s *Server) runCapability(args map[string]any) (runCapabilityResult, error) {
 	name := stringArg(args, "name")
 	if name == "" {
@@ -451,7 +502,7 @@ func (s *Server) runCapability(args map[string]any) (runCapabilityResult, error)
 	evidence := s.buildEvidenceSummary(capability.Metadata.Name, eval)
 	s.storeEvidence(evidence)
 	adapterExecutions := s.buildAdapterExecutions(capability.Metadata.Name, eval.Next, evidence.ID)
-	return runCapabilityResult{
+	result := runCapabilityResult{
 		Capability:            eval.Capability,
 		Mode:                  eval.Mode,
 		PolicyDecision:        eval.PolicyDecision,
@@ -475,7 +526,9 @@ func (s *Server) runCapability(args map[string]any) (runCapabilityResult, error)
 			Performed: false,
 			Reason:    "adapter executions are recorded but external MCP calls are not executed by this MVP",
 		},
-	}, nil
+	}
+	s.storeRun(result)
+	return result, nil
 }
 
 func (s *Server) getEvidence(args map[string]any) (evidenceLookupResult, error) {
@@ -495,6 +548,14 @@ func (s *Server) getEvidence(args map[string]any) (evidenceLookupResult, error) 
 		Source:   "evidenceStore",
 		Evidence: evidence,
 	}, nil
+}
+
+func (s *Server) prepareDelivery(args map[string]any) (deliveryResult, error) {
+	run, err := s.runForArgs(args)
+	if err != nil {
+		return deliveryResult{}, err
+	}
+	return deliveryResult{Delivery: deliveryFromRun(run)}, nil
 }
 
 type capabilityView struct {
@@ -1032,6 +1093,89 @@ func (s *Server) storeEvidence(evidence evidenceSummary) {
 	s.latestEvidenceID = evidence.ID
 }
 
+func (s *Server) storeRun(run runCapabilityResult) {
+	if run.Evidence.ID == "" {
+		return
+	}
+	s.runStore[run.Evidence.ID] = run
+	s.latestEvidenceID = run.Evidence.ID
+}
+
+func (s *Server) runForArgs(args map[string]any) (runCapabilityResult, error) {
+	id := stringArg(args, "evidenceId")
+	if id == "" {
+		id = stringArg(args, "id")
+	}
+	latest, _ := args["latest"].(bool)
+	if latest || id == "" {
+		id = s.latestEvidenceID
+	}
+	if id == "" {
+		return runCapabilityResult{}, fmt.Errorf("no capability run has been captured in this MCP session")
+	}
+	run, ok := s.runStore[id]
+	if !ok {
+		return runCapabilityResult{}, fmt.Errorf("unknown capability run for evidence %q", id)
+	}
+	return run, nil
+}
+
+func deliveryFromRun(run runCapabilityResult) deliverySummary {
+	checks := append([]string{}, run.RequiredChecks...)
+	if len(checks) == 0 {
+		checks = stringSliceArg(run.Evidence.Values, "checks_run")
+	}
+	changed := stringSliceArg(run.MutatedInput, "files")
+	if len(changed) == 0 {
+		changed = stringSliceArg(run.Evidence.Values, "changed_files")
+	}
+	return deliverySummary{
+		Capability:               run.Capability,
+		Summary:                  fmt.Sprintf("Actlane broker prepared %s with policy decision %s.", run.Capability, run.PolicyDecision),
+		PolicyDecision:           run.PolicyDecision,
+		Allowed:                  run.Allowed,
+		Risk:                     run.Risk,
+		ResidualRisk:             run.Risk,
+		HumanApprovalRequired:    run.HumanApprovalRequired,
+		RequiresApproval:         run.HumanApprovalRequired || !run.Allowed,
+		Stop:                     run.Stop,
+		WhatChanged:              nonNilStrings(changed),
+		WhatWasChecked:           nonNilStrings(checks),
+		Risky:                    riskyItems(run),
+		RequiresHumanResolution:  humanResolutionItems(run),
+		EvidenceID:               run.Evidence.ID,
+		Evidence:                 run.Evidence,
+		AdapterExecutions:        run.AdapterExecutions,
+		ExternalExecutionPlanned: len(run.AdapterExecutions) > 0,
+		ExternalExecutionDone:    run.Execution.Performed,
+	}
+}
+
+func riskyItems(run runCapabilityResult) []string {
+	items := append([]string{}, run.Reasons...)
+	for _, path := range stringSliceArg(run.Evidence.Values, "blocked_paths") {
+		items = append(items, "blocked path: "+path)
+	}
+	return nonNilStrings(items)
+}
+
+func humanResolutionItems(run runCapabilityResult) []string {
+	if run.Allowed && !run.HumanApprovalRequired {
+		return []string{}
+	}
+	var items []string
+	if run.HumanApprovalRequired {
+		items = append(items, "human approval required")
+	}
+	if !run.Allowed {
+		items = append(items, "policy decision must be resolved before delivery")
+	}
+	if run.Stop {
+		items = append(items, "agent must stop")
+	}
+	return items
+}
+
 func evidenceValues(eval evaluator.Evaluation) map[string]any {
 	return map[string]any{
 		"policy_decision": eval.PolicyDecision,
@@ -1180,6 +1324,18 @@ func getEvidenceInputSchema() map[string]any {
 		"properties": map[string]any{
 			"id":     map[string]any{"type": "string"},
 			"latest": map[string]any{"type": "boolean"},
+		},
+		"additionalProperties": false,
+	}
+}
+
+func prepareDeliveryInputSchema() map[string]any {
+	return map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"id":         map[string]any{"type": "string"},
+			"evidenceId": map[string]any{"type": "string"},
+			"latest":     map[string]any{"type": "boolean"},
 		},
 		"additionalProperties": false,
 	}
