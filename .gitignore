@@ -1,3 +1,4 @@
 .serena
 packages/cli/dist/
+packages/lanhole/dist/
 packs/**/generated/**
