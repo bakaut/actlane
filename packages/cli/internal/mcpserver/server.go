@@ -191,7 +191,7 @@ func (s *Server) handle(req request) response {
 			},
 			"serverInfo": map[string]any{
 				"name":    "actlane-safe-gitops",
-				"version": "0.3.0-alpha.7",
+				"version": "0.3.0-alpha.8",
 			},
 		})
 	case "tools/list":
@@ -225,6 +225,11 @@ func (s *Server) tools() []map[string]any {
 			"name":        "actlane_load_capability",
 			"description": "Return a compact Actlane capability view derived from source contracts without mutation or execution.",
 			"inputSchema": loadCapabilityInputSchema(),
+		})
+		tools = append(tools, map[string]any{
+			"name":        "actlane_run_capability",
+			"description": "Evaluate and prepare a guarded capability run through Actlane policy and MCPBinding-derived downstream plan.",
+			"inputSchema": runCapabilityInputSchema(),
 		})
 	}
 	for _, binding := range s.loaded.MCPBindings {
@@ -275,6 +280,23 @@ func (s *Server) callTool(name string, args map[string]any) (toolResult, error) 
 			}},
 		}, nil
 	}
+	if name == "actlane_run_capability" {
+		result, err := s.runCapability(args)
+		if err != nil {
+			return toolResult{}, err
+		}
+		text, err := json.MarshalIndent(result, "", "  ")
+		if err != nil {
+			return toolResult{}, err
+		}
+		return toolResult{
+			IsError: result.Mode == "enforce" && !result.Allowed,
+			Content: []toolContent{{
+				Type: "text",
+				Text: string(text),
+			}},
+		}, nil
+	}
 	binding, tool, ok := s.generatedTool(name)
 	if !ok {
 		return toolResult{}, fmt.Errorf("unknown tool %q", name)
@@ -314,6 +336,86 @@ func (s *Server) generatedTool(name string) (pack.MCPBinding, pack.MCPGeneratedT
 		}
 	}
 	return pack.MCPBinding{}, pack.MCPGeneratedTool{}, false
+}
+
+type runCapabilityResult struct {
+	Capability            string               `json:"capability"`
+	Mode                  string               `json:"mode"`
+	PolicyDecision        string               `json:"policyDecision"`
+	Allowed               bool                 `json:"allowed"`
+	Risk                  string               `json:"risk,omitempty"`
+	ImpactedScopes        []string             `json:"impactedScopes,omitempty"`
+	RequiredChecks        []string             `json:"requiredChecks,omitempty"`
+	RequiredEvidence      []string             `json:"requiredEvidence,omitempty"`
+	HumanApprovalRequired bool                 `json:"humanApprovalRequired,omitempty"`
+	Stop                  bool                 `json:"stop,omitempty"`
+	Reasons               []string             `json:"reasons,omitempty"`
+	OriginalInput         map[string]any       `json:"originalInput"`
+	MutatedInput          map[string]any       `json:"mutatedInput"`
+	PolicyRefs            []string             `json:"policyRefs"`
+	ResponsibilityRefs    []string             `json:"responsibilityRefs,omitempty"`
+	DownstreamPlan        []evaluator.NextCall `json:"downstreamPlan,omitempty"`
+	AdapterSource         string               `json:"adapterSource"`
+	Execution             executionResult      `json:"execution"`
+}
+
+type executionResult struct {
+	Performed bool   `json:"performed"`
+	Reason    string `json:"reason"`
+}
+
+func (s *Server) runCapability(args map[string]any) (runCapabilityResult, error) {
+	name := stringArg(args, "name")
+	if name == "" {
+		name = stringArg(args, "capability")
+	}
+	capability, ok := s.capabilityByName(name)
+	if !ok {
+		if name == "" && len(s.loaded.Capabilities) == 1 {
+			capability = s.loaded.Capabilities[0]
+			ok = true
+		}
+	}
+	if !ok {
+		return runCapabilityResult{}, fmt.Errorf("unknown capability %q", name)
+	}
+	mode := stringArg(args, "mode")
+	if mode == "" {
+		mode = "audit"
+	}
+	input := mapArg(args, "input")
+	if len(input) == 0 {
+		input = capabilityInputFromTopLevel(args)
+	}
+	eval := evaluator.Evaluate(s.loaded, evaluator.Request{
+		Tool:       "actlane_run_capability",
+		Mode:       mode,
+		Capability: capability.Metadata.Name,
+		Input:      input,
+	})
+	return runCapabilityResult{
+		Capability:            eval.Capability,
+		Mode:                  eval.Mode,
+		PolicyDecision:        eval.PolicyDecision,
+		Allowed:               eval.Allowed,
+		Risk:                  eval.Risk,
+		ImpactedScopes:        nonNilStrings(eval.ImpactedScopes),
+		RequiredChecks:        nonNilStrings(eval.RequiredChecks),
+		RequiredEvidence:      nonNilStrings(eval.RequiredEvidence),
+		HumanApprovalRequired: eval.HumanApprovalRequired,
+		Stop:                  eval.Stop,
+		Reasons:               nonNilStrings(eval.Reasons),
+		OriginalInput:         eval.OriginalInput,
+		MutatedInput:          eval.MutatedInput,
+		PolicyRefs:            nonNilStrings(eval.PolicyRefs),
+		ResponsibilityRefs:    nonNilStrings(eval.ResponsibilityRefs),
+		DownstreamPlan:        eval.Next,
+		AdapterSource:         "MCPBinding",
+		Execution: executionResult{
+			Performed: false,
+			Reason:    "adapter execution is planned but not executed by this MVP",
+		},
+	}, nil
 }
 
 type capabilityView struct {
@@ -792,6 +894,27 @@ func stringArg(args map[string]any, key string) string {
 	return value
 }
 
+func mapArg(args map[string]any, key string) map[string]any {
+	value, _ := args[key].(map[string]any)
+	if value == nil {
+		return map[string]any{}
+	}
+	return value
+}
+
+func capabilityInputFromTopLevel(args map[string]any) map[string]any {
+	input := map[string]any{}
+	for key, value := range args {
+		switch key {
+		case "name", "capability", "mode":
+			continue
+		default:
+			input[key] = value
+		}
+	}
+	return input
+}
+
 func nonNilStrings(values []string) []string {
 	if values == nil {
 		return []string{}
@@ -818,6 +941,22 @@ func stringSliceArg(args map[string]any, key string) []string {
 		}
 	}
 	return result
+}
+
+func runCapabilityInputSchema() map[string]any {
+	return map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"name":       map[string]any{"type": "string"},
+			"capability": map[string]any{"type": "string"},
+			"mode":       map[string]any{"type": "string", "enum": []string{"audit", "enforce"}},
+			"input": map[string]any{
+				"type":                 "object",
+				"additionalProperties": true,
+			},
+		},
+		"additionalProperties": true,
+	}
 }
 
 func loadCapabilityInputSchema() map[string]any {

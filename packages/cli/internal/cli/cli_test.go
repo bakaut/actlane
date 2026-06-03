@@ -471,6 +471,51 @@ func TestMCPServeLoadsCompactCapabilityView(t *testing.T) {
 	}
 }
 
+func TestMCPServeRunsCapabilityThroughPolicyGate(t *testing.T) {
+	packDir := copyPackToTemp(t)
+	stdin := strings.NewReader(strings.Join([]string{
+		`{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}`,
+		`{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"actlane_run_capability","arguments":{"name":"create-github-draft-pr","mode":"enforce","input":{"repo":"bakaut/development","baseBranch":"main","branch":"feature","title":"Test","summary":"Test","files":["README.md"],"confirmed":true}}}}`,
+		`{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"actlane_run_capability","arguments":{"name":"create-github-draft-pr","mode":"enforce","input":{"repo":"unknown/repo","baseBranch":"main","branch":"feature","title":"Test","summary":"Test","files":[".env"],"confirmed":false}}}}`,
+		"",
+	}, "\n"))
+	var stdout, stderr bytes.Buffer
+
+	code := MainWithIO([]string{"mcp", "serve", "--pack", packDir}, stdin, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("mcp run capability failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	output := stdout.String()
+	for _, want := range []string{
+		`"name":"actlane_run_capability"`,
+		`\"capability\": \"create-github-draft-pr\"`,
+		`\"policyDecision\": \"allow\"`,
+		`\"branch\": \"gpt/feature\"`,
+		`\"downstreamPlan\": [`,
+		`\"tool\": \"github_create_pull_request\"`,
+		`\"adapterSource\": \"MCPBinding\"`,
+		`\"execution\": {`,
+		`\"performed\": false`,
+		`\"reason\": \"adapter execution is planned but not executed by this MVP\"`,
+		`\"policyDecision\": \"deny\"`,
+		`"isError":true`,
+		`file is forbidden: .env`,
+	} {
+		if !strings.Contains(output, want) {
+			t.Fatalf("mcp run capability output missing %q:\n%s", want, output)
+		}
+	}
+	for _, forbidden := range []string{
+		`ghcr.io/github/github-mcp-server`,
+		`GITHUB_PERSONAL_ACCESS_TOKEN`,
+		`"command": [`,
+	} {
+		if strings.Contains(output, forbidden) {
+			t.Fatalf("mcp run capability output leaked %q:\n%s", forbidden, output)
+		}
+	}
+}
+
 func TestMCPServeAcceptsPolicyBundle(t *testing.T) {
 	packDir := copyPackToTemp(t)
 	var stdout, stderr bytes.Buffer

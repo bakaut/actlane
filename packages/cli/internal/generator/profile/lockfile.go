@@ -10,7 +10,7 @@ import (
 	"github.com/actlane/actlane/packages/cli/internal/pack"
 )
 
-const generatorVersion = "actlane-go-profile-0.3.0-alpha.7"
+const generatorVersion = "actlane-go-profile-0.3.0-alpha.8"
 
 type lockfile struct {
 	LockfileVersion int                   `json:"lockfileVersion"`

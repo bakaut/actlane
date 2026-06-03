@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.3.0-alpha.8] - 2026-06-03
+
+Tenth SemVer-tagged CLI MVP release.
+
+SemVer rationale:
+
+- prerelease bump from `0.3.0-alpha.7` to `0.3.0-alpha.8` because the broker guarded execution phase adds `actlane_run_capability` before `1.0.0`;
+- keeps the `alpha` prerelease channel because adapter execution and evidence store behavior are still MVP/future phases.
+
+### Changed
+
+- Added policy-gated `actlane_run_capability` to `actlane mcp serve --pack <pack>`.
+- `actlane_run_capability` evaluates `ToolCallPolicy` and `ResponsibilityContract` through the shared evaluator and returns original input, mutated input, policy decision, reasons, and required checks/evidence.
+- Added `MCPBinding`-derived downstream planning for guarded capability runs while keeping external adapter execution non-performing in this MVP.
+- Added tests proving allow/deny behavior, enforce-mode error reporting, downstream plan generation, and no downstream command/env leakage.
+- Updated README, CLI README, STATUS, ADR handoff, workflow defaults, and versioned CLI outputs to `0.3.0-alpha.8`.
+
 ## [0.3.0-alpha.7] - 2026-06-03
 
 Ninth SemVer-tagged CLI MVP release.

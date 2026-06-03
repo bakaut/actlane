@@ -19,7 +19,7 @@ import (
 	"github.com/actlane/actlane/packages/cli/internal/schema"
 )
 
-const version = "0.3.0-alpha.7"
+const version = "0.3.0-alpha.8"
 
 func Main(args []string, stdout, stderr io.Writer) int {
 	return MainWithIO(args, os.Stdin, stdout, stderr)

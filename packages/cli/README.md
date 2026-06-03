@@ -12,13 +12,13 @@ actlane version
 Override install options:
 
 ```bash
-ACTLANE_VERSION=v0.3.0-alpha.7 ACTLANE_INSTALL_DIR="$HOME/.local/bin" sh -c "$(curl -fsSL https://actlane.ru/install.sh)"
+ACTLANE_VERSION=v0.3.0-alpha.8 ACTLANE_INSTALL_DIR="$HOME/.local/bin" sh -c "$(curl -fsSL https://actlane.ru/install.sh)"
 ```
 
 Docker:
 
 ```bash
-docker run --rm ghcr.io/actlane/actlane:0.3.0-alpha.7 version
+docker run --rm ghcr.io/actlane/actlane:0.3.0-alpha.8 version
 ```
 
 Implemented MVP commands:
@@ -46,6 +46,7 @@ go run ./cmd/actlane generate ../../packs/create-github-draft-pr --target openco
 go run ./cmd/actlane generate ../../packs/create-github-draft-pr --target codex --frozen-lockfile
 go run ./cmd/actlane check --pack ../../packs/create-github-draft-pr --tool github_create_pull_request
 go run ./cmd/actlane mcp serve --policy-bundle ../../packs/create-github-draft-pr/generated/codex/policies/policy-bundle.json
+go run ./cmd/actlane mcp serve --pack ../../packs/create-github-draft-pr
 go run ./cmd/actlane mcp author serve --pack ../../packs/create-github-draft-pr
 go run ./cmd/actlane schema list
 go run ./cmd/actlane schema print capability

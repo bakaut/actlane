@@ -41,13 +41,13 @@ actlane version
 Install options:
 
 ```bash
-ACTLANE_VERSION=v0.3.0-alpha.7 ACTLANE_INSTALL_DIR="$HOME/.local/bin" sh -c "$(curl -fsSL https://actlane.ru/install.sh)"
+ACTLANE_VERSION=v0.3.0-alpha.8 ACTLANE_INSTALL_DIR="$HOME/.local/bin" sh -c "$(curl -fsSL https://actlane.ru/install.sh)"
 ```
 
 Docker:
 
 ```bash
-docker run --rm ghcr.io/actlane/actlane:0.3.0-alpha.7 version
+docker run --rm ghcr.io/actlane/actlane:0.3.0-alpha.8 version
 ```
 
 ## Quick Start
@@ -128,7 +128,7 @@ actlane apply ./packs/create-github-draft-pr --target codex
 actlane remove ./packs/create-github-draft-pr --target codex
 actlane mcp serve --policy-bundle <policy-bundle.json>
 actlane mcp serve --pack <pack>
-actlane mcp serve --pack <pack> # exposes actlane_classify when runtime profiles exist
+actlane mcp serve --pack <pack> # exposes actlane_classify, actlane_load_capability, and actlane_run_capability
 actlane mcp author serve --pack <pack>
 actlane schema list
 actlane schema print capability
@@ -153,7 +153,7 @@ actlane generate --target codex
 - Brownfield OpenCode import into Actlane contracts.
 - Source pack scaffold creation via `actlane pack init <name>`.
 - Runtime and evidence contracts for advisory broker classification.
-- Read-only `actlane_classify` and `actlane_load_capability` MCP broker tools for packs with runtime/evidence contracts.
+- `actlane_classify`, `actlane_load_capability`, and policy-gated `actlane_run_capability` MCP broker tools for packs with runtime/evidence contracts.
 - Import of OpenCode MCP servers and permission-derived MCP tool bindings.
 - Pack zip create/inspect/install flow.
 - Direct generation from `actlane-pack.zip`.
