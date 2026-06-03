@@ -12,13 +12,13 @@ actlane version
 Override install options:
 
 ```bash
-ACTLANE_VERSION=v0.3.0-alpha.10 ACTLANE_INSTALL_DIR="$HOME/.local/bin" sh -c "$(curl -fsSL https://actlane.ru/install.sh)"
+ACTLANE_VERSION=v0.3.0-alpha.11 ACTLANE_INSTALL_DIR="$HOME/.local/bin" sh -c "$(curl -fsSL https://actlane.ru/install.sh)"
 ```
 
 Docker:
 
 ```bash
-docker run --rm ghcr.io/actlane/actlane:0.3.0-alpha.10 version
+docker run --rm ghcr.io/actlane/actlane:0.3.0-alpha.11 version
 ```
 
 Implemented MVP commands:
@@ -53,6 +53,10 @@ go run ./cmd/actlane schema print capability
 ```
 
 `mcp serve --pack` exposes broker tools for classify, load capability, policy-gated run capability, session-local evidence lookup, and final delivery summary.
+
+`actlane_run_capability` keeps adapter execution disabled by default. Pass `executeAdapters: true` to execute configured stdio MCP tools, and `evidenceDir` to persist compact evidence JSON files.
+
+From the repository root, run `./scripts/smoke-mcp-broker.sh` for a full MCP broker smoke flow with safe default, deny, durable evidence, and fake stdio adapter execution scenarios.
 
 The MVP supports OpenCode and Codex targets.
 

@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.3.0-alpha.11] - 2026-06-03
+
+Thirteenth SemVer-tagged CLI MVP release.
+
+SemVer rationale:
+
+- prerelease bump from `0.3.0-alpha.10` to `0.3.0-alpha.11` because the MCP broker now supports durable evidence files and opt-in external MCP adapter execution before `1.0.0`;
+- keeps the `alpha` prerelease channel because adapter execution is intentionally explicit and the runtime contracts are still pre-stable.
+
+### Changed
+
+- Added optional durable evidence storage for `actlane_run_capability` through `evidenceDir`.
+- Added opt-in external MCP adapter execution for `actlane_run_capability` through `executeAdapters: true`.
+- Implemented a contract-driven stdio MCP adapter client that uses `MCPBinding.mcpservers` and `MCPBinding.requiredTools` instead of hardcoded GitHub behavior.
+- Kept default behavior safe: without `executeAdapters`, adapter executions are still only planned/recorded; without `evidenceDir`, evidence remains session-local.
+- Added integration coverage with a local fake MCP stdio server proving real JSON-RPC adapter calls, durable evidence file creation, delivery output, and command/env non-leakage.
+- Added `scripts/smoke-mcp-broker.sh` for manual MCP broker smoke testing across safe, deny, durable evidence, and fake stdio adapter execution flows.
+- Added `actlane-mcp-broker` MCPBinding to the `create-github-draft-pr` pack so Codex and OpenCode profiles expose the full broker through `actlane mcp serve --pack`.
+- Updated README, CLI README, STATUS, ADR handoff, workflow defaults, and pack metadata to `0.3.0-alpha.11`.
+
 ## [0.3.0-alpha.10] - 2026-06-03
 
 Twelfth SemVer-tagged CLI MVP release.

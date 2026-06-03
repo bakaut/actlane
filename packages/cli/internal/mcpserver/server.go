@@ -2,12 +2,17 @@ package mcpserver
 
 import (
 	"bufio"
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/actlane/actlane/packages/cli/internal/evaluator"
 	"github.com/actlane/actlane/packages/cli/internal/pack"
@@ -200,7 +205,7 @@ func (s *Server) handle(req request) response {
 			},
 			"serverInfo": map[string]any{
 				"name":    "actlane-safe-gitops",
-				"version": "0.3.0-alpha.10",
+				"version": "0.3.0-alpha.11",
 			},
 		})
 	case "tools/list":
@@ -427,6 +432,7 @@ type adapterExecution struct {
 	Reason         string   `json:"reason"`
 	RequiredScopes []string `json:"requiredScopes,omitempty"`
 	EvidenceID     string   `json:"evidenceId"`
+	Output         any      `json:"output,omitempty"`
 }
 
 type evidenceSummary struct {
@@ -438,6 +444,7 @@ type evidenceSummary struct {
 	RawOutput         string         `json:"rawOutput,omitempty"`
 	Redacted          bool           `json:"redacted"`
 	DeliveryChecklist []string       `json:"deliveryChecklist,omitempty"`
+	DurablePath       string         `json:"durablePath,omitempty"`
 }
 
 type evidenceLookupResult struct {
@@ -493,6 +500,11 @@ func (s *Server) runCapability(args map[string]any) (runCapabilityResult, error)
 	if len(input) == 0 {
 		input = capabilityInputFromTopLevel(args)
 	}
+	executeAdapters, _ := args["executeAdapters"].(bool)
+	evidenceDir := stringArg(args, "evidenceDir")
+	if evidenceDir == "" {
+		evidenceDir = stringArg(args, "evidence_dir")
+	}
 	eval := evaluator.Evaluate(s.loaded, evaluator.Request{
 		Tool:       "actlane_run_capability",
 		Mode:       mode,
@@ -500,8 +512,16 @@ func (s *Server) runCapability(args map[string]any) (runCapabilityResult, error)
 		Input:      input,
 	})
 	evidence := s.buildEvidenceSummary(capability.Metadata.Name, eval)
+	if evidenceDir != "" {
+		if err := persistEvidence(evidenceDir, &evidence); err != nil {
+			return runCapabilityResult{}, err
+		}
+	}
 	s.storeEvidence(evidence)
 	adapterExecutions := s.buildAdapterExecutions(capability.Metadata.Name, eval.Next, evidence.ID)
+	if executeAdapters && eval.Allowed {
+		adapterExecutions = s.executeAdapterExecutions(capability.Metadata.Name, eval.Next, evidence.ID)
+	}
 	result := runCapabilityResult{
 		Capability:            eval.Capability,
 		Mode:                  eval.Mode,
@@ -523,8 +543,8 @@ func (s *Server) runCapability(args map[string]any) (runCapabilityResult, error)
 		AdapterExecutions:     adapterExecutions,
 		Evidence:              evidence,
 		Execution: executionResult{
-			Performed: false,
-			Reason:    "adapter executions are recorded but external MCP calls are not executed by this MVP",
+			Performed: anyAdapterPerformed(adapterExecutions),
+			Reason:    executionReason(executeAdapters, eval.Allowed),
 		},
 	}
 	s.storeRun(result)
@@ -1046,7 +1066,7 @@ func capabilityInputFromTopLevel(args map[string]any) map[string]any {
 	input := map[string]any{}
 	for key, value := range args {
 		switch key {
-		case "name", "capability", "mode":
+		case "name", "capability", "mode", "executeAdapters", "evidenceDir", "evidence_dir":
 			continue
 		default:
 			input[key] = value
@@ -1091,6 +1111,25 @@ func (s *Server) storeEvidence(evidence evidenceSummary) {
 	}
 	s.evidenceStore[evidence.ID] = evidence
 	s.latestEvidenceID = evidence.ID
+}
+
+func persistEvidence(dir string, evidence *evidenceSummary) error {
+	if evidence.ID == "" {
+		return fmt.Errorf("evidence id is empty")
+	}
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return fmt.Errorf("create evidence dir: %w", err)
+	}
+	path := filepath.Join(dir, evidence.ID+".json")
+	evidence.DurablePath = path
+	data, err := json.MarshalIndent(evidence, "", "  ")
+	if err != nil {
+		return fmt.Errorf("encode evidence: %w", err)
+	}
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		return fmt.Errorf("write evidence: %w", err)
+	}
+	return nil
 }
 
 func (s *Server) storeRun(run runCapabilityResult) {
@@ -1258,6 +1297,181 @@ func (s *Server) buildAdapterExecutions(capability string, calls []evaluator.Nex
 		})
 	}
 	return executions
+}
+
+func (s *Server) executeAdapterExecutions(capability string, calls []evaluator.NextCall, evidenceID string) []adapterExecution {
+	if len(calls) == 0 {
+		return nil
+	}
+	var executions []adapterExecution
+	for index, call := range calls {
+		binding, tool := s.bindingToolForCall(capability, call)
+		server, ok := serverForTool(binding, tool.Server)
+		execution := adapterExecution{
+			ID:             fmt.Sprintf("%s-adapter-%d", evidenceID, index+1),
+			Binding:        binding.Metadata.Name,
+			Server:         call.Server,
+			Tool:           call.Tool,
+			RequiredScopes: nonNilStrings(tool.RequiredScopes),
+			EvidenceID:     evidenceID,
+		}
+		if !ok {
+			execution.Status = "failed"
+			execution.Reason = "mcp server binding not found"
+			executions = append(executions, execution)
+			continue
+		}
+		output, err := callExternalMCPTool(server, tool.Name, call.Arguments)
+		if err != nil {
+			execution.Status = "failed"
+			execution.Reason = err.Error()
+			executions = append(executions, execution)
+			continue
+		}
+		execution.Status = "succeeded"
+		execution.Performed = true
+		execution.Reason = "external MCP adapter execution completed"
+		execution.Output = output
+		executions = append(executions, execution)
+	}
+	return executions
+}
+
+func serverForTool(binding pack.MCPBinding, name string) (pack.MCPRuntimeServer, bool) {
+	for _, server := range binding.Spec.Servers {
+		if server.Name == name {
+			return server, true
+		}
+	}
+	return pack.MCPRuntimeServer{}, false
+}
+
+func callExternalMCPTool(server pack.MCPRuntimeServer, tool string, args map[string]any) (any, error) {
+	if server.Transport != "" && server.Transport != "stdio" {
+		return nil, fmt.Errorf("unsupported mcp transport %q", server.Transport)
+	}
+	if len(server.Command) == 0 {
+		return nil, fmt.Errorf("mcp server command is required")
+	}
+	timeout := time.Duration(server.Timeout) * time.Second
+	if timeout == 0 {
+		timeout = 30 * time.Second
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	cmdArgs := append([]string{}, server.Command[1:]...)
+	cmdArgs = append(cmdArgs, server.Args...)
+	cmd := exec.CommandContext(ctx, server.Command[0], cmdArgs...)
+	cmd.Env = resolvedEnv(server.Env)
+	stdin, err := cmd.StdinPipe()
+	if err != nil {
+		return nil, fmt.Errorf("open mcp stdin: %w", err)
+	}
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		return nil, fmt.Errorf("open mcp stdout: %w", err)
+	}
+	cmd.Stderr = io.Discard
+	if err := cmd.Start(); err != nil {
+		return nil, fmt.Errorf("start mcp server: %w", err)
+	}
+	reader := bufio.NewReader(stdout)
+	if _, err := exchangeMCP(stdin, reader, 1, "initialize", map[string]any{
+		"protocolVersion": "2024-11-05",
+		"clientInfo":      map[string]any{"name": "actlane", "version": "0.3.0-alpha.11"},
+	}); err != nil {
+		_ = stdin.Close()
+		_ = cmd.Wait()
+		return nil, err
+	}
+	result, err := exchangeMCP(stdin, reader, 2, "tools/call", map[string]any{
+		"name":      tool,
+		"arguments": args,
+	})
+	_ = stdin.Close()
+	waitErr := cmd.Wait()
+	if err != nil {
+		return nil, err
+	}
+	if ctx.Err() != nil {
+		return nil, fmt.Errorf("mcp call timed out")
+	}
+	if waitErr != nil {
+		return nil, fmt.Errorf("mcp server exited: %w", waitErr)
+	}
+	return result, nil
+}
+
+func exchangeMCP(stdin io.Writer, reader *bufio.Reader, id int, method string, params map[string]any) (any, error) {
+	req := map[string]any{
+		"jsonrpc": "2.0",
+		"id":      id,
+		"method":  method,
+		"params":  params,
+	}
+	data, err := json.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("encode mcp request: %w", err)
+	}
+	if _, err := fmt.Fprintln(stdin, string(data)); err != nil {
+		return nil, fmt.Errorf("write mcp request: %w", err)
+	}
+	for {
+		line, err := reader.ReadString('\n')
+		if err != nil {
+			return nil, fmt.Errorf("read mcp response: %w", err)
+		}
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		var resp response
+		if err := json.Unmarshal([]byte(line), &resp); err != nil {
+			return nil, fmt.Errorf("parse mcp response: %w", err)
+		}
+		if resp.ID != float64(id) && resp.ID != id {
+			continue
+		}
+		if resp.Error != nil {
+			return nil, fmt.Errorf("mcp %s failed: %s", method, resp.Error.Message)
+		}
+		return resp.Result, nil
+	}
+}
+
+func resolvedEnv(env map[string]any) []string {
+	values := os.Environ()
+	for key, raw := range env {
+		switch typed := raw.(type) {
+		case string:
+			values = append(values, key+"="+typed)
+		case map[string]any:
+			fromEnv, _ := typed["fromEnv"].(string)
+			if fromEnv != "" {
+				values = append(values, key+"="+os.Getenv(fromEnv))
+			}
+		}
+	}
+	return values
+}
+
+func anyAdapterPerformed(executions []adapterExecution) bool {
+	for _, execution := range executions {
+		if execution.Performed {
+			return true
+		}
+	}
+	return false
+}
+
+func executionReason(executeAdapters, allowed bool) string {
+	if !allowed {
+		return "policy denied capability execution"
+	}
+	if executeAdapters {
+		return "external MCP adapter execution was requested"
+	}
+	return "adapter executions are recorded but external MCP calls are not executed by this MVP"
 }
 
 func (s *Server) bindingToolForCall(capability string, call evaluator.NextCall) (pack.MCPBinding, pack.MCPToolBinding) {

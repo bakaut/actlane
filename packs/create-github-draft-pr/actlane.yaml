@@ -4,7 +4,7 @@ kind: CapabilityPack
 
 metadata:
   name: github-draft-pr-pack
-  version: 0.3.0-alpha.10
+  version: 0.3.0-alpha.11
   description: Project-local agent capability pack for safe GitHub draft pull requests.
 
 spec:
@@ -58,6 +58,7 @@ spec:
 
   mcpBindings:
     - mcp/bindings/actlane-safe-gitops.yaml
+    - mcp/bindings/actlane-mcp-broker.yaml
     - mcp/bindings/actlane-pack-author.yaml
     - mcp/bindings/github-mcp-draft-pr.yaml
 

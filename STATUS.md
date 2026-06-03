@@ -20,6 +20,8 @@ Actlane started as a design and specification repository. It now also contains a
 - `actlane_classify`, `actlane_load_capability`, policy-gated `actlane_run_capability`, read-only `actlane_get_evidence`, and read-only `actlane_prepare_delivery` MCP tools in `actlane mcp serve --pack <pack>`.
 - MCP broker adapter execution records and session-local compact evidence summaries derived from `MCPBinding` and `EvidenceContract`.
 - MCP broker delivery summaries combining evaluator output, responsibility boundaries, compact evidence, adapter records, and residual risk.
+- Optional durable evidence files via `actlane_run_capability` argument `evidenceDir`.
+- Optional external stdio MCP adapter execution via `actlane_run_capability` argument `executeAdapters: true`.
 - Generated OpenCode and Codex artifacts, target-local policy bundles, and `actlane.lock`.
 - Codex safe adoption into `.codex/skills`, `.codex/config.toml`, `AGENTS.md`, and `policies/policy-bundle.json`.
 - Local MCP policy evaluator via `actlane mcp serve --policy-bundle <policy-bundle.json>`.
@@ -32,7 +34,6 @@ Actlane started as a design and specification repository. It now also contains a
 - No production-ready CLI contract.
 - No production runtime service.
 - No production MCP gateway.
-- No production external MCP adapter execution.
 - No hosted registry.
 - No marketplace.
 - No production security guarantees.

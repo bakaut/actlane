@@ -41,13 +41,13 @@ actlane version
 Install options:
 
 ```bash
-ACTLANE_VERSION=v0.3.0-alpha.10 ACTLANE_INSTALL_DIR="$HOME/.local/bin" sh -c "$(curl -fsSL https://actlane.ru/install.sh)"
+ACTLANE_VERSION=v0.3.0-alpha.11 ACTLANE_INSTALL_DIR="$HOME/.local/bin" sh -c "$(curl -fsSL https://actlane.ru/install.sh)"
 ```
 
 Docker:
 
 ```bash
-docker run --rm ghcr.io/actlane/actlane:0.3.0-alpha.10 version
+docker run --rm ghcr.io/actlane/actlane:0.3.0-alpha.11 version
 ```
 
 ## Quick Start
@@ -134,6 +134,12 @@ actlane schema list
 actlane schema print capability
 ```
 
+Run the MCP broker smoke flow:
+
+```bash
+./scripts/smoke-mcp-broker.sh
+```
+
 `actlane import report`, `validate`, and `pack inspect` are review helpers. The shortest happy path is:
 
 ```bash
@@ -156,6 +162,8 @@ actlane generate --target codex
 - `actlane_classify`, `actlane_load_capability`, policy-gated `actlane_run_capability`, read-only `actlane_get_evidence`, and read-only `actlane_prepare_delivery` MCP broker tools for packs with runtime/evidence contracts.
 - MCP broker adapter execution records and session-local compact evidence summaries derived from `MCPBinding` and `EvidenceContract`.
 - MCP broker delivery summaries combining evaluator output, responsibility boundaries, compact evidence, adapter records, and residual risk.
+- Optional durable evidence files via `actlane_run_capability` argument `evidenceDir`.
+- Optional external stdio MCP adapter execution via `actlane_run_capability` argument `executeAdapters: true`.
 - Import of OpenCode MCP servers and permission-derived MCP tool bindings.
 - Pack zip create/inspect/install flow.
 - Direct generation from `actlane-pack.zip`.
@@ -166,7 +174,6 @@ actlane generate --target codex
 ## What Does Not Exist Yet
 
 - No production security guarantees.
-- No production external MCP adapter execution.
 - No hosted registry.
 - No marketplace.
 - No full apply/remove lifecycle for every target yet.

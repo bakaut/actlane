@@ -1,7 +1,10 @@
 package cli
 
 import (
+	"bufio"
 	"bytes"
+	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -542,6 +545,58 @@ func TestMCPServeRunsCapabilityThroughPolicyGate(t *testing.T) {
 		if strings.Contains(output, forbidden) {
 			t.Fatalf("mcp run capability output leaked %q:\n%s", forbidden, output)
 		}
+	}
+}
+
+func TestMCPServeExecutesAdaptersAndPersistsEvidenceWhenExplicitlyEnabled(t *testing.T) {
+	if os.Getenv("ACTLANE_FAKE_MCP") == "1" {
+		runFakeMCPServer(t)
+		return
+	}
+	packDir := copyPackToTemp(t)
+	patchGitHubBindingForFakeMCP(t, packDir)
+	evidenceDir := filepath.Join(t.TempDir(), "evidence")
+	stdin := strings.NewReader(strings.Join([]string{
+		`{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}`,
+		fmt.Sprintf(`{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"actlane_run_capability","arguments":{"name":"create-github-draft-pr","mode":"enforce","executeAdapters":true,"evidenceDir":%q,"input":{"repo":"bakaut/development","baseBranch":"main","branch":"feature","title":"Test","summary":"Test","files":["README.md"],"confirmed":true}}}}`, evidenceDir),
+		`{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"actlane_prepare_delivery","arguments":{"latest":true}}}`,
+		"",
+	}, "\n"))
+	var stdout, stderr bytes.Buffer
+
+	code := MainWithIO([]string{"mcp", "serve", "--pack", packDir}, stdin, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("mcp adapter execution failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	output := stdout.String()
+	for _, want := range []string{
+		`"name":"actlane_prepare_delivery"`,
+		`\"status\": \"succeeded\"`,
+		`\"performed\": true`,
+		`\"output\": {`,
+		`fake-mcp:create_pull_request`,
+		`\"durablePath\": \"`,
+		`\"externalExecutionDone\": true`,
+		`\"policyDecision\": \"allow\"`,
+	} {
+		if !strings.Contains(output, want) {
+			t.Fatalf("mcp adapter execution output missing %q:\n%s", want, output)
+		}
+	}
+	for _, forbidden := range []string{
+		`GITHUB_PERSONAL_ACCESS_TOKEN`,
+		`ghcr.io/github/github-mcp-server`,
+	} {
+		if strings.Contains(output, forbidden) {
+			t.Fatalf("mcp adapter execution output leaked %q:\n%s", forbidden, output)
+		}
+	}
+	entries, err := os.ReadDir(evidenceDir)
+	if err != nil {
+		t.Fatalf("evidence dir missing: %v", err)
+	}
+	if len(entries) != 1 || !strings.HasSuffix(entries[0].Name(), ".json") {
+		t.Fatalf("expected one durable evidence json file, got %#v", entries)
 	}
 }
 
@@ -1479,6 +1534,108 @@ func copyDir(t *testing.T, src, dst string) {
 			t.Fatal(err)
 		}
 	}
+}
+
+func patchGitHubBindingForFakeMCP(t *testing.T, packDir string) {
+	t.Helper()
+	path := filepath.Join(packDir, "mcp/bindings/github-mcp-draft-pr.yaml")
+	content := readFile(t, path)
+	start := strings.Index(content, "  mcpservers:\n")
+	end := strings.Index(content, "  requiredTools:\n")
+	if start < 0 || end < 0 || end <= start {
+		t.Fatalf("cannot locate mcpservers block in %s", path)
+	}
+	replacement := fmt.Sprintf(`  mcpservers:
+    - name: github
+      provider: fake-test-mcp
+      source: test-helper
+      transport: stdio
+      command:
+        - %s
+      args:
+        - -test.run=TestMCPServeExecutesAdaptersAndPersistsEvidenceWhenExplicitlyEnabled
+        - --
+      env:
+        ACTLANE_FAKE_MCP: "1"
+`, os.Args[0])
+	if err := os.WriteFile(path, []byte(content[:start]+replacement+content[end:]), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func runFakeMCPServer(t *testing.T) {
+	t.Helper()
+	scanner := bufio.NewScanner(os.Stdin)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" {
+			continue
+		}
+		var req struct {
+			JSONRPC string          `json:"jsonrpc"`
+			ID      any             `json:"id"`
+			Method  string          `json:"method"`
+			Params  json.RawMessage `json:"params"`
+		}
+		if err := json.Unmarshal([]byte(line), &req); err != nil {
+			fmt.Fprintln(os.Stdout, `{"jsonrpc":"2.0","id":null,"error":{"code":-32700,"message":"parse error"}}`)
+			continue
+		}
+		switch req.Method {
+		case "initialize":
+			writeFakeMCPResponse(t, req.ID, map[string]any{
+				"protocolVersion": "2024-11-05",
+				"serverInfo":      map[string]any{"name": "fake-github-mcp", "version": "test"},
+			})
+		case "tools/call":
+			var params struct {
+				Name      string         `json:"name"`
+				Arguments map[string]any `json:"arguments"`
+			}
+			if err := json.Unmarshal(req.Params, &params); err != nil {
+				writeFakeMCPError(t, req.ID, -32602, "invalid params")
+				continue
+			}
+			writeFakeMCPResponse(t, req.ID, map[string]any{
+				"content": []map[string]any{{
+					"type": "text",
+					"text": "fake-mcp:" + params.Name,
+				}},
+				"structuredContent": map[string]any{
+					"tool":   params.Name,
+					"branch": params.Arguments["branch"],
+				},
+			})
+		default:
+			writeFakeMCPError(t, req.ID, -32601, "method not found")
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		t.Fatal(err)
+	}
+	os.Exit(0)
+}
+
+func writeFakeMCPResponse(t *testing.T, id any, result any) {
+	t.Helper()
+	data, err := json.Marshal(map[string]any{"jsonrpc": "2.0", "id": id, "result": result})
+	if err != nil {
+		t.Fatal(err)
+	}
+	fmt.Fprintln(os.Stdout, string(data))
+}
+
+func writeFakeMCPError(t *testing.T, id any, code int, message string) {
+	t.Helper()
+	data, err := json.Marshal(map[string]any{
+		"jsonrpc": "2.0",
+		"id":      id,
+		"error":   map[string]any{"code": code, "message": message},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	fmt.Fprintln(os.Stdout, string(data))
 }
 
 func assertExists(t *testing.T, path string) {
