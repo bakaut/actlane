@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.3.0-alpha.12] - 2026-06-03
+
+Fourteenth SemVer-tagged CLI MVP release.
+
+SemVer rationale:
+
+- prerelease bump from `0.3.0-alpha.11` to `0.3.0-alpha.12` because generated profiles now use a self-contained MCP broker runtime bundle before `1.0.0`;
+- keeps the `alpha` prerelease channel because the broker bundle JSON shape is still pre-stable.
+
+### Changed
+
+- Added generated `broker/broker-bundle.json` as the target-local runtime input for the MCP broker.
+- Added `actlane mcp serve --broker-bundle <broker-bundle.json>` for serving broker tools from generated runtime JSON instead of source pack YAML.
+- Changed generated Codex and OpenCode MCP broker config to use `actlane mcp serve --broker-bundle ./broker/broker-bundle.json`.
+- Kept `actlane mcp serve --pack <pack>` as a dev/debug path for source packs.
+- Excluded authoring-only MCP bindings and prompt/profile file paths from the broker bundle runtime artifact.
+- Updated README, CLI README, workflow defaults, generated pack output, and pack metadata to `0.3.0-alpha.12`.
+
 ## [0.3.0-alpha.11] - 2026-06-03
 
 Thirteenth SemVer-tagged CLI MVP release.

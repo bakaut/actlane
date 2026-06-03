@@ -108,6 +108,10 @@ func NewFromPolicyBundle(bundle PolicyBundle) *Server {
 	return New(LoadedFromPolicyBundle(bundle))
 }
 
+func NewFromBrokerBundle(bundle pack.BrokerBundle) *Server {
+	return New(pack.LoadedFromBrokerBundle(bundle))
+}
+
 func LoadedFromPolicyBundle(bundle PolicyBundle) *pack.LoadedPack {
 	capabilities := bundle.Rules.Capabilities
 	if len(capabilities) == 0 {
@@ -205,7 +209,7 @@ func (s *Server) handle(req request) response {
 			},
 			"serverInfo": map[string]any{
 				"name":    "actlane-safe-gitops",
-				"version": "0.3.0-alpha.11",
+				"version": "0.3.0-alpha.12",
 			},
 		})
 	case "tools/list":
@@ -1378,7 +1382,7 @@ func callExternalMCPTool(server pack.MCPRuntimeServer, tool string, args map[str
 	reader := bufio.NewReader(stdout)
 	if _, err := exchangeMCP(stdin, reader, 1, "initialize", map[string]any{
 		"protocolVersion": "2024-11-05",
-		"clientInfo":      map[string]any{"name": "actlane", "version": "0.3.0-alpha.11"},
+		"clientInfo":      map[string]any{"name": "actlane", "version": "0.3.0-alpha.12"},
 	}); err != nil {
 		_ = stdin.Close()
 		_ = cmd.Wait()

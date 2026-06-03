@@ -58,12 +58,30 @@ func renderCodexMCPConfig(bindings []pack.MCPBinding) string {
 func sortedMCPServers(bindings []pack.MCPBinding) []pack.MCPRuntimeServer {
 	var servers []pack.MCPRuntimeServer
 	for _, binding := range bindings {
-		servers = append(servers, binding.Spec.Servers...)
+		if binding.Spec.Strategy.Handler == "actlane.pack.author" {
+			continue
+		}
+		for _, server := range binding.Spec.Servers {
+			servers = append(servers, profileMCPServer(binding, server))
+		}
 	}
 	sort.Slice(servers, func(i, j int) bool {
 		return servers[i].Name < servers[j].Name
 	})
 	return servers
+}
+
+func profileMCPServer(binding pack.MCPBinding, server pack.MCPRuntimeServer) pack.MCPRuntimeServer {
+	if binding.Spec.Strategy.Handler != "actlane.mcp.broker" {
+		return server
+	}
+	server.Command = []string{"actlane"}
+	server.Args = []string{"mcp", "serve", "--broker-bundle", "./broker/broker-bundle.json"}
+	server.Env = nil
+	server.URL = ""
+	server.Headers = nil
+	server.OAuth = nil
+	return server
 }
 
 func sortedAnyKeys(values map[string]any) []string {

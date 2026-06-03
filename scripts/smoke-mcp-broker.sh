@@ -26,7 +26,7 @@ ensure_actlane() {
 
 run_rpc() {
   local title="$1"
-  local pack="$2"
+  local broker_bundle="$2"
   local request_file="$3"
   local output_file="$4"
 
@@ -36,7 +36,7 @@ run_rpc() {
   cat "$request_file"
   echo
   echo "# response"
-  "$ACTLANE_BIN" mcp serve --pack "$pack" < "$request_file" | tee "$output_file"
+  "$ACTLANE_BIN" mcp serve --broker-bundle "$broker_bundle" < "$request_file" | tee "$output_file"
   if command -v jq >/dev/null 2>&1; then
     echo
     echo "# summary"
@@ -163,6 +163,9 @@ EOF
 
 main() {
   ensure_actlane
+  "$ACTLANE_BIN" generate "$PACK" --target codex >/dev/null
+
+  local broker_bundle="$PACK/generated/codex/broker/broker-bundle.json"
 
   local safe_req="$TMP_ROOT/safe.ndjson"
   local deny_req="$TMP_ROOT/deny.ndjson"
@@ -174,21 +177,22 @@ main() {
   local fake_pack="$TMP_ROOT/create-github-draft-pr-fake"
 
   write_safe_flow_requests "$safe_req"
-  run_rpc "safe default broker flow: classify -> load -> run -> evidence -> delivery" "$PACK" "$safe_req" "$TMP_ROOT/safe.out"
+  run_rpc "safe default broker flow: classify -> load -> run -> evidence -> delivery" "$broker_bundle" "$safe_req" "$TMP_ROOT/safe.out"
 
   write_deny_flow_requests "$deny_req"
-  run_rpc "deny flow: policy blocks secrets and final delivery requires human resolution" "$PACK" "$deny_req" "$TMP_ROOT/deny.out"
+  run_rpc "deny flow: policy blocks secrets and final delivery requires human resolution" "$broker_bundle" "$deny_req" "$TMP_ROOT/deny.out"
 
   write_durable_flow_requests "$durable_req" "$durable_dir"
-  run_rpc "durable evidence flow: evidenceDir writes compact JSON" "$PACK" "$durable_req" "$TMP_ROOT/durable.out"
+  run_rpc "durable evidence flow: evidenceDir writes compact JSON" "$broker_bundle" "$durable_req" "$TMP_ROOT/durable.out"
   echo
   echo "# durable evidence files"
   find "$durable_dir" -maxdepth 1 -type f -print
 
   write_fake_mcp_server "$fake_mcp"
   copy_pack_for_fake_adapter "$fake_pack" "$fake_mcp"
+  "$ACTLANE_BIN" generate "$fake_pack" --target codex >/dev/null
   write_fake_adapter_requests "$fake_req" "$fake_evidence_dir"
-  run_rpc "external adapter flow: executeAdapters=true calls fake stdio MCP" "$fake_pack" "$fake_req" "$TMP_ROOT/fake-adapter.out"
+  run_rpc "external adapter flow: executeAdapters=true calls fake stdio MCP" "$fake_pack/generated/codex/broker/broker-bundle.json" "$fake_req" "$TMP_ROOT/fake-adapter.out"
   echo
   echo "# fake adapter durable evidence files"
   find "$fake_evidence_dir" -maxdepth 1 -type f -print

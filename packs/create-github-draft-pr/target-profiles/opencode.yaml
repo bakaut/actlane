@@ -54,6 +54,9 @@ spec:
       - targetPath: opencode.jsonc
         generatedPath: generated/opencode/opencode.jsonc
         owned: true
+      - targetPath: broker/broker-bundle.json
+        generatedPath: generated/opencode/broker/broker-bundle.json
+        owned: true
 
       - targetPath: .opencode/commands/create-github-draft-pr.md
         generatedPath: generated/opencode/.opencode/commands/create-github-draft-pr.md

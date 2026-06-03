@@ -41,13 +41,13 @@ actlane version
 Install options:
 
 ```bash
-ACTLANE_VERSION=v0.3.0-alpha.11 ACTLANE_INSTALL_DIR="$HOME/.local/bin" sh -c "$(curl -fsSL https://actlane.ru/install.sh)"
+ACTLANE_VERSION=v0.3.0-alpha.12 ACTLANE_INSTALL_DIR="$HOME/.local/bin" sh -c "$(curl -fsSL https://actlane.ru/install.sh)"
 ```
 
 Docker:
 
 ```bash
-docker run --rm ghcr.io/actlane/actlane:0.3.0-alpha.11 version
+docker run --rm ghcr.io/actlane/actlane:0.3.0-alpha.12 version
 ```
 
 ## Quick Start
@@ -126,9 +126,9 @@ actlane check --pack <pack> --tool github_create_pull_request
 actlane plan ./packs/create-github-draft-pr --target codex
 actlane apply ./packs/create-github-draft-pr --target codex
 actlane remove ./packs/create-github-draft-pr --target codex
+actlane mcp serve --broker-bundle <broker-bundle.json>
 actlane mcp serve --policy-bundle <policy-bundle.json>
-actlane mcp serve --pack <pack>
-actlane mcp serve --pack <pack> # exposes classify/load/run/evidence/delivery broker tools
+actlane mcp serve --pack <pack> # dev/debug source-pack path
 actlane mcp author serve --pack <pack>
 actlane schema list
 actlane schema print capability

@@ -54,37 +54,35 @@ func openCodeConfig(loaded *pack.LoadedPack, targetProfile pack.TargetProfile) m
 
 func openCodeMCPServerConfig(bindings []pack.MCPBinding) map[string]any {
 	servers := map[string]any{}
-	for _, binding := range bindings {
-		for _, server := range binding.Spec.Servers {
-			config := map[string]any{
-				"enabled": true,
-				"type":    defaultMCPType(server.Transport),
-			}
-			if server.Enabled != nil {
-				config["enabled"] = *server.Enabled
-			}
-			command := append([]string{}, server.Command...)
-			command = append(command, server.Args...)
-			if len(command) > 0 {
-				config["command"] = command
-			}
-			if server.URL != "" {
-				config["url"] = server.URL
-			}
-			if len(server.Env) > 0 {
-				config["environment"] = openCodeEnvironment(server.Env)
-			}
-			if len(server.Headers) > 0 {
-				config["headers"] = openCodeEnvironment(server.Headers)
-			}
-			if server.OAuth != nil {
-				config["oauth"] = server.OAuth
-			}
-			if server.Timeout > 0 {
-				config["timeout"] = server.Timeout
-			}
-			servers[server.Name] = config
+	for _, server := range sortedMCPServers(bindings) {
+		config := map[string]any{
+			"enabled": true,
+			"type":    defaultMCPType(server.Transport),
 		}
+		if server.Enabled != nil {
+			config["enabled"] = *server.Enabled
+		}
+		command := append([]string{}, server.Command...)
+		command = append(command, server.Args...)
+		if len(command) > 0 {
+			config["command"] = command
+		}
+		if server.URL != "" {
+			config["url"] = server.URL
+		}
+		if len(server.Env) > 0 {
+			config["environment"] = openCodeEnvironment(server.Env)
+		}
+		if len(server.Headers) > 0 {
+			config["headers"] = openCodeEnvironment(server.Headers)
+		}
+		if server.OAuth != nil {
+			config["oauth"] = server.OAuth
+		}
+		if server.Timeout > 0 {
+			config["timeout"] = server.Timeout
+		}
+		servers[server.Name] = config
 	}
 	return servers
 }

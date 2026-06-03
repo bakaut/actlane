@@ -12,13 +12,13 @@ actlane version
 Override install options:
 
 ```bash
-ACTLANE_VERSION=v0.3.0-alpha.11 ACTLANE_INSTALL_DIR="$HOME/.local/bin" sh -c "$(curl -fsSL https://actlane.ru/install.sh)"
+ACTLANE_VERSION=v0.3.0-alpha.12 ACTLANE_INSTALL_DIR="$HOME/.local/bin" sh -c "$(curl -fsSL https://actlane.ru/install.sh)"
 ```
 
 Docker:
 
 ```bash
-docker run --rm ghcr.io/actlane/actlane:0.3.0-alpha.11 version
+docker run --rm ghcr.io/actlane/actlane:0.3.0-alpha.12 version
 ```
 
 Implemented MVP commands:
@@ -45,14 +45,15 @@ go run ./cmd/actlane generate ../../packs/create-github-draft-pr --target codex 
 go run ./cmd/actlane generate ../../packs/create-github-draft-pr --target opencode --frozen-lockfile
 go run ./cmd/actlane generate ../../packs/create-github-draft-pr --target codex --frozen-lockfile
 go run ./cmd/actlane check --pack ../../packs/create-github-draft-pr --tool github_create_pull_request
+go run ./cmd/actlane mcp serve --broker-bundle ../../packs/create-github-draft-pr/generated/codex/broker/broker-bundle.json
 go run ./cmd/actlane mcp serve --policy-bundle ../../packs/create-github-draft-pr/generated/codex/policies/policy-bundle.json
-go run ./cmd/actlane mcp serve --pack ../../packs/create-github-draft-pr
+go run ./cmd/actlane mcp serve --pack ../../packs/create-github-draft-pr # dev/debug source-pack path
 go run ./cmd/actlane mcp author serve --pack ../../packs/create-github-draft-pr
 go run ./cmd/actlane schema list
 go run ./cmd/actlane schema print capability
 ```
 
-`mcp serve --pack` exposes broker tools for classify, load capability, policy-gated run capability, session-local evidence lookup, and final delivery summary.
+`mcp serve --broker-bundle` exposes broker tools for classify, load capability, policy-gated run capability, session-local evidence lookup, and final delivery summary from generated runtime JSON.
 
 `actlane_run_capability` keeps adapter execution disabled by default. Pass `executeAdapters: true` to execute configured stdio MCP tools, and `evidenceDir` to persist compact evidence JSON files.
 

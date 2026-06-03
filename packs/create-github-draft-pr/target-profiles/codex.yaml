@@ -47,6 +47,9 @@ spec:
       - targetPath: policies/policy-bundle.json
         generatedPath: generated/codex/policies/policy-bundle.json
         owned: true
+      - targetPath: broker/broker-bundle.json
+        generatedPath: generated/codex/broker/broker-bundle.json
+        owned: true
 
       - targetPath: .codex/skills/create-github-draft-pr/SKILL.md
         generatedPath: generated/codex/.codex/skills/create-github-draft-pr/SKILL.md

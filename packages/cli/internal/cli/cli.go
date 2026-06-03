@@ -19,7 +19,7 @@ import (
 	"github.com/actlane/actlane/packages/cli/internal/schema"
 )
 
-const version = "0.3.0-alpha.11"
+const version = "0.3.0-alpha.12"
 
 func Main(args []string, stdout, stderr io.Writer) int {
 	return MainWithIO(args, os.Stdin, stdout, stderr)
@@ -477,12 +477,13 @@ func runMCP(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		return runMCPAuthor(args[1:], stdin, stdout, stderr)
 	}
 	if len(args) < 1 || args[0] != "serve" {
-		fmt.Fprintln(stderr, "usage: actlane mcp serve (--policy-bundle <policy-bundle.json> | --pack <pack>)")
+		fmt.Fprintln(stderr, "usage: actlane mcp serve (--broker-bundle <broker-bundle.json> | --policy-bundle <policy-bundle.json> | --pack <pack>)")
 		fmt.Fprintln(stderr, "usage: actlane mcp author serve [--pack <pack>]")
 		return 2
 	}
 	packDir := "."
 	policyBundlePath := ""
+	brokerBundlePath := ""
 	for i := 1; i < len(args); i++ {
 		switch args[i] {
 		case "--pack":
@@ -492,6 +493,13 @@ func runMCP(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 				return 2
 			}
 			packDir = args[i]
+		case "--broker-bundle":
+			i++
+			if i >= len(args) {
+				fmt.Fprintln(stderr, "--broker-bundle requires a value")
+				return 2
+			}
+			brokerBundlePath = args[i]
 		case "--policy-bundle":
 			i++
 			if i >= len(args) {
@@ -503,6 +511,23 @@ func runMCP(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 			fmt.Fprintf(stderr, "unknown mcp serve flag %q\n", args[i])
 			return 2
 		}
+	}
+	if brokerBundlePath != "" {
+		data, err := os.ReadFile(brokerBundlePath)
+		if err != nil {
+			fmt.Fprintf(stderr, "mcp serve failed: read broker bundle: %v\n", err)
+			return 1
+		}
+		var bundle pack.BrokerBundle
+		if err := json.Unmarshal(data, &bundle); err != nil {
+			fmt.Fprintf(stderr, "mcp serve failed: parse broker bundle: %v\n", err)
+			return 1
+		}
+		if err := mcpserver.NewFromBrokerBundle(bundle).Serve(stdin, stdout); err != nil {
+			fmt.Fprintf(stderr, "mcp serve failed: %v\n", err)
+			return 1
+		}
+		return 0
 	}
 	if policyBundlePath != "" {
 		data, err := os.ReadFile(policyBundlePath)

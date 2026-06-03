@@ -122,6 +122,7 @@ func TestGenerateOpenCodeWritesOnlyGeneratedOutput(t *testing.T) {
 	assertExists(t, filepath.Join(packDir, "generated/mcp/tools.json"))
 	assertExists(t, filepath.Join(packDir, "generated/mcp/server.json"))
 	assertExists(t, filepath.Join(packDir, "generated/opencode/policies/policy-bundle.json"))
+	assertExists(t, filepath.Join(packDir, "generated/opencode/broker/broker-bundle.json"))
 	assertExists(t, filepath.Join(packDir, "generated/opencode/actlane.lock"))
 	assertExists(t, filepath.Join(packDir, "generated/opencode/.opencode/commands/create-github-draft-pr.md"))
 	assertExists(t, filepath.Join(packDir, "generated/opencode/.opencode/agents/github-draft-pr.md"))
@@ -146,12 +147,15 @@ func TestGenerateOpenCodeWritesOnlyGeneratedOutput(t *testing.T) {
 		`"skill": "allow"`,
 		`"mcp":`,
 		`"actlane-safe-gitops":`,
+		`"actlane-mcp-broker":`,
 		`"github":`,
 		`"type": "local"`,
 		`"enabled": true`,
 		`"actlane"`,
 		`"--policy-bundle"`,
 		`"./policies/policy-bundle.json"`,
+		`"--broker-bundle"`,
+		`"./broker/broker-bundle.json"`,
 		`"docker"`,
 		`"ghcr.io/github/github-mcp-server"`,
 		`"GITHUB_PERSONAL_ACCESS_TOKEN": "{env:GITHUB_PERSONAL_ACCESS_TOKEN}"`,
@@ -159,6 +163,15 @@ func TestGenerateOpenCodeWritesOnlyGeneratedOutput(t *testing.T) {
 	} {
 		if !strings.Contains(snippet, want) {
 			t.Fatalf("generated snippet missing %q:\n%s", want, snippet)
+		}
+	}
+	for _, forbidden := range []string{
+		`"actlane-pack-author":`,
+		`"--pack"`,
+		`"./packs/create-github-draft-pr"`,
+	} {
+		if strings.Contains(snippet, forbidden) {
+			t.Fatalf("generated snippet should not include %q:\n%s", forbidden, snippet)
 		}
 	}
 
@@ -269,6 +282,7 @@ func TestGenerateCodexWritesCodexProfile(t *testing.T) {
 	assertExists(t, filepath.Join(packDir, "generated/codex/codex.config.toml"))
 	assertExists(t, filepath.Join(packDir, "generated/codex/.codex/skills/create-github-draft-pr/SKILL.md"))
 	assertExists(t, filepath.Join(packDir, "generated/codex/policies/policy-bundle.json"))
+	assertExists(t, filepath.Join(packDir, "generated/codex/broker/broker-bundle.json"))
 	assertExists(t, filepath.Join(packDir, "generated/codex/actlane.lock"))
 	assertNotExists(t, filepath.Join(packDir, "generated/codex/actlane.yaml"))
 	assertNotExists(t, filepath.Join(packDir, "generated/codex/capabilities"))
@@ -291,8 +305,8 @@ func TestGenerateCodexWritesCodexProfile(t *testing.T) {
 
 	config := readFile(t, filepath.Join(packDir, "generated/codex/codex.config.toml"))
 	for _, want := range []string{
-		"[mcp_servers.actlane-pack-author]",
-		`args = ["mcp", "author", "serve", "--pack", "./packs/create-github-draft-pr"]`,
+		"[mcp_servers.actlane-mcp-broker]",
+		`args = ["mcp", "serve", "--broker-bundle", "./broker/broker-bundle.json"]`,
 		"[mcp_servers.actlane-safe-gitops]",
 		`command = "actlane"`,
 		`args = ["mcp", "serve", "--policy-bundle", "./policies/policy-bundle.json"]`,
@@ -305,6 +319,14 @@ func TestGenerateCodexWritesCodexProfile(t *testing.T) {
 	} {
 		if !strings.Contains(config, want) {
 			t.Fatalf("generated Codex config missing %q:\n%s", want, config)
+		}
+	}
+	for _, forbidden := range []string{
+		"[mcp_servers.actlane-pack-author]",
+		`args = ["mcp", "author", "serve", "--pack", "./packs/create-github-draft-pr"]`,
+	} {
+		if strings.Contains(config, forbidden) {
+			t.Fatalf("generated Codex config should not include %q:\n%s", forbidden, config)
 		}
 	}
 
@@ -630,6 +652,68 @@ func TestMCPServeAcceptsPolicyBundle(t *testing.T) {
 	} {
 		if !strings.Contains(output, want) {
 			t.Fatalf("mcp serve with policy bundle missing %q:\n%s", want, output)
+		}
+	}
+}
+
+func TestMCPServeAcceptsBrokerBundle(t *testing.T) {
+	packDir := copyPackToTemp(t)
+	var stdout, stderr bytes.Buffer
+
+	code := Main([]string{"generate", packDir, "--target", "codex"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("generate failed: %s", stderr.String())
+	}
+
+	bundle := readFile(t, filepath.Join(packDir, "generated/codex/broker/broker-bundle.json"))
+	for _, want := range []string{
+		`"capabilities":`,
+		`"policies":`,
+		`"mcpBindings":`,
+		`"runtimeProfiles":`,
+		`"evidence":`,
+	} {
+		if !strings.Contains(bundle, want) {
+			t.Fatalf("broker bundle missing %q:\n%s", want, bundle)
+		}
+	}
+	for _, forbidden := range []string{
+		`"Raw":`,
+		`"Path":`,
+		`"--pack"`,
+		`"SKILL.md"`,
+		`"AGENTS.md"`,
+		`"opencode.jsonc"`,
+	} {
+		if strings.Contains(bundle, forbidden) {
+			t.Fatalf("broker bundle should not include %q:\n%s", forbidden, bundle)
+		}
+	}
+
+	stdin := strings.NewReader(strings.Join([]string{
+		`{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}`,
+		`{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"actlane_classify","arguments":{"task":"Prepare a safe GitHub draft PR for README changes","changed_files":["README.md"],"branch":"main","diff_summary":"docs only"}}}`,
+		`{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"actlane_run_capability","arguments":{"capability":"create-github-draft-pr","input":{"repo":"bakaut/development","baseBranch":"main","branch":"feature","title":"Test","summary":"Test","files":["README.md"],"confirmed":true}}}}`,
+		"",
+	}, "\n"))
+	stdout.Reset()
+	stderr.Reset()
+	code = MainWithIO([]string{"mcp", "serve", "--broker-bundle", filepath.Join(packDir, "generated/codex/broker/broker-bundle.json")}, stdin, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("mcp serve with broker bundle failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	output := stdout.String()
+	for _, want := range []string{
+		`"name":"actlane_classify"`,
+		`"name":"actlane_prepare_delivery"`,
+		`\"candidateCapabilities\":`,
+		`\"create-github-draft-pr\"`,
+		`\"policyDecision\": \"allow\"`,
+		`\"branch\": \"gpt/feature\"`,
+		`\"tool\": \"github_create_pull_request\"`,
+	} {
+		if !strings.Contains(output, want) {
+			t.Fatalf("mcp serve with broker bundle missing %q:\n%s", want, output)
 		}
 	}
 }

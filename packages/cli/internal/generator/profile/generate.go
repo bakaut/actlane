@@ -85,11 +85,16 @@ func render(loaded *pack.LoadedPack, targetProfile pack.TargetProfile, target st
 		MCPBindings:    policyBundleMCPBindings(loaded.MCPBindings),
 		Responsibility: policyBundleResponsibilities(loaded.Contracts),
 	})
+	files[targetBrokerBundlePath(target)] = mustJSON(pack.NewBrokerBundle(loaded, target))
 	return files, nil
 }
 
 func targetPolicyBundlePath(target string) string {
 	return filepath.ToSlash(filepath.Join("generated", target, "policies", "policy-bundle.json"))
+}
+
+func targetBrokerBundlePath(target string) string {
+	return filepath.ToSlash(filepath.Join("generated", target, "broker", "broker-bundle.json"))
 }
 
 func renderGuidance(files map[string][]byte, loaded *pack.LoadedPack, targetProfile pack.TargetProfile) error {
