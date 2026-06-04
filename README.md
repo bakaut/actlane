@@ -152,7 +152,6 @@ actlane generate --target codex
 ## What Exists
 
 - Go CLI in `packages/cli`.
-- Separate file-transfer CLI in `packages/lanhole` for moving already-created pack archives over LAN or an optional relay.
 - v1alpha1 YAML contracts and JSON Schemas in `spec/v1alpha1`.
 - First working pack: `packs/create-github-draft-pr`.
 - OpenCode target generation.
@@ -179,7 +178,6 @@ actlane generate --target codex
 - No marketplace.
 - No full apply/remove lifecycle for every target yet.
 - No Claude target implementation.
-- No live LAN/relay stream transport in the Actlane CLI; transfer is a separate tool boundary.
 - No stable `1.0` contract compatibility promise.
 
 ## Run From Source

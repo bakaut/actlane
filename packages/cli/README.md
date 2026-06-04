@@ -63,7 +63,7 @@ The MVP supports OpenCode and Codex targets.
 
 ## Brownfield OpenCode Import
 
-For an existing OpenCode project, the shortest user workflow is:
+For an existing OpenCode project, Actlane can capture the native setup into `.actlane/`:
 
 ```bash
 actlane inspect
@@ -80,12 +80,15 @@ import:  --from . --out .actlane --ai-agent auto
 pack:    --from .actlane --out actlane-pack.zip
 ```
 
-Another developer can generate Codex artifacts from the pack:
+Another developer can install the pack for Codex:
 
 ```bash
 actlane pack inspect actlane-pack.zip
-actlane generate actlane-pack.zip --target codex
+actlane pack install actlane-pack.zip --target codex
+actlane generate
 ```
+
+`pack install --target codex` writes `.actlane/.local.yaml`, so `generate` can resolve the default target without `--target`.
 
 Codex reads project-local MCP config from `.codex/config.toml` when it is run from the project root:
 
