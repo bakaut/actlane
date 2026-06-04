@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.3.0-alpha.13] - 2026-06-05
+
+Fifteenth SemVer-tagged CLI MVP release.
+
+SemVer rationale:
+
+- prerelease bump from `0.3.0-alpha.12` to `0.3.0-alpha.13` because the CLI adds Codex inspect/import support before `1.0.0`;
+- keeps the `alpha` prerelease channel because agent import adapters are still pre-stable.
+
+### Changed
+
+- Added `actlane inspect --ai-agent codex` for detecting Codex project/global guidance, skills, and MCP server config.
+- Added Codex import support for producing a portable Actlane pack from detected Codex setup.
+- Updated README use cases to show `Codex config -> Actlane pack -> approved transfer -> OpenCode generation`.
+- Updated CLI/runtime/generator versions to `0.3.0-alpha.13`.
+
 ## [0.3.0-alpha.12] - 2026-06-03
 
 Fourteenth SemVer-tagged CLI MVP release.

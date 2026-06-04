@@ -98,10 +98,20 @@ type localState struct {
 func Inspect(opts InspectOptions) (Discovery, error) {
 	from := defaultString(opts.From, ".")
 	agent := defaultString(opts.AIAgent, "auto")
-	if agent != "auto" && agent != "opencode" {
+	if agent != "auto" && agent != "opencode" && agent != "codex" {
 		return Discovery{}, fmt.Errorf("unsupported ai-agent %q", agent)
 	}
-	return inspectOpenCode(from, agent)
+	if agent == "opencode" {
+		return inspectOpenCode(from, agent)
+	}
+	if agent == "codex" {
+		return inspectCodex(from, agent)
+	}
+	discovery, err := inspectOpenCode(from, agent)
+	if err != nil || discovery.Runtime != "" {
+		return discovery, err
+	}
+	return inspectCodex(from, agent)
 }
 
 func Import(opts ImportOptions) (*ImportResult, error) {
@@ -113,7 +123,7 @@ func Import(opts ImportOptions) (*ImportResult, error) {
 		return nil, err
 	}
 	if discovery.Runtime == "" {
-		return nil, fmt.Errorf("no supported ai-agent detected; try actlane import --ai-agent opencode")
+		return nil, fmt.Errorf("no supported ai-agent detected; try actlane import --ai-agent opencode or --ai-agent codex")
 	}
 	if err := ensureWritableOutput(out, opts.Force); err != nil {
 		return nil, err
@@ -293,6 +303,220 @@ func inspectOpenCode(from, requested string) (Discovery, error) {
 		discovery.Warnings = append(discovery.Warnings, "No OpenCode commands, agents, or skills were found.")
 	}
 	return discovery, nil
+}
+
+func codexConfigPath(root string) string {
+	for _, rel := range []string{".codex/config.toml", "config.toml"} {
+		candidate := filepath.Join(root, filepath.FromSlash(rel))
+		if exists(candidate) {
+			return candidate
+		}
+	}
+	return ""
+}
+
+func inspectCodex(from, requested string) (Discovery, error) {
+	root, err := filepath.Abs(from)
+	if err != nil {
+		return Discovery{}, err
+	}
+	discovery := Discovery{Runtime: "", Confidence: "none", Permissions: map[string]string{}}
+	configPath := codexConfigPath(root)
+	codexDir := filepath.Join(root, ".codex")
+	if configPath == "" && (requested == "codex" || isDir(codexDir)) {
+		configPath = codexHomeConfigPath()
+	}
+	hasConfig := configPath != ""
+	hasDir := isDir(codexDir)
+	hasAgents := firstExisting(root, []string{"AGENTS.md", "AGENTS.MD", ".codex/AGENTS.md"}) != ""
+	hasInstructions := firstExisting(root, []string{"instructions.md", ".codex/instructions.md"}) != ""
+	if requested != "codex" && !hasConfig && !hasDir {
+		return discovery, nil
+	}
+	if requested == "codex" && !hasConfig && !hasDir && !hasAgents && !hasInstructions {
+		if requested == "codex" {
+			return discovery, fmt.Errorf("codex project not found in %s", from)
+		}
+		return discovery, nil
+	}
+	discovery.Runtime = "codex"
+	discovery.Confidence = "medium"
+	if hasConfig || hasDir {
+		discovery.Confidence = "high"
+	}
+	discovery.Skills = readCodexSkillArtifacts(root)
+	discovery.Agents = readCodexGuidanceArtifacts(root)
+	if hasConfig {
+		servers, warnings := readCodexConfig(configPath)
+		discovery.MCPServers = servers
+		discovery.Warnings = append(discovery.Warnings, warnings...)
+	}
+	if len(discovery.Skills) == 0 {
+		discovery.Warnings = append(discovery.Warnings, "No Codex skills were found.")
+	}
+	return discovery, nil
+}
+
+func codexHomeConfigPath() string {
+	home, err := os.UserHomeDir()
+	if err != nil || home == "" {
+		return ""
+	}
+	candidate := filepath.Join(home, ".codex", "config.toml")
+	if exists(candidate) {
+		return candidate
+	}
+	return ""
+}
+
+func readCodexSkillArtifacts(root string) []Artifact {
+	var artifacts []Artifact
+	for _, relDir := range []string{".codex/skills", "skills"} {
+		dir := filepath.Join(root, filepath.FromSlash(relDir))
+		entries, err := os.ReadDir(dir)
+		if err != nil {
+			continue
+		}
+		for _, entry := range entries {
+			if !entry.IsDir() {
+				continue
+			}
+			rel := path.Join(relDir, entry.Name(), "SKILL.md")
+			data, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(rel)))
+			if err != nil {
+				continue
+			}
+			meta, body := splitFrontmatter(string(data))
+			name := cleanName(defaultString(meta["name"], entry.Name()))
+			artifacts = append(artifacts, Artifact{
+				Name:        name,
+				Path:        rel,
+				Description: defaultString(meta["description"], "Imported Codex skill "+name+"."),
+				Body:        strings.TrimSpace(body),
+			})
+		}
+	}
+	sort.Slice(artifacts, func(i, j int) bool { return artifacts[i].Name < artifacts[j].Name })
+	return artifacts
+}
+
+func readCodexGuidanceArtifacts(root string) []Artifact {
+	var artifacts []Artifact
+	for _, rels := range [][]string{
+		{"AGENTS.md", "AGENTS.MD", ".codex/AGENTS.md"},
+		{"instructions.md", ".codex/instructions.md"},
+	} {
+		rel := firstExistingRel(root, rels)
+		if rel == "" {
+			continue
+		}
+		data, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(rel)))
+		if err != nil {
+			continue
+		}
+		name := cleanName(strings.TrimSuffix(filepath.Base(rel), filepath.Ext(rel)))
+		artifacts = append(artifacts, Artifact{
+			Name:        name,
+			Path:        rel,
+			Description: "Imported Codex guidance " + filepath.Base(rel) + ".",
+			Body:        strings.TrimSpace(string(data)),
+		})
+	}
+	sort.Slice(artifacts, func(i, j int) bool { return artifacts[i].Name < artifacts[j].Name })
+	return artifacts
+}
+
+func readCodexConfig(path string) ([]MCPServer, []string) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, []string{fmt.Sprintf("Cannot read Codex config: %v", err)}
+	}
+	servers := parseCodexMCPServers(string(data))
+	return servers, nil
+}
+
+func parseCodexMCPServers(content string) []MCPServer {
+	headerRe := regexp.MustCompile(`^\[mcp_servers\.(?:"([^"]+)"|([A-Za-z0-9_-]+))\]$`)
+	var servers []MCPServer
+	current := -1
+	for _, raw := range strings.Split(content, "\n") {
+		line := strings.TrimSpace(stripTomlComment(raw))
+		if line == "" {
+			continue
+		}
+		if strings.HasPrefix(line, "[") && strings.HasSuffix(line, "]") {
+			matches := headerRe.FindStringSubmatch(line)
+			if matches == nil {
+				current = -1
+				continue
+			}
+			name := defaultString(matches[1], matches[2])
+			servers = append(servers, MCPServer{Name: name, Type: "local"})
+			current = len(servers) - 1
+			continue
+		}
+		if current < 0 || !strings.Contains(line, "=") {
+			continue
+		}
+		key, value, ok := strings.Cut(line, "=")
+		if !ok {
+			continue
+		}
+		key = strings.TrimSpace(key)
+		value = strings.TrimSpace(value)
+		switch key {
+		case "command":
+			command := parseTomlString(value)
+			if command != "" {
+				servers[current].Command = []string{command}
+			}
+		case "args":
+			servers[current].Command = append(servers[current].Command, parseTomlStringArray(value)...)
+		case "url":
+			servers[current].URL = parseTomlString(value)
+			if servers[current].URL != "" {
+				servers[current].Type = "remote"
+			}
+		}
+	}
+	sort.Slice(servers, func(i, j int) bool { return servers[i].Name < servers[j].Name })
+	return servers
+}
+
+func stripTomlComment(line string) string {
+	inQuote := false
+	for i, r := range line {
+		switch r {
+		case '"':
+			inQuote = !inQuote
+		case '#':
+			if !inQuote {
+				return line[:i]
+			}
+		}
+	}
+	return line
+}
+
+func parseTomlString(value string) string {
+	value = strings.TrimSpace(value)
+	if len(value) >= 2 && value[0] == '"' && value[len(value)-1] == '"' {
+		return strings.Trim(value, `"`)
+	}
+	return ""
+}
+
+func parseTomlStringArray(value string) []string {
+	value = strings.TrimSpace(value)
+	if !strings.HasPrefix(value, "[") || !strings.HasSuffix(value, "]") {
+		return nil
+	}
+	itemRe := regexp.MustCompile(`"([^"]*)"`)
+	var items []string
+	for _, match := range itemRe.FindAllStringSubmatch(value, -1) {
+		items = append(items, match[1])
+	}
+	return items
 }
 
 func readMarkdownArtifacts(root, relDir string) []Artifact {
@@ -491,7 +715,7 @@ func importedManifest(capabilityName, skillName, commandName, agentName string, 
 	if len(d.MCPServers) > 0 {
 		spec["mcpBindings"] = []string{"mcp/bindings/" + capabilityName + ".yaml"}
 	}
-	return doc("CapabilityPack", "imported-"+d.Runtime+"-pack", "0.3.0-alpha.12", "Imported "+d.Runtime+" project.", spec, importedAnnotations(d, "", false))
+	return doc("CapabilityPack", "imported-"+d.Runtime+"-pack", "0.3.0-alpha.13", "Imported "+d.Runtime+" project.", spec, importedAnnotations(d, "", false))
 }
 
 func importedCapability(name, skillName, commandName, agentName, policyName string, d Discovery) map[string]any {
@@ -1093,6 +1317,25 @@ func exists(path string) bool {
 func isDir(path string) bool {
 	info, err := os.Stat(path)
 	return err == nil && info.IsDir()
+}
+
+func firstExisting(root string, rels []string) string {
+	for _, rel := range rels {
+		candidate := filepath.Join(root, filepath.FromSlash(rel))
+		if exists(candidate) {
+			return candidate
+		}
+	}
+	return ""
+}
+
+func firstExistingRel(root string, rels []string) string {
+	for _, rel := range rels {
+		if exists(filepath.Join(root, filepath.FromSlash(rel))) {
+			return rel
+		}
+	}
+	return ""
 }
 
 func dirEmpty(path string) bool {

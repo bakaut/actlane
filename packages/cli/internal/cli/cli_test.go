@@ -1440,6 +1440,34 @@ Use the GitHub draft PR workflow.
 	assertExists(t, filepath.Join(installedDir, "generated/codex/actlane.lock"))
 }
 
+func TestInspectCodexProjectConfig(t *testing.T) {
+	projectDir := filepath.Join(t.TempDir(), "project")
+	writeTestFile(t, filepath.Join(projectDir, "AGENTS.md"), "Project Codex guidance.\n")
+	writeTestFile(t, filepath.Join(projectDir, ".codex/config.toml"), `
+[mcp_servers.github]
+command = "github-mcp-server"
+args = ["stdio"]
+`)
+	writeTestFile(t, filepath.Join(projectDir, ".codex/skills/create-github-draft-pr/SKILL.md"), `---
+name: create-github-draft-pr
+description: Draft PR skill.
+---
+
+Use the GitHub draft PR workflow.
+`)
+
+	var stdout, stderr bytes.Buffer
+	code := Main([]string{"inspect", "--from", projectDir, "--ai-agent", "codex"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("inspect failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	for _, want := range []string{"ai-agent: codex", "confidence: high", "skill: create-github-draft-pr", "mcp server: github"} {
+		if !strings.Contains(stdout.String(), want) {
+			t.Fatalf("inspect codex output missing %q:\n%s", want, stdout.String())
+		}
+	}
+}
+
 func TestPackInitCreatesValidScaffoldAndDoesNotOverwrite(t *testing.T) {
 	outDir := filepath.Join(t.TempDir(), "packs", "safe-deploy")
 	var stdout, stderr bytes.Buffer

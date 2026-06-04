@@ -4,7 +4,7 @@ kind: CapabilityPack
 
 metadata:
   name: github-draft-pr-pack
-  version: 0.3.0-alpha.12
+  version: 0.3.0-alpha.13
   description: Project-local agent capability pack for safe GitHub draft pull requests.
 
 spec:

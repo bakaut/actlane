@@ -19,7 +19,7 @@ import (
 	"github.com/actlane/actlane/packages/cli/internal/schema"
 )
 
-const version = "0.3.0-alpha.12"
+const version = "0.3.0-alpha.13"
 
 func Main(args []string, stdout, stderr io.Writer) int {
 	return MainWithIO(args, os.Stdin, stdout, stderr)
@@ -98,7 +98,7 @@ func runInspect(args []string, stdout, stderr io.Writer) int {
 	}
 	if discovery.Runtime == "" {
 		fmt.Fprintln(stdout, "No supported ai-agent detected.")
-		fmt.Fprintln(stdout, "Try: actlane inspect --ai-agent opencode")
+		fmt.Fprintln(stdout, "Try: actlane inspect --ai-agent opencode or --ai-agent codex")
 		return 0
 	}
 	fmt.Fprintln(stdout, "Detected:")
