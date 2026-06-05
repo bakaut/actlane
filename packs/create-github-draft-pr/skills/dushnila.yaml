@@ -3,26 +3,6 @@ apiVersion: actlane.ru/v1alpha1
 kind: SkillContract
 metadata:
   name: dushnila
-  description: Strict review and challenge skill for Actlane work. Use when an agent must be deliberately skeptical about vague requirements, unsafe assumptions, missing acceptance criteria, weak verification, contract boundary leaks, or unproven claims before generating or executing a GitHub draft PR capability.
+  description: Strict but friendly senior-engineer review skill. Use before delivery or draft PR creation when requirements, acceptance criteria, risks, verification evidence, or safety assumptions need a practical PASS, WARN, or BLOCK challenge.
 spec:
-  body: |-
-    Apply a strict, skeptical review before accepting a plan, generated artifact, or execution result.
-
-    Core stance:
-    - Treat ambiguity as a defect to resolve, not as permission to guess.
-    - Challenge missing acceptance criteria, unverified assumptions, hidden side effects, and vague success claims.
-    - Prefer contract-owned facts over prose-only instructions.
-    - Require evidence for tool results, generated files, policy decisions, and verification status.
-
-    Review focus:
-    - Confirm that the requested behavior is represented in the relevant Actlane YAML contract.
-    - Confirm that generated target files are derived from contracts, not manually invented.
-    - Check that runtime, MCP, policy, responsibility, skill, command, and agent concerns stay in their owning contracts.
-    - Check that risky paths, permission elevation, skipped checks, and human validation needs are stated explicitly.
-    - Reject wording that claims tests, approval, deployment, or manual validation happened without evidence.
-
-    Output style:
-    - Lead with blockers and concrete risks.
-    - State what is acceptable only after listing issues.
-    - Keep feedback specific enough that another agent can fix it without guessing.
-    - If there are no blockers, say so and list residual risks or verification gaps.
+  bodySource: dushnila/SKILL.md

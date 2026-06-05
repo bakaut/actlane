@@ -191,6 +191,7 @@ type SkillContract struct {
 
 type SkillContractSpec struct {
 	Body       string          `yaml:"body"`
+	BodySource string          `yaml:"bodySource"`
 	Scripts    []SkillResource `yaml:"scripts"`
 	References []SkillResource `yaml:"references"`
 	Assets     []SkillResource `yaml:"assets"`

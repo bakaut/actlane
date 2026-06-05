@@ -12,13 +12,13 @@ actlane version
 Override install options:
 
 ```bash
-ACTLANE_VERSION=v0.3.0-alpha.13 ACTLANE_INSTALL_DIR="$HOME/.local/bin" sh -c "$(curl -fsSL https://actlane.ru/install.sh)"
+ACTLANE_VERSION=v0.3.0-alpha.14 ACTLANE_INSTALL_DIR="$HOME/.local/bin" sh -c "$(curl -fsSL https://actlane.ru/install.sh)"
 ```
 
 Docker:
 
 ```bash
-docker run --rm ghcr.io/actlane/actlane:0.3.0-alpha.13 version
+docker run --rm ghcr.io/actlane/actlane:0.3.0-alpha.14 version
 ```
 
 Implemented MVP commands:
@@ -117,3 +117,10 @@ The source of truth for Actlane JSON Schemas is outside this Go module:
 ```text
 ../../spec/v1alpha1/schemas/
 ```
+
+## Skill Authoring
+
+`SkillContract` requires exactly one of inline `spec.body` or external
+`spec.bodySource`. Use `bodySource` for long Markdown instructions and keep
+the agent-selection trigger in `metadata.description`. Sources must be regular
+files inside the pack; absolute paths, traversal, and symlinks are rejected.

@@ -108,6 +108,72 @@ func TestValidateContractBoundaries(t *testing.T) {
 	}
 }
 
+func TestValidateSkillBodySourceBoundaries(t *testing.T) {
+	t.Run("requires exactly one body source", func(t *testing.T) {
+		packDir := copyPackToTemp(t)
+		path := filepath.Join(packDir, "skills/dushnila.yaml")
+		content := readFile(t, path) + "\n  body: duplicate inline body\n"
+		writeTestFile(t, path, content)
+		assertValidateFails(t, packDir, "exactly one of spec.body or spec.bodySource")
+	})
+
+	t.Run("requires a body source", func(t *testing.T) {
+		packDir := copyPackToTemp(t)
+		path := filepath.Join(packDir, "skills/dushnila.yaml")
+		content := strings.Replace(readFile(t, path), "  bodySource: dushnila/SKILL.md\n", "", 1)
+		writeTestFile(t, path, content)
+		assertValidateFails(t, packDir, "exactly one of spec.body or spec.bodySource")
+	})
+
+	t.Run("rejects traversal", func(t *testing.T) {
+		packDir := copyPackToTemp(t)
+		path := filepath.Join(packDir, "skills/dushnila.yaml")
+		content := strings.Replace(readFile(t, path), "dushnila/SKILL.md", "../outside.md", 1)
+		writeTestFile(t, path, content)
+		assertValidateFails(t, packDir, "relative path without traversal")
+	})
+
+	t.Run("rejects nested traversal", func(t *testing.T) {
+		packDir := copyPackToTemp(t)
+		path := filepath.Join(packDir, "skills/dushnila.yaml")
+		content := strings.Replace(readFile(t, path), "dushnila/SKILL.md", "dushnila/../scope-governor/SKILL.md", 1)
+		writeTestFile(t, path, content)
+		assertValidateFails(t, packDir, "relative path without traversal")
+	})
+
+	t.Run("rejects missing file", func(t *testing.T) {
+		packDir := copyPackToTemp(t)
+		path := filepath.Join(packDir, "skills/dushnila.yaml")
+		content := strings.Replace(readFile(t, path), "dushnila/SKILL.md", "dushnila/MISSING.md", 1)
+		writeTestFile(t, path, content)
+		assertValidateFails(t, packDir, "read spec.bodySource")
+	})
+
+	t.Run("rejects symlink", func(t *testing.T) {
+		packDir := copyPackToTemp(t)
+		link := filepath.Join(packDir, "skills/dushnila/LINK.md")
+		if err := os.Symlink("SKILL.md", link); err != nil {
+			t.Fatal(err)
+		}
+		path := filepath.Join(packDir, "skills/dushnila.yaml")
+		content := strings.Replace(readFile(t, path), "dushnila/SKILL.md", "dushnila/LINK.md", 1)
+		writeTestFile(t, path, content)
+		assertValidateFails(t, packDir, "must be a regular file")
+	})
+}
+
+func assertValidateFails(t *testing.T, packDir, want string) {
+	t.Helper()
+	var stdout, stderr bytes.Buffer
+	code := Main([]string{"validate", packDir}, &stdout, &stderr)
+	if code == 0 {
+		t.Fatalf("validate should fail\nstdout:\n%s\nstderr:\n%s", stdout.String(), stderr.String())
+	}
+	if !strings.Contains(stderr.String(), want) {
+		t.Fatalf("validate error missing %q\nstdout:\n%s\nstderr:\n%s", want, stdout.String(), stderr.String())
+	}
+}
+
 func TestGenerateOpenCodeWritesOnlyGeneratedOutput(t *testing.T) {
 	packDir := copyPackToTemp(t)
 	var stdout, stderr bytes.Buffer
@@ -127,6 +193,12 @@ func TestGenerateOpenCodeWritesOnlyGeneratedOutput(t *testing.T) {
 	assertExists(t, filepath.Join(packDir, "generated/opencode/.opencode/commands/create-github-draft-pr.md"))
 	assertExists(t, filepath.Join(packDir, "generated/opencode/.opencode/agents/github-draft-pr.md"))
 	assertExists(t, filepath.Join(packDir, "generated/opencode/.opencode/skills/create-github-draft-pr/SKILL.md"))
+	assertExists(t, filepath.Join(packDir, "generated/opencode/.opencode/skills/dushnila/SKILL.md"))
+	assertExists(t, filepath.Join(packDir, "generated/opencode/.opencode/skills/scope-governor/SKILL.md"))
+	scopeGovernor := readFile(t, filepath.Join(packDir, "generated/opencode/.opencode/skills/scope-governor/SKILL.md"))
+	if !strings.Contains(scopeGovernor, "Use before implementation when a request is ambiguous") {
+		t.Fatalf("generated scope-governor skill missing trigger:\n%s", scopeGovernor)
+	}
 	assertNotExists(t, filepath.Join(packDir, "generated/opencode/actlane.yaml"))
 	assertNotExists(t, filepath.Join(packDir, "generated/opencode/capabilities"))
 	assertNotExists(t, filepath.Join(packDir, "generated/opencode/policies/github-draft-pr.policy.yaml"))
@@ -281,6 +353,12 @@ func TestGenerateCodexWritesCodexProfile(t *testing.T) {
 	assertExists(t, filepath.Join(packDir, "generated/codex/AGENTS.md"))
 	assertExists(t, filepath.Join(packDir, "generated/codex/codex.config.toml"))
 	assertExists(t, filepath.Join(packDir, "generated/codex/.codex/skills/create-github-draft-pr/SKILL.md"))
+	assertExists(t, filepath.Join(packDir, "generated/codex/.codex/skills/dushnila/SKILL.md"))
+	assertExists(t, filepath.Join(packDir, "generated/codex/.codex/skills/scope-governor/SKILL.md"))
+	dushnila := readFile(t, filepath.Join(packDir, "generated/codex/.codex/skills/dushnila/SKILL.md"))
+	if !strings.Contains(dushnila, "Use before delivery or draft PR creation") {
+		t.Fatalf("generated dushnila skill missing trigger:\n%s", dushnila)
+	}
 	assertExists(t, filepath.Join(packDir, "generated/codex/policies/policy-bundle.json"))
 	assertExists(t, filepath.Join(packDir, "generated/codex/broker/broker-bundle.json"))
 	assertExists(t, filepath.Join(packDir, "generated/codex/actlane.lock"))
@@ -619,6 +697,22 @@ func TestMCPServeExecutesAdaptersAndPersistsEvidenceWhenExplicitlyEnabled(t *tes
 	}
 	if len(entries) != 1 || !strings.HasSuffix(entries[0].Name(), ".json") {
 		t.Fatalf("expected one durable evidence json file, got %#v", entries)
+	}
+}
+
+func TestPatchGitHubBindingForFakeMCPSupportsCRLF(t *testing.T) {
+	packDir := copyPackToTemp(t)
+	path := filepath.Join(packDir, "mcp/bindings/github-mcp-draft-pr.yaml")
+	content := strings.ReplaceAll(readFile(t, path), "\n", "\r\n")
+	writeTestFile(t, path, content)
+
+	patchGitHubBindingForFakeMCP(t, packDir)
+
+	patched := readFile(t, path)
+	for _, want := range []string{"provider: fake-test-mcp", fmt.Sprintf("- %q", os.Args[0]), "  requiredTools:\n"} {
+		if !strings.Contains(patched, want) {
+			t.Fatalf("patched binding missing %q:\n%s", want, patched)
+		}
 	}
 }
 
@@ -1268,6 +1362,41 @@ func TestFrozenLockfileDetectsProfileSourceDrift(t *testing.T) {
 	}
 }
 
+func TestFrozenLockfileDetectsSkillBodySourceDrift(t *testing.T) {
+	packDir := copyPackToTemp(t)
+	var stdout, stderr bytes.Buffer
+
+	code := Main([]string{"generate", packDir, "--target", "codex"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("generate failed: %s", stderr.String())
+	}
+	lockfile := readFile(t, filepath.Join(packDir, "generated/codex/actlane.lock"))
+	if !strings.Contains(lockfile, `"skills/dushnila/SKILL.md":`) {
+		t.Fatalf("lockfile should include skill bodySource digest:\n%s", lockfile)
+	}
+
+	sourcePath := filepath.Join(packDir, "skills/dushnila/SKILL.md")
+	content := readFile(t, sourcePath)
+	writeTestFile(t, sourcePath, content+"\nBody source drift marker.\n")
+
+	stdout.Reset()
+	stderr.Reset()
+	code = Main([]string{"generate", packDir, "--target", "codex", "--check"}, &stdout, &stderr)
+	if code == 0 {
+		t.Fatalf("--check should fail after skill bodySource drift")
+	}
+
+	stdout.Reset()
+	stderr.Reset()
+	code = Main([]string{"generate", packDir, "--target", "codex", "--frozen-lockfile"}, &stdout, &stderr)
+	if code == 0 {
+		t.Fatalf("--frozen-lockfile should fail after skill bodySource drift")
+	}
+	if !strings.Contains(stderr.String(), "lockfile") {
+		t.Fatalf("expected lockfile drift error, got %q", stderr.String())
+	}
+}
+
 func TestUnsupportedTargetFailsClearly(t *testing.T) {
 	root := repoRoot(t)
 	var stdout, stderr bytes.Buffer
@@ -1790,6 +1919,7 @@ func patchGitHubBindingForFakeMCP(t *testing.T, packDir string) {
 	t.Helper()
 	path := filepath.Join(packDir, "mcp/bindings/github-mcp-draft-pr.yaml")
 	content := readFile(t, path)
+	content = strings.ReplaceAll(content, "\r\n", "\n")
 	start := strings.Index(content, "  mcpservers:\n")
 	end := strings.Index(content, "  requiredTools:\n")
 	if start < 0 || end < 0 || end <= start {
@@ -1801,7 +1931,7 @@ func patchGitHubBindingForFakeMCP(t *testing.T, packDir string) {
       source: test-helper
       transport: stdio
       command:
-        - %s
+        - %q
       args:
         - -test.run=TestMCPServeExecutesAdaptersAndPersistsEvidenceWhenExplicitlyEnabled
         - --

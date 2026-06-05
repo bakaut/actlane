@@ -6,11 +6,11 @@ on:
       tag:
         description: Release tag to create or update
         required: true
-        default: "v0.3.0-alpha.13"
+        default: "v0.3.0-alpha.14"
       release-name:
         description: Release title
         required: true
-        default: "Actlane CLI v0.3.0-alpha.13"
+        default: "Actlane CLI v0.3.0-alpha.14"
       go-version:
         description: Go version to use
         required: true
@@ -30,8 +30,31 @@ permissions:
   contents: write
 
 jobs:
+  test:
+    name: Test ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - macos-latest
+          - windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ inputs.go-version }}
+          cache-dependency-path: packages/cli/go.sum
+      - name: Test
+        working-directory: packages/cli
+        run: go test ./...
+
   build:
     name: Build ${{ matrix.artifact }}
+    needs: test
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
@@ -72,10 +95,6 @@ jobs:
         with:
           go-version: ${{ inputs.go-version }}
           cache-dependency-path: packages/cli/go.sum
-
-      - name: Test
-        working-directory: packages/cli
-        run: go test ./...
 
       - name: Build
         working-directory: packages/cli

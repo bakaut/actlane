@@ -222,7 +222,15 @@ func renderSkillContract(loaded *pack.LoadedPack, capability pack.Capability, na
 	b.WriteString("name: " + jsonString(skill.Metadata.Name) + "\n")
 	b.WriteString("description: " + jsonString(skill.Metadata.Description) + "\n")
 	b.WriteString("---\n\n")
-	b.WriteString(strings.TrimRight(skill.Spec.Body, "\n"))
+	body := skill.Spec.Body
+	if skill.Spec.BodySource != "" {
+		source, err := readSkillResourceSource(loaded.Root, skill.Path, skill.Spec.BodySource)
+		if err != nil {
+			return nil, fmt.Errorf("read skill contract %s bodySource: %w", name, err)
+		}
+		body = string(source)
+	}
+	b.WriteString(strings.TrimRight(body, "\n"))
 	b.WriteString("\n")
 	appendDerivedSkillSections(&b, loaded, capability)
 

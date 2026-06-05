@@ -2,7 +2,9 @@ package pack
 
 import (
 	"fmt"
+	"os"
 	"path"
+	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -132,10 +134,11 @@ func Validate(loaded *LoadedPack) error {
 		if skill.Metadata.Description == "" {
 			return fmt.Errorf("skill contract %s metadata.description is required", skill.Metadata.Name)
 		}
-		if skill.Spec.Body == "" {
-			return fmt.Errorf("skill contract %s spec.body is required", skill.Metadata.Name)
+		body, err := validateSkillBodySource(loaded.Root, skill)
+		if err != nil {
+			return err
 		}
-		if strings.Contains(skill.Spec.Body, "Required inputs:") || strings.Contains(skill.Spec.Body, "MCP tools:") {
+		if strings.Contains(body, "Required inputs:") || strings.Contains(body, "MCP tools:") {
 			return fmt.Errorf("skill contract %s must not embed generated input or MCP tool sections", skill.Metadata.Name)
 		}
 		if err := validateSkillResources(skill, "scripts", skill.Spec.Scripts); err != nil {
@@ -341,6 +344,50 @@ func Validate(loaded *LoadedPack) error {
 	}
 
 	return nil
+}
+
+func validateSkillBodySource(root string, skill SkillContract) (string, error) {
+	hasBody := strings.TrimSpace(skill.Spec.Body) != ""
+	hasSource := strings.TrimSpace(skill.Spec.BodySource) != ""
+	if hasBody == hasSource {
+		return "", fmt.Errorf("skill contract %s must define exactly one of spec.body or spec.bodySource", skill.Metadata.Name)
+	}
+	if hasBody {
+		return skill.Spec.Body, nil
+	}
+	cleaned := path.Clean(skill.Spec.BodySource)
+	if cleaned == "." || path.IsAbs(cleaned) || strings.HasPrefix(cleaned, "../") || pathContainsParentTraversal(skill.Spec.BodySource) {
+		return "", fmt.Errorf("skill contract %s spec.bodySource %q must be a relative path without traversal", skill.Metadata.Name, skill.Spec.BodySource)
+	}
+	sourcePath := filepath.Join(filepath.Dir(skill.Path), filepath.FromSlash(cleaned))
+	rel, err := filepath.Rel(root, sourcePath)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return "", fmt.Errorf("skill contract %s spec.bodySource %q escapes pack root", skill.Metadata.Name, skill.Spec.BodySource)
+	}
+	info, err := os.Lstat(sourcePath)
+	if err != nil {
+		return "", fmt.Errorf("skill contract %s read spec.bodySource %q: %w", skill.Metadata.Name, skill.Spec.BodySource, err)
+	}
+	if !info.Mode().IsRegular() {
+		return "", fmt.Errorf("skill contract %s spec.bodySource %q must be a regular file", skill.Metadata.Name, skill.Spec.BodySource)
+	}
+	data, err := os.ReadFile(sourcePath)
+	if err != nil {
+		return "", fmt.Errorf("skill contract %s read spec.bodySource %q: %w", skill.Metadata.Name, skill.Spec.BodySource, err)
+	}
+	if strings.TrimSpace(string(data)) == "" {
+		return "", fmt.Errorf("skill contract %s spec.bodySource %q must not be empty", skill.Metadata.Name, skill.Spec.BodySource)
+	}
+	return string(data), nil
+}
+
+func pathContainsParentTraversal(value string) bool {
+	for _, part := range strings.Split(filepath.ToSlash(value), "/") {
+		if part == ".." {
+			return true
+		}
+	}
+	return false
 }
 
 func validateRuntimeProfile(runtimeProfile RuntimeProfile, capabilities map[string]bool) error {

@@ -10,7 +10,7 @@ import (
 	"github.com/actlane/actlane/packages/cli/internal/pack"
 )
 
-const generatorVersion = "actlane-go-profile-0.3.0-alpha.13"
+const generatorVersion = "actlane-go-profile-0.3.0-alpha.14"
 
 type lockfile struct {
 	LockfileVersion int                   `json:"lockfileVersion"`
@@ -78,6 +78,13 @@ func skillResourceSources(loaded *pack.LoadedPack) []string {
 	seen := map[string]bool{}
 	var sources []string
 	for _, skill := range loaded.Skills {
+		if skill.Spec.BodySource != "" {
+			source := filepath.Join(filepath.Dir(skill.Path), filepath.FromSlash(skill.Spec.BodySource))
+			if err := ensureInsideRoot(loaded.Root, source); err == nil && !seen[source] {
+				seen[source] = true
+				sources = append(sources, source)
+			}
+		}
 		for _, resource := range append(append([]pack.SkillResource{}, skill.Spec.Scripts...), append(skill.Spec.References, skill.Spec.Assets...)...) {
 			if resource.Source == "" {
 				continue

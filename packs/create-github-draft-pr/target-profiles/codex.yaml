@@ -59,3 +59,7 @@ spec:
         generatedPath: generated/codex/.codex/skills/dushnila/SKILL.md
         skillContract: dushnila
         owned: true
+      - targetPath: .codex/skills/scope-governor/SKILL.md
+        generatedPath: generated/codex/.codex/skills/scope-governor/SKILL.md
+        skillContract: scope-governor
+        owned: true

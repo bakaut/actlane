@@ -17,3 +17,7 @@ actlane validate packs/create-github-draft-pr
 actlane generate packs/create-github-draft-pr --target opencode --check
 actlane generate packs/create-github-draft-pr --target codex --check
 ```
+
+Large skill instructions use `SkillContract.spec.bodySource`, while YAML keeps
+the skill name, trigger description, and generation ownership. Short skills
+may continue to use inline `spec.body`.

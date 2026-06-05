@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.3.0-alpha.14] - 2026-06-05
+
+Sixteenth SemVer-tagged CLI MVP release.
+
+SemVer rationale:
+
+- prerelease bump from `0.3.0-alpha.13` to `0.3.0-alpha.14` because the CLI adds a backward-compatible `SkillContract.bodySource` authoring primitive and improves cross-platform CI before `1.0.0`;
+- keeps the `alpha` prerelease channel because the skill authoring contract and adoption adapters remain pre-stable.
+
+### Changed
+
+- Added safe external Markdown bodies through exactly one of `SkillContract.spec.body` or `spec.bodySource`.
+- Added validation against missing files, directories, absolute paths, traversal, and symlink body sources.
+- Added external skill body digests to generated lockfiles and stale-output checks.
+- Added and migrated the `dushnila` and `scope-governor` example skills for Codex and OpenCode.
+- Fixed the fake MCP adapter integration test for Windows CRLF checkouts and quoted Windows executable paths.
+- Split manual CLI workflow tests into an OS matrix and made artifact builds depend on successful Linux, macOS, and Windows tests.
+- Updated CLI/runtime/generator, example pack, release workflow, and Docker workflow versions to `0.3.0-alpha.14`.
+
 ## [0.3.0-alpha.13] - 2026-06-05
 
 Fifteenth SemVer-tagged CLI MVP release.

@@ -22,9 +22,9 @@
     },
     "spec": {
       "type": "object",
-      "required": ["body"],
       "properties": {
         "body": { "type": "string", "minLength": 1 },
+        "bodySource": { "type": "string", "minLength": 1 },
         "scripts": {
           "type": "array",
           "items": { "$ref": "#/$defs/skillResource" }
@@ -38,6 +38,10 @@
           "items": { "$ref": "#/$defs/skillResource" }
         }
       },
+      "oneOf": [
+        { "required": ["body"], "not": { "required": ["bodySource"] } },
+        { "required": ["bodySource"], "not": { "required": ["body"] } }
+      ],
       "additionalProperties": false
     }
   },
