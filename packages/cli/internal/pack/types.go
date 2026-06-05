@@ -557,6 +557,7 @@ type MCPBinding struct {
 
 type MCPBindingSpec struct {
 	CapabilityRef  LocalRef           `yaml:"capabilityRef"`
+	ExposeToAgent  *bool              `yaml:"exposeToAgent"`
 	Servers        []MCPRuntimeServer `yaml:"mcpservers"`
 	RequiredTools  []MCPToolBinding   `yaml:"requiredTools"`
 	Strategy       MCPBindingStrategy `yaml:"strategy"`

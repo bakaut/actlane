@@ -1,8 +1,0 @@
-$schema: https://actlane.ru/schemas/v1alpha1/skill-contract.schema.json
-apiVersion: actlane.ru/v1alpha1
-kind: SkillContract
-metadata:
-  name: scope-governor
-  description: Scope control skill. Use before implementation when a request is ambiguous, keeps expanding, crosses contract or component boundaries, or includes unrelated cleanup that could make a GitHub draft PR harder to review and reverse.
-spec:
-  bodySource: scope-governor/SKILL.md

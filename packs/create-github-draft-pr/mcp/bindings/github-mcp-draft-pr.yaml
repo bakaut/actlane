@@ -10,6 +10,7 @@ metadata:
 spec:
   capabilityRef:
     name: create-github-draft-pr
+  exposeToAgent: false
 
   mcpservers:
     - name: github

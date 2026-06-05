@@ -29,8 +29,15 @@ spec:
 
     forbidPaths:
       - ".env"
+      - ".env.*"
+      - "**/.env"
+      - "**/.env.*"
       - "secrets/**"
-      - ".github/workflows/prod-*"
+      - "**/secrets/**"
+      - "credentials/**"
+      - "**/credentials/**"
+      - "**/*credential*"
+      - ".github/workflows/**"
 
     limits:
       maxFiles: 20

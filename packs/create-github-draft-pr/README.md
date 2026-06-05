@@ -1,6 +1,4 @@
-# create-github-draft-pr
-
-Status: Phase 1 MVP fixture.
+Status: minimal safe draft PR reference pack.
 
 This pack defines one Actlane capability:
 
@@ -8,16 +6,25 @@ This pack defines one Actlane capability:
 create-github-draft-pr
 ```
 
-It generates OpenCode and Codex artifacts plus target-local policy bundles. It does not install into `.opencode/`, `.codex/`, or `~/.codex/config.toml`; generated files stay under `generated/<target>/` for review and explicit apply.
+Generated Codex and OpenCode profiles expose only the Actlane MCP broker. The
+broker requires explicit confirmation, forces a draft PR and safe branch
+prefix, blocks secrets, credentials, and workflow changes, then calls only the
+required downstream GitHub MCP tools:
+
+```text
+Command -> Skill -> Capability -> Broker -> Policy -> GitHub MCP -> Evidence
+```
+
+Generated files stay under `generated/<target>/` for review and explicit
+`actlane apply`. Source YAML contracts remain the only authoring source of
+truth.
 
 CI-friendly verification:
 
 ```bash
 actlane validate packs/create-github-draft-pr
+actlane generate packs/create-github-draft-pr --target opencode
+actlane generate packs/create-github-draft-pr --target codex
 actlane generate packs/create-github-draft-pr --target opencode --check
 actlane generate packs/create-github-draft-pr --target codex --check
 ```
-
-Large skill instructions use `SkillContract.spec.bodySource`, while YAML keeps
-the skill name, trigger description, and generation ownership. Short skills
-may continue to use inline `spec.body`.

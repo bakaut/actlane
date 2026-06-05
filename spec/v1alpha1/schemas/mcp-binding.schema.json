@@ -26,6 +26,7 @@
       "required": ["capabilityRef", "mcpservers", "requiredTools"],
       "properties": {
         "capabilityRef": { "$ref": "#/$defs/localRef" },
+        "exposeToAgent": { "type": "boolean" },
         "mcpservers": {
           "type": "array",
           "items": {

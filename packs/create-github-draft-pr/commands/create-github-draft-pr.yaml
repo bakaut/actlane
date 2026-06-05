@@ -1,38 +1,25 @@
 apiVersion: actlane.ru/v1alpha1
 kind: CommandContract
-
 metadata:
   name: create-github-draft-pr
   title: Create GitHub Draft PR
   description: Prepare a safe GitHub draft pull request from reviewed changes.
-
 spec:
   scope: project
-
   invocation:
     slash: create-github-draft-pr
     aliases:
       - safe-pr
-
   capabilityRef:
     name: create-github-draft-pr
-
   skillRef:
     path: skills/create-github-draft-pr/SKILL.md
-
-  agentRef:
-    name: github-draft-pr
-    optional: true
-
   arguments:
     mode: passthrough
     placeholder: "$ARGUMENTS"
     description: User request or PR preparation context.
-
   prompt:
     template: |
       Use Actlane capability `create-github-draft-pr`.
-
       User request:
-
       {{ arguments }}

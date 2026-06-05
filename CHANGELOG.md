@@ -14,7 +14,10 @@ SemVer rationale:
 - Added safe external Markdown bodies through exactly one of `SkillContract.spec.body` or `spec.bodySource`.
 - Added validation against missing files, directories, absolute paths, traversal, and symlink body sources.
 - Added external skill body digests to generated lockfiles and stale-output checks.
-- Added and migrated the `dushnila` and `scope-governor` example skills for Codex and OpenCode.
+- Reduced `create-github-draft-pr` to the minimal safe command, skill, capability, policy, broker, GitHub MCP binding, and evidence flow.
+- Added generic `MCPBinding.spec.exposeToAgent` support so downstream adapters remain broker-only in generated Codex and OpenCode configs.
+- Strengthened the example policy to block `.env` variants, secrets, credentials, and GitHub workflow changes.
+- Updated broker smoke tests and safe-adoption tests for the minimal reference pack.
 - Fixed the fake MCP adapter integration test for Windows CRLF checkouts and quoted Windows executable paths.
 - Split manual CLI workflow tests into an OS matrix and made artifact builds depend on successful Linux, macOS, and Windows tests.
 - Updated CLI/runtime/generator, example pack, release workflow, and Docker workflow versions to `0.3.0-alpha.14`.

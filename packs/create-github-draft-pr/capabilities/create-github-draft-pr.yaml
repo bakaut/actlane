@@ -80,12 +80,6 @@ spec:
   executionRef:
     name: github-mcp-draft-pr
 
-  responsibilityRef:
-    name: create-github-draft-pr
-
-  runtimeRef:
-    name: create-github-draft-pr
-
   evidenceRef:
     name: create-github-draft-pr
 

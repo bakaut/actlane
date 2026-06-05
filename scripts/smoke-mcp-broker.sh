@@ -64,11 +64,10 @@ write_safe_flow_requests() {
   local file="$1"
   cat > "$file" <<'EOF'
 {"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}
-{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"actlane_classify","arguments":{"task":"Prepare a safe GitHub draft PR for reviewed README changes","changed_files":["README.md"],"branch":"main","diff_summary":"docs only update"}}}
-{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"actlane_load_capability","arguments":{"name":"create-github-draft-pr"}}}
-{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"actlane_run_capability","arguments":{"name":"create-github-draft-pr","mode":"enforce","input":{"repo":"bakaut/development","baseBranch":"main","branch":"feature/smoke-docs","title":"Smoke docs PR","summary":"Smoke docs update","files":["README.md"],"confirmed":true}}}}
-{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"actlane_get_evidence","arguments":{"latest":true}}}
-{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"actlane_prepare_delivery","arguments":{"latest":true}}}
+{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"actlane_load_capability","arguments":{"name":"create-github-draft-pr"}}}
+{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"actlane_run_capability","arguments":{"name":"create-github-draft-pr","mode":"enforce","input":{"repo":"bakaut/development","baseBranch":"main","branch":"feature/smoke-docs","title":"Smoke docs PR","summary":"Smoke docs update","files":["README.md"],"confirmed":true}}}}
+{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"actlane_get_evidence","arguments":{"latest":true}}}
+{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"actlane_prepare_delivery","arguments":{"latest":true}}}
 EOF
 }
 
@@ -177,7 +176,7 @@ main() {
   local fake_pack="$TMP_ROOT/create-github-draft-pr-fake"
 
   write_safe_flow_requests "$safe_req"
-  run_rpc "safe default broker flow: classify -> load -> run -> evidence -> delivery" "$broker_bundle" "$safe_req" "$TMP_ROOT/safe.out"
+  run_rpc "safe default broker flow: load -> run -> evidence -> delivery" "$broker_bundle" "$safe_req" "$TMP_ROOT/safe.out"
 
   write_deny_flow_requests "$deny_req"
   run_rpc "deny flow: policy blocks secrets and final delivery requires human resolution" "$broker_bundle" "$deny_req" "$TMP_ROOT/deny.out"

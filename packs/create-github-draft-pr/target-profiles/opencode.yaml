@@ -1,82 +1,52 @@
 $schema: https://actlane.ru/schemas/v1alpha1/target-profile.schema.json
 apiVersion: actlane.ru/v1alpha1
 kind: TargetProfile
-
 metadata:
   name: opencode
-
 spec:
   target: opencode
   scope: project
-
   output:
     root: generated/opencode
-
   install:
     mode: manual-copy
     scope: project
     requireExplicitApply: true
     requireDiffPreview: true
-
     projectPaths:
       config: opencode.jsonc
-      agentsDir: .opencode/agents
       commandsDir: .opencode/commands
       skillsDir: .opencode/skills
-      instructionsFile: AGENTS.md
-
   generate:
     config: true
-    instructions: true
-    agents: true
+    instructions: false
+    agents: false
     commands: true
     skills: true
     mcp: true
-
   opencode:
     config:
       filename: opencode.jsonc
       schema: https://opencode.ai/config.json
-
-      instructions:
-        - AGENTS.md
-
       permission:
         bash: ask
         edit: ask
         skill: allow
-
     files:
-      - targetPath: AGENTS.md
-        generatedPath: generated/opencode/AGENTS.md
-        ownedBlock: true
-
       - targetPath: opencode.jsonc
         generatedPath: generated/opencode/opencode.jsonc
+        owned: true
+      - targetPath: policies/policy-bundle.json
+        generatedPath: generated/opencode/policies/policy-bundle.json
         owned: true
       - targetPath: broker/broker-bundle.json
         generatedPath: generated/opencode/broker/broker-bundle.json
         owned: true
-
       - targetPath: .opencode/commands/create-github-draft-pr.md
         generatedPath: generated/opencode/.opencode/commands/create-github-draft-pr.md
         commandContract: create-github-draft-pr
         owned: true
-
-      - targetPath: .opencode/agents/github-draft-pr.md
-        generatedPath: generated/opencode/.opencode/agents/github-draft-pr.md
-        agentContract: github-draft-pr
-        owned: true
-
       - targetPath: .opencode/skills/create-github-draft-pr/SKILL.md
         generatedPath: generated/opencode/.opencode/skills/create-github-draft-pr/SKILL.md
         skillContract: create-github-draft-pr
-        owned: true
-      - targetPath: .opencode/skills/dushnila/SKILL.md
-        generatedPath: generated/opencode/.opencode/skills/dushnila/SKILL.md
-        skillContract: dushnila
-        owned: true
-      - targetPath: .opencode/skills/scope-governor/SKILL.md
-        generatedPath: generated/opencode/.opencode/skills/scope-governor/SKILL.md
-        skillContract: scope-governor
         owned: true

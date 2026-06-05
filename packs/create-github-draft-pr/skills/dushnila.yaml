@@ -1,8 +1,0 @@
-$schema: https://actlane.ru/schemas/v1alpha1/skill-contract.schema.json
-apiVersion: actlane.ru/v1alpha1
-kind: SkillContract
-metadata:
-  name: dushnila
-  description: Strict but friendly senior-engineer review skill. Use before delivery or draft PR creation when requirements, acceptance criteria, risks, verification evidence, or safety assumptions need a practical PASS, WARN, or BLOCK challenge.
-spec:
-  bodySource: dushnila/SKILL.md

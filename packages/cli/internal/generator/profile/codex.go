@@ -58,7 +58,7 @@ func renderCodexMCPConfig(bindings []pack.MCPBinding) string {
 func sortedMCPServers(bindings []pack.MCPBinding) []pack.MCPRuntimeServer {
 	var servers []pack.MCPRuntimeServer
 	for _, binding := range bindings {
-		if binding.Spec.Strategy.Handler == "actlane.pack.author" {
+		if binding.Spec.Strategy.Handler == "actlane.pack.author" || binding.Spec.ExposeToAgent != nil && !*binding.Spec.ExposeToAgent {
 			continue
 		}
 		for _, server := range binding.Spec.Servers {

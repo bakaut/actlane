@@ -1,72 +1,27 @@
 $schema: https://actlane.ru/schemas/v1alpha1/capability-pack.schema.json
 apiVersion: actlane.ru/v1alpha1
 kind: CapabilityPack
-
 metadata:
   name: github-draft-pr-pack
   version: 0.3.0-alpha.14
-  description: Project-local agent capability pack for safe GitHub draft pull requests.
-
+  description: Minimal project-local capability pack for safe GitHub draft pull requests.
 spec:
-  guidance:
-    sources:
-      - name: base
-        path: files/prompts/BASE.MD
-        role: base-instructions
-
-      - name: actlane
-        path: files/prompts/ACTLANE.MD
-        role: actlane-instructions
-
-      - name: project
-        path: files/prompts/AGENTS.md
-        role: project-instructions
-
-    compose:
-      enabled: true
-      output: AGENTS.md
-      strategy: concatenate
-      order:
-        - base
-        - actlane
-        - project
-
   capabilities:
     - capabilities/create-github-draft-pr.yaml
-
   skills:
     - skills/create-github-draft-pr.yaml
-    - skills/dushnila.yaml
-    - skills/scope-governor.yaml
-
   commands:
     - commands/create-github-draft-pr.yaml
-
-  agents:
-    - subagents/create-github-draft-pr.yaml
-
-  contracts:
-    - contracts/create-github-draft-pr.yaml
-
-  runtimeProfiles:
-    - runtime-profiles/create-github-draft-pr.yaml
-
   evidence:
     - evidence/create-github-draft-pr.yaml
-
   policies:
     - policies/github-draft-pr.policy.yaml
-
   mcpBindings:
-    - mcp/bindings/actlane-safe-gitops.yaml
     - mcp/bindings/actlane-mcp-broker.yaml
-    - mcp/bindings/actlane-pack-author.yaml
     - mcp/bindings/github-mcp-draft-pr.yaml
-
   targetProfiles:
     - target-profiles/codex.yaml
     - target-profiles/opencode.yaml
-
   targets:
     - codex
     - opencode

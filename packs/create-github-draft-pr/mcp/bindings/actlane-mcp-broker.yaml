@@ -4,7 +4,7 @@ kind: MCPBinding
 metadata:
   name: actlane-mcp-broker
   title: Actlane MCP Broker Binding
-  description: Local Actlane MCP broker for classify, load, run, evidence, and delivery flow.
+  description: Local Actlane MCP broker for load, run, evidence, and delivery flow.
 spec:
   capabilityRef:
     name: create-github-draft-pr

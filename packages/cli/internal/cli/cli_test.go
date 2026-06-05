@@ -24,6 +24,40 @@ func TestValidateGithubDraftPROpenCodePack(t *testing.T) {
 	}
 }
 
+func TestGithubDraftPRPackHasMinimalSourceLayout(t *testing.T) {
+	packDir := filepath.Join(repoRoot(t), "packs/create-github-draft-pr")
+	for _, path := range []string{
+		"actlane.yaml",
+		"capabilities/create-github-draft-pr.yaml",
+		"commands/create-github-draft-pr.yaml",
+		"evidence/create-github-draft-pr.yaml",
+		"mcp/bindings/actlane-mcp-broker.yaml",
+		"mcp/bindings/github-mcp-draft-pr.yaml",
+		"policies/github-draft-pr.policy.yaml",
+		"skills/create-github-draft-pr.yaml",
+		"target-profiles/codex.yaml",
+		"target-profiles/opencode.yaml",
+	} {
+		assertExists(t, filepath.Join(packDir, path))
+	}
+	for _, path := range []string{
+		"agents/create-github-draft-pr.yaml",
+		"contracts/create-github-draft-pr.yaml",
+		"runtime-profiles/create-github-draft-pr.yaml",
+		"subagents/create-github-draft-pr.yaml",
+		"mcp/bindings/actlane-safe-gitops.yaml",
+		"mcp/bindings/actlane-pack-author.yaml",
+		"skills/dushnila.yaml",
+		"skills/scope-governor.yaml",
+	} {
+		assertNotExists(t, filepath.Join(packDir, path))
+	}
+	githubBinding := readFile(t, filepath.Join(packDir, "mcp/bindings/github-mcp-draft-pr.yaml"))
+	if !strings.Contains(githubBinding, "exposeToAgent: false") {
+		t.Fatalf("downstream GitHub MCP binding must not be exposed directly to agents:\n%s", githubBinding)
+	}
+}
+
 func TestValidateContractBoundaries(t *testing.T) {
 	cases := []struct {
 		name string
@@ -54,30 +88,6 @@ func TestValidateContractBoundaries(t *testing.T) {
 				return content + "\n  safety:\n    requirePolicy: true\n"
 			},
 			want: "must not define spec.safety",
-		},
-		{
-			name: "agent-permissions",
-			path: "subagents/create-github-draft-pr.yaml",
-			edit: func(content string) string {
-				return content + "\n  permissions:\n    bash: ask\n"
-			},
-			want: "must not define spec.permissions",
-		},
-		{
-			name: "responsibility-acceptance-criteria",
-			path: "contracts/create-github-draft-pr.yaml",
-			edit: func(content string) string {
-				return content + "\n  acceptanceCriteria:\n    - keep out of runtime contract\n"
-			},
-			want: "must not define spec.acceptanceCriteria",
-		},
-		{
-			name: "runtime-target-path",
-			path: "runtime-profiles/create-github-draft-pr.yaml",
-			edit: func(content string) string {
-				return content + "\n  targetPath: .codex/config.toml\n"
-			},
-			want: "must not define target profile paths",
 		},
 		{
 			name: "evidence-policy-rule",
@@ -111,7 +121,7 @@ func TestValidateContractBoundaries(t *testing.T) {
 func TestValidateSkillBodySourceBoundaries(t *testing.T) {
 	t.Run("requires exactly one body source", func(t *testing.T) {
 		packDir := copyPackToTemp(t)
-		path := filepath.Join(packDir, "skills/dushnila.yaml")
+		path := setupBodySourceSkill(t, packDir)
 		content := readFile(t, path) + "\n  body: duplicate inline body\n"
 		writeTestFile(t, path, content)
 		assertValidateFails(t, packDir, "exactly one of spec.body or spec.bodySource")
@@ -119,47 +129,63 @@ func TestValidateSkillBodySourceBoundaries(t *testing.T) {
 
 	t.Run("requires a body source", func(t *testing.T) {
 		packDir := copyPackToTemp(t)
-		path := filepath.Join(packDir, "skills/dushnila.yaml")
-		content := strings.Replace(normalizeNewlines(readFile(t, path)), "  bodySource: dushnila/SKILL.md\n", "", 1)
+		path := setupBodySourceSkill(t, packDir)
+		content := strings.Replace(normalizeNewlines(readFile(t, path)), "  bodySource: create-github-draft-pr/SKILL.md\n", "", 1)
 		writeTestFile(t, path, content)
 		assertValidateFails(t, packDir, "exactly one of spec.body or spec.bodySource")
 	})
 
 	t.Run("rejects traversal", func(t *testing.T) {
 		packDir := copyPackToTemp(t)
-		path := filepath.Join(packDir, "skills/dushnila.yaml")
-		content := strings.Replace(readFile(t, path), "dushnila/SKILL.md", "../outside.md", 1)
+		path := setupBodySourceSkill(t, packDir)
+		content := strings.Replace(readFile(t, path), "create-github-draft-pr/SKILL.md", "../outside.md", 1)
 		writeTestFile(t, path, content)
 		assertValidateFails(t, packDir, "relative path without traversal")
 	})
 
 	t.Run("rejects nested traversal", func(t *testing.T) {
 		packDir := copyPackToTemp(t)
-		path := filepath.Join(packDir, "skills/dushnila.yaml")
-		content := strings.Replace(readFile(t, path), "dushnila/SKILL.md", "dushnila/../scope-governor/SKILL.md", 1)
+		path := setupBodySourceSkill(t, packDir)
+		content := strings.Replace(readFile(t, path), "create-github-draft-pr/SKILL.md", "create-github-draft-pr/../other/SKILL.md", 1)
 		writeTestFile(t, path, content)
 		assertValidateFails(t, packDir, "relative path without traversal")
 	})
 
 	t.Run("rejects missing file", func(t *testing.T) {
 		packDir := copyPackToTemp(t)
-		path := filepath.Join(packDir, "skills/dushnila.yaml")
-		content := strings.Replace(readFile(t, path), "dushnila/SKILL.md", "dushnila/MISSING.md", 1)
+		path := setupBodySourceSkill(t, packDir)
+		content := strings.Replace(readFile(t, path), "create-github-draft-pr/SKILL.md", "create-github-draft-pr/MISSING.md", 1)
 		writeTestFile(t, path, content)
 		assertValidateFails(t, packDir, "read spec.bodySource")
 	})
 
 	t.Run("rejects symlink", func(t *testing.T) {
 		packDir := copyPackToTemp(t)
-		link := filepath.Join(packDir, "skills/dushnila/LINK.md")
+		path := setupBodySourceSkill(t, packDir)
+		link := filepath.Join(packDir, "skills/create-github-draft-pr/LINK.md")
 		if err := os.Symlink("SKILL.md", link); err != nil {
 			t.Fatal(err)
 		}
-		path := filepath.Join(packDir, "skills/dushnila.yaml")
-		content := strings.Replace(readFile(t, path), "dushnila/SKILL.md", "dushnila/LINK.md", 1)
+		content := strings.Replace(readFile(t, path), "create-github-draft-pr/SKILL.md", "create-github-draft-pr/LINK.md", 1)
 		writeTestFile(t, path, content)
 		assertValidateFails(t, packDir, "must be a regular file")
 	})
+}
+
+func setupBodySourceSkill(t *testing.T, packDir string) string {
+	t.Helper()
+	path := filepath.Join(packDir, "skills/create-github-draft-pr.yaml")
+	writeTestFile(t, path, `$schema: https://actlane.ru/schemas/v1alpha1/skill-contract.schema.json
+apiVersion: actlane.ru/v1alpha1
+kind: SkillContract
+metadata:
+  name: create-github-draft-pr
+  description: Test external body.
+spec:
+  bodySource: create-github-draft-pr/SKILL.md
+`)
+	writeTestFile(t, filepath.Join(packDir, "skills/create-github-draft-pr/SKILL.md"), "External body.\n")
+	return path
 }
 
 func assertValidateFails(t *testing.T, packDir, want string) {
@@ -184,21 +210,15 @@ func TestGenerateOpenCodeWritesOnlyGeneratedOutput(t *testing.T) {
 	}
 
 	assertExists(t, filepath.Join(packDir, "generated/opencode/opencode.jsonc"))
-	assertExists(t, filepath.Join(packDir, "generated/opencode/AGENTS.md"))
 	assertExists(t, filepath.Join(packDir, "generated/mcp/tools.json"))
 	assertExists(t, filepath.Join(packDir, "generated/mcp/server.json"))
 	assertExists(t, filepath.Join(packDir, "generated/opencode/policies/policy-bundle.json"))
 	assertExists(t, filepath.Join(packDir, "generated/opencode/broker/broker-bundle.json"))
 	assertExists(t, filepath.Join(packDir, "generated/opencode/actlane.lock"))
 	assertExists(t, filepath.Join(packDir, "generated/opencode/.opencode/commands/create-github-draft-pr.md"))
-	assertExists(t, filepath.Join(packDir, "generated/opencode/.opencode/agents/github-draft-pr.md"))
 	assertExists(t, filepath.Join(packDir, "generated/opencode/.opencode/skills/create-github-draft-pr/SKILL.md"))
-	assertExists(t, filepath.Join(packDir, "generated/opencode/.opencode/skills/dushnila/SKILL.md"))
-	assertExists(t, filepath.Join(packDir, "generated/opencode/.opencode/skills/scope-governor/SKILL.md"))
-	scopeGovernor := readFile(t, filepath.Join(packDir, "generated/opencode/.opencode/skills/scope-governor/SKILL.md"))
-	if !strings.Contains(scopeGovernor, "Use before implementation when a request is ambiguous") {
-		t.Fatalf("generated scope-governor skill missing trigger:\n%s", scopeGovernor)
-	}
+	assertNotExists(t, filepath.Join(packDir, "generated/opencode/AGENTS.md"))
+	assertNotExists(t, filepath.Join(packDir, "generated/opencode/.opencode/agents"))
 	assertNotExists(t, filepath.Join(packDir, "generated/opencode/actlane.yaml"))
 	assertNotExists(t, filepath.Join(packDir, "generated/opencode/capabilities"))
 	assertNotExists(t, filepath.Join(packDir, "generated/opencode/policies/github-draft-pr.policy.yaml"))
@@ -218,20 +238,12 @@ func TestGenerateOpenCodeWritesOnlyGeneratedOutput(t *testing.T) {
 		`"bash": "ask"`,
 		`"skill": "allow"`,
 		`"mcp":`,
-		`"actlane-safe-gitops":`,
 		`"actlane-mcp-broker":`,
-		`"github":`,
 		`"type": "local"`,
 		`"enabled": true`,
 		`"actlane"`,
-		`"--policy-bundle"`,
-		`"./policies/policy-bundle.json"`,
 		`"--broker-bundle"`,
 		`"./broker/broker-bundle.json"`,
-		`"docker"`,
-		`"ghcr.io/github/github-mcp-server"`,
-		`"GITHUB_PERSONAL_ACCESS_TOKEN": "{env:GITHUB_PERSONAL_ACCESS_TOKEN}"`,
-		`"GITHUB_TOOLS": "create_branch,push_files,create_pull_request"`,
 	} {
 		if !strings.Contains(snippet, want) {
 			t.Fatalf("generated snippet missing %q:\n%s", want, snippet)
@@ -239,6 +251,9 @@ func TestGenerateOpenCodeWritesOnlyGeneratedOutput(t *testing.T) {
 	}
 	for _, forbidden := range []string{
 		`"actlane-pack-author":`,
+		`"actlane-safe-gitops":`,
+		`"github":`,
+		`"docker"`,
 		`"--pack"`,
 		`"./packs/create-github-draft-pr"`,
 	} {
@@ -247,21 +262,8 @@ func TestGenerateOpenCodeWritesOnlyGeneratedOutput(t *testing.T) {
 		}
 	}
 
-	instructions := readFile(t, filepath.Join(packDir, "generated/opencode/AGENTS.md"))
-	for _, want := range []string{
-		"Base Agent Instructions",
-		"Actlane Instructions",
-		"System prompt",
-		"Create draft pull requests only",
-	} {
-		if !strings.Contains(instructions, want) {
-			t.Fatalf("generated AGENTS.md missing %q:\n%s", want, instructions)
-		}
-	}
-
 	command := readFile(t, filepath.Join(packDir, "generated/opencode/.opencode/commands/create-github-draft-pr.md"))
 	for _, want := range []string{
-		`agent: "github-draft-pr"`,
 		`description: "Prepare a safe GitHub draft pull request from reviewed changes."`,
 		"Use Actlane capability `create-github-draft-pr`.",
 		"$ARGUMENTS",
@@ -271,24 +273,10 @@ func TestGenerateOpenCodeWritesOnlyGeneratedOutput(t *testing.T) {
 		}
 	}
 
-	agent := readFile(t, filepath.Join(packDir, "generated/opencode/.opencode/agents/github-draft-pr.md"))
-	for _, want := range []string{
-		"mode: subagent",
-		"Prepare GitHub draft pull requests through Actlane capabilities.",
-		"Use capability `create-github-draft-pr`.",
-		"Use skill `create-github-draft-pr`.",
-		"Raw MCP tools default: `deny`.",
-	} {
-		if !strings.Contains(agent, want) {
-			t.Fatalf("generated OpenCode agent missing %q:\n%s", want, agent)
-		}
-	}
-
 	skill := readFile(t, filepath.Join(packDir, "generated/opencode/.opencode/skills/create-github-draft-pr/SKILL.md"))
 	for _, want := range []string{
 		"name: \"create-github-draft-pr\"",
 		"description: \"Safely prepare a GitHub draft pull request from reviewed changes.\"",
-		"Policy gate tools:",
 	} {
 		if !strings.Contains(skill, want) {
 			t.Fatalf("generated OpenCode skill missing %q:\n%s", want, skill)
@@ -306,39 +294,10 @@ func TestGenerateOpenCodeWritesOnlyGeneratedOutput(t *testing.T) {
 	if !strings.Contains(lockfile, "commands/create-github-draft-pr.yaml") {
 		t.Fatalf("generated lockfile should include command contract source digest:\n%s", lockfile)
 	}
-	if !strings.Contains(lockfile, "subagents/create-github-draft-pr.yaml") {
-		t.Fatalf("generated lockfile should include agent contract source digest:\n%s", lockfile)
+	if strings.Contains(lockfile, "subagents/") || strings.Contains(lockfile, "contracts/") || strings.Contains(lockfile, "runtime-profiles/") {
+		t.Fatalf("minimal lockfile contains removed contract sources:\n%s", lockfile)
 	}
 
-	mcpTools := readFile(t, filepath.Join(packDir, "generated/mcp/tools.json"))
-	for _, want := range []string{
-		`"binding": "github-mcp-draft-pr"`,
-		`"binding": "actlane-safe-gitops"`,
-		`"generatedTool": "create_github_draft_pr_audit"`,
-		`"generatedTool": "create_github_draft_pr_enforce"`,
-		`"name": "create_branch"`,
-		`"name": "push_files"`,
-		`"name": "create_pull_request"`,
-	} {
-		if !strings.Contains(mcpTools, want) {
-			t.Fatalf("generated MCP tools missing %q:\n%s", want, mcpTools)
-		}
-	}
-
-	mcpServer := readFile(t, filepath.Join(packDir, "generated/mcp/server.json"))
-	for _, want := range []string{
-		`"command": [`,
-		`"ghcr.io/github/github-mcp-server"`,
-		`"GITHUB_PERSONAL_ACCESS_TOKEN"`,
-		`"fromEnv": "GITHUB_PERSONAL_ACCESS_TOKEN"`,
-		`"GITHUB_TOOLS": "create_branch,push_files,create_pull_request"`,
-		`"transport": "stdio"`,
-		`"environment":`,
-	} {
-		if !strings.Contains(mcpServer, want) {
-			t.Fatalf("generated MCP server config missing %q:\n%s", want, mcpServer)
-		}
-	}
 }
 
 func TestGenerateCodexWritesCodexProfile(t *testing.T) {
@@ -350,15 +309,9 @@ func TestGenerateCodexWritesCodexProfile(t *testing.T) {
 		t.Fatalf("generate codex failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
 	}
 
-	assertExists(t, filepath.Join(packDir, "generated/codex/AGENTS.md"))
 	assertExists(t, filepath.Join(packDir, "generated/codex/codex.config.toml"))
 	assertExists(t, filepath.Join(packDir, "generated/codex/.codex/skills/create-github-draft-pr/SKILL.md"))
-	assertExists(t, filepath.Join(packDir, "generated/codex/.codex/skills/dushnila/SKILL.md"))
-	assertExists(t, filepath.Join(packDir, "generated/codex/.codex/skills/scope-governor/SKILL.md"))
-	dushnila := readFile(t, filepath.Join(packDir, "generated/codex/.codex/skills/dushnila/SKILL.md"))
-	if !strings.Contains(dushnila, "Use before delivery or draft PR creation") {
-		t.Fatalf("generated dushnila skill missing trigger:\n%s", dushnila)
-	}
+	assertNotExists(t, filepath.Join(packDir, "generated/codex/AGENTS.md"))
 	assertExists(t, filepath.Join(packDir, "generated/codex/policies/policy-bundle.json"))
 	assertExists(t, filepath.Join(packDir, "generated/codex/broker/broker-bundle.json"))
 	assertExists(t, filepath.Join(packDir, "generated/codex/actlane.lock"))
@@ -370,30 +323,11 @@ func TestGenerateCodexWritesCodexProfile(t *testing.T) {
 	assertNotExists(t, filepath.Join(packDir, "generated/codex/files"))
 	assertNotExists(t, filepath.Join(packDir, ".codex"))
 
-	instructions := readFile(t, filepath.Join(packDir, "generated/codex/AGENTS.md"))
-	for _, want := range []string{
-		"Base Agent Instructions",
-		"Actlane Instructions",
-		"System prompt",
-	} {
-		if !strings.Contains(instructions, want) {
-			t.Fatalf("generated Codex AGENTS.md missing %q:\n%s", want, instructions)
-		}
-	}
-
 	config := readFile(t, filepath.Join(packDir, "generated/codex/codex.config.toml"))
 	for _, want := range []string{
 		"[mcp_servers.actlane-mcp-broker]",
 		`args = ["mcp", "serve", "--broker-bundle", "./broker/broker-bundle.json"]`,
-		"[mcp_servers.actlane-safe-gitops]",
 		`command = "actlane"`,
-		`args = ["mcp", "serve", "--policy-bundle", "./policies/policy-bundle.json"]`,
-		"[mcp_servers.github]",
-		`command = "docker"`,
-		`"ghcr.io/github/github-mcp-server"`,
-		"[mcp_servers.github.env]",
-		`GITHUB_PERSONAL_ACCESS_TOKEN = "${GITHUB_PERSONAL_ACCESS_TOKEN}"`,
-		`GITHUB_TOOLS = "create_branch,push_files,create_pull_request"`,
 	} {
 		if !strings.Contains(config, want) {
 			t.Fatalf("generated Codex config missing %q:\n%s", want, config)
@@ -401,6 +335,9 @@ func TestGenerateCodexWritesCodexProfile(t *testing.T) {
 	}
 	for _, forbidden := range []string{
 		"[mcp_servers.actlane-pack-author]",
+		"[mcp_servers.actlane-safe-gitops]",
+		"[mcp_servers.github]",
+		`command = "docker"`,
 		`args = ["mcp", "author", "serve", "--pack", "./packs/create-github-draft-pr"]`,
 	} {
 		if strings.Contains(config, forbidden) {
@@ -412,8 +349,6 @@ func TestGenerateCodexWritesCodexProfile(t *testing.T) {
 	for _, want := range []string{
 		"name: \"create-github-draft-pr\"",
 		"description: \"Safely prepare a GitHub draft pull request from reviewed changes.\"",
-		"Policy gate tools:",
-		"`create_github_draft_pr_enforce`",
 		"`github_create_pull_request`",
 	} {
 		if !strings.Contains(skill, want) {
@@ -456,13 +391,11 @@ func TestGenerateSkillContractResources(t *testing.T) {
 	}
 }
 
-func TestMCPServeListsAndCallsPolicyTools(t *testing.T) {
+func TestMCPServeListsMinimalBrokerTools(t *testing.T) {
 	packDir := copyPackToTemp(t)
 	stdin := strings.NewReader(strings.Join([]string{
 		`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}`,
 		`{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}`,
-		`{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"create_github_draft_pr_audit","arguments":{"repo":"bakaut/development","baseBranch":"main","branch":"feature","title":"Test","summary":"Test","files":["README.md"],"confirmed":true}}}`,
-		`{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"create_github_draft_pr_enforce","arguments":{"repo":"unknown/repo","baseBranch":"main","branch":"feature","title":"Test","summary":"Test","files":[".env"],"confirmed":false}}}`,
 		"",
 	}, "\n"))
 	var stdout, stderr bytes.Buffer
@@ -473,55 +406,18 @@ func TestMCPServeListsAndCallsPolicyTools(t *testing.T) {
 	}
 	output := stdout.String()
 	for _, want := range []string{
-		`"name":"create_github_draft_pr_audit"`,
-		`"name":"create_github_draft_pr_enforce"`,
-		`\"policyDecision\": \"allow\"`,
-		`\"branch\": \"gpt/feature\"`,
-		`\"next\":`,
-		`\"tool\": \"github_create_branch\"`,
-		`\"tool\": \"github_push_files\"`,
-		`\"tool\": \"github_create_pull_request\"`,
-		`\"policyDecision\": \"deny\"`,
-		`"isError":true`,
-		`file is forbidden: .env`,
+		`"name":"actlane_load_capability"`,
+		`"name":"actlane_run_capability"`,
+		`"name":"actlane_get_evidence"`,
+		`"name":"actlane_prepare_delivery"`,
 	} {
 		if !strings.Contains(output, want) {
 			t.Fatalf("mcp output missing %q:\n%s", want, output)
 		}
 	}
-}
-
-func TestMCPServeClassifiesWithRuntimeAndEvidenceContracts(t *testing.T) {
-	packDir := copyPackToTemp(t)
-	stdin := strings.NewReader(strings.Join([]string{
-		`{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}`,
-		`{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"actlane_classify","arguments":{"task":"Prepare a safe GitHub draft PR for reviewed README changes","changed_files":["README.md"],"branch":"main","diff_summary":"docs only update"}}}`,
-		`{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"actlane_classify","arguments":{"task":"Create PR with .env token update","changed_files":[".env"],"branch":"main","diff_summary":"SECRET_TOKEN changed"}}}`,
-		"",
-	}, "\n"))
-	var stdout, stderr bytes.Buffer
-
-	code := MainWithIO([]string{"mcp", "serve", "--pack", packDir}, stdin, &stdout, &stderr)
-	if code != 0 {
-		t.Fatalf("mcp classify failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
-	}
-	output := stdout.String()
-	for _, want := range []string{
-		`"name":"actlane_classify"`,
-		`\"workType\": \"docs_change\"`,
-		`\"mode\": \"advise\"`,
-		`\"candidateCapabilities\": [`,
-		`\"create-github-draft-pr\"`,
-		`\"requiredEvidence\": [`,
-		`\"policy_decision\"`,
-		`\"draft_pr_url\"`,
-		`\"riskFlags\": [`,
-		`\"secrets_sensitive\"`,
-		`\"mode\": \"read-only\"`,
-		`human boundary`,
-	} {
-		if !strings.Contains(output, want) {
-			t.Fatalf("mcp classify output missing %q:\n%s", want, output)
+	for _, forbidden := range []string{`"name":"actlane_classify"`, `"name":"create_github_draft_pr_audit"`, `"name":"create_github_draft_pr_enforce"`} {
+		if strings.Contains(output, forbidden) {
+			t.Fatalf("minimal broker should not expose %q:\n%s", forbidden, output)
 		}
 	}
 }
@@ -545,8 +441,6 @@ func TestMCPServeLoadsCompactCapabilityView(t *testing.T) {
 		`\"name\": \"create-github-draft-pr\"`,
 		`\"policyRef\": \"github-draft-pr-policy\"`,
 		`\"executionRef\": \"github-mcp-draft-pr\"`,
-		`\"responsibilityRef\": \"create-github-draft-pr\"`,
-		`\"runtimeRef\": \"create-github-draft-pr\"`,
 		`\"evidenceRef\": \"create-github-draft-pr\"`,
 		`\"requiredEvidence\": [`,
 		`\"draft_pr_url\"`,
@@ -555,9 +449,6 @@ func TestMCPServeLoadsCompactCapabilityView(t *testing.T) {
 		`\"forbidPaths\": [`,
 		`\"downstreamTools\": [`,
 		`\"create_pull_request\"`,
-		`\"policyGateTools\": [`,
-		`\"create_github_draft_pr_enforce\"`,
-		`\"humanBoundary\": {`,
 	} {
 		if !strings.Contains(output, want) {
 			t.Fatalf("mcp load capability output missing %q:\n%s", want, output)
@@ -620,11 +511,6 @@ func TestMCPServeRunsCapabilityThroughPolicyGate(t *testing.T) {
 		`\"summary\": \"Actlane broker prepared create-github-draft-pr with policy decision deny.\"`,
 		`\"whatChanged\": [`,
 		`\"README.md\"`,
-		`\"whatWasChecked\": [`,
-		`\"security-scan\"`,
-		`\"risk\": \"critical\"`,
-		`\"humanApprovalRequired\": true`,
-		`\"requiresApproval\": true`,
 		`\"evidenceId\": \"github-draft-pr-`,
 		`\"execution\": {`,
 		`\"performed\": false`,
@@ -727,7 +613,6 @@ func TestMCPServeAcceptsPolicyBundle(t *testing.T) {
 
 	stdin := strings.NewReader(strings.Join([]string{
 		`{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}`,
-		`{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"create_github_draft_pr_enforce","arguments":{"repo":"bakaut/development","baseBranch":"main","branch":"feature","title":"Test","summary":"Test","files":["README.md"],"confirmed":true}}}`,
 		"",
 	}, "\n"))
 	stdout.Reset()
@@ -737,16 +622,8 @@ func TestMCPServeAcceptsPolicyBundle(t *testing.T) {
 		t.Fatalf("mcp serve with policy bundle failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
 	}
 	output := stdout.String()
-	for _, want := range []string{
-		`"name":"create_github_draft_pr_enforce"`,
-		`\"policyDecision\": \"allow\"`,
-		`\"branch\": \"gpt/feature\"`,
-		`\"next\":`,
-		`\"tool\": \"github_create_pull_request\"`,
-	} {
-		if !strings.Contains(output, want) {
-			t.Fatalf("mcp serve with policy bundle missing %q:\n%s", want, output)
-		}
+	if strings.Contains(output, `create_github_draft_pr_enforce`) {
+		t.Fatalf("minimal policy bundle should not expose generated execution tools:\n%s", output)
 	}
 }
 
@@ -764,7 +641,6 @@ func TestMCPServeAcceptsBrokerBundle(t *testing.T) {
 		`"capabilities":`,
 		`"policies":`,
 		`"mcpBindings":`,
-		`"runtimeProfiles":`,
 		`"evidence":`,
 	} {
 		if !strings.Contains(bundle, want) {
@@ -786,8 +662,7 @@ func TestMCPServeAcceptsBrokerBundle(t *testing.T) {
 
 	stdin := strings.NewReader(strings.Join([]string{
 		`{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}`,
-		`{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"actlane_classify","arguments":{"task":"Prepare a safe GitHub draft PR for README changes","changed_files":["README.md"],"branch":"main","diff_summary":"docs only"}}}`,
-		`{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"actlane_run_capability","arguments":{"capability":"create-github-draft-pr","input":{"repo":"bakaut/development","baseBranch":"main","branch":"feature","title":"Test","summary":"Test","files":["README.md"],"confirmed":true}}}}`,
+		`{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"actlane_run_capability","arguments":{"capability":"create-github-draft-pr","input":{"repo":"bakaut/development","baseBranch":"main","branch":"feature","title":"Test","summary":"Test","files":["README.md"],"confirmed":true}}}}`,
 		"",
 	}, "\n"))
 	stdout.Reset()
@@ -798,9 +673,7 @@ func TestMCPServeAcceptsBrokerBundle(t *testing.T) {
 	}
 	output := stdout.String()
 	for _, want := range []string{
-		`"name":"actlane_classify"`,
 		`"name":"actlane_prepare_delivery"`,
-		`\"candidateCapabilities\":`,
 		`\"create-github-draft-pr\"`,
 		`\"policyDecision\": \"allow\"`,
 		`\"branch\": \"gpt/feature\"`,
@@ -841,7 +714,7 @@ func TestMCPAuthorServeExposesPackAuthoringTools(t *testing.T) {
 		`\"name\": \"github-draft-pr-pack\"`,
 		`\"valid\": true`,
 		`\"target\": \"codex\"`,
-		`\"path\": \"generated/codex/AGENTS.md\"`,
+		`\"path\": \"generated/codex/.codex/skills/create-github-draft-pr/SKILL.md\"`,
 		`\"path\": \"capabilities/safe-deploy.yaml\"`,
 		`\"path\": \"target-profiles/opencode.yaml\"`,
 		`\"mutationPermitted\": false`,
@@ -884,12 +757,10 @@ func TestPlanCodexSafeAdoptionDetectsCreatesAndConflicts(t *testing.T) {
 	}
 	output := stdout.String()
 	for _, want := range []string{
-		"Will append Actlane block:",
-		"AGENTS.md",
 		"Will create:",
 		".codex/config.toml",
 		"policies/policy-bundle.json",
-		".codex/skills/dushnila/SKILL.md",
+		"broker/broker-bundle.json",
 		"source:",
 		"preview:",
 		"sha256:",
@@ -901,7 +772,7 @@ func TestPlanCodexSafeAdoptionDetectsCreatesAndConflicts(t *testing.T) {
 			t.Fatalf("plan output missing %q:\n%s", want, output)
 		}
 	}
-	assertNotExists(t, filepath.Join(projectDir, ".codex/skills/dushnila/SKILL.md"))
+	assertNotExists(t, filepath.Join(projectDir, "broker/broker-bundle.json"))
 }
 
 func TestPlanRequiresTargetAndDefaultsGeneratedAndCurrentProject(t *testing.T) {
@@ -943,10 +814,9 @@ func TestPlanRequiresTargetAndDefaultsGeneratedAndCurrentProject(t *testing.T) {
 		"Plan target: codex",
 		"Generated: " + filepath.Join(packDir, "generated/codex"),
 		".codex/skills/create-github-draft-pr/SKILL.md",
-		".codex/skills/dushnila/SKILL.md",
 		".codex/config.toml",
 		"policies/policy-bundle.json",
-		"AGENTS.md",
+		"broker/broker-bundle.json",
 	} {
 		if !strings.Contains(output, want) {
 			t.Fatalf("default plan output missing %q:\n%s", want, output)
@@ -973,35 +843,25 @@ func TestApplyCodexSafeAdoptionCreatesAndUpdatesIdempotently(t *testing.T) {
 	}
 	for _, path := range []string{
 		".codex/skills/create-github-draft-pr/SKILL.md",
-		".codex/skills/dushnila/SKILL.md",
 		".codex/config.toml",
 		"policies/policy-bundle.json",
+		"broker/broker-bundle.json",
 	} {
 		assertExists(t, filepath.Join(projectDir, path))
 	}
 	config := readFile(t, filepath.Join(projectDir, ".codex/config.toml"))
 	for _, want := range []string{
 		"# actlane:start github-draft-pr-pack/.codex/config.toml",
-		`args = ["mcp", "serve", "--policy-bundle", "./policies/policy-bundle.json"]`,
+		`args = ["mcp", "serve", "--broker-bundle", "./broker/broker-bundle.json"]`,
 		"# actlane:end github-draft-pr-pack/.codex/config.toml",
 	} {
 		if !strings.Contains(config, want) {
 			t.Fatalf("codex.config.toml missing %q:\n%s", want, config)
 		}
 	}
-	policy := readFile(t, filepath.Join(projectDir, "policies/policy-bundle.json"))
-	if !strings.Contains(policy, `"mcpBindings"`) || !strings.Contains(policy, `"actlane-safe-gitops"`) {
-		t.Fatalf("policy bundle should include MCP bindings:\n%s", policy)
-	}
-	agents := readFile(t, filepath.Join(projectDir, "AGENTS.md"))
-	for _, want := range []string{
-		"# Existing guidance",
-		"<!-- actlane:start github-draft-pr-pack/AGENTS.md -->",
-		"<!-- actlane:end github-draft-pr-pack/AGENTS.md -->",
-	} {
-		if !strings.Contains(agents, want) {
-			t.Fatalf("AGENTS.md missing %q:\n%s", want, agents)
-		}
+	broker := readFile(t, filepath.Join(projectDir, "broker/broker-bundle.json"))
+	if !strings.Contains(broker, `"mcpBindings"`) || !strings.Contains(broker, `"github-mcp-draft-pr"`) {
+		t.Fatalf("broker bundle should include downstream MCP binding:\n%s", broker)
 	}
 
 	stdout.Reset()
@@ -1009,10 +869,6 @@ func TestApplyCodexSafeAdoptionCreatesAndUpdatesIdempotently(t *testing.T) {
 	code = Main([]string{"apply", packDir, "--target", "codex", "--project", projectDir}, &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("second apply failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
-	}
-	agents = readFile(t, filepath.Join(projectDir, "AGENTS.md"))
-	if strings.Count(agents, "<!-- actlane:start github-draft-pr-pack/AGENTS.md -->") != 1 {
-		t.Fatalf("second apply duplicated AGENTS marker:\n%s", agents)
 	}
 	config = readFile(t, filepath.Join(projectDir, ".codex/config.toml"))
 	if strings.Count(config, "# actlane:start github-draft-pr-pack/.codex/config.toml") != 1 {
@@ -1040,11 +896,11 @@ func TestApplyCodexDryRunWritesNothingAndConflictsBlock(t *testing.T) {
 		t.Fatalf("apply dry-run failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
 	}
 	assertNotExists(t, filepath.Join(projectDir, ".codex/skills/create-github-draft-pr/SKILL.md"))
-	assertNotExists(t, filepath.Join(projectDir, ".codex/skills/dushnila/SKILL.md"))
 	assertNotExists(t, filepath.Join(projectDir, ".codex/config.toml"))
 	assertNotExists(t, filepath.Join(projectDir, "policies/policy-bundle.json"))
+	assertNotExists(t, filepath.Join(projectDir, "broker/broker-bundle.json"))
 
-	writeTestFile(t, filepath.Join(projectDir, ".codex/skills/dushnila/SKILL.md"), "user-owned\n")
+	writeTestFile(t, filepath.Join(projectDir, ".codex/skills/create-github-draft-pr/SKILL.md"), "user-owned\n")
 	stdout.Reset()
 	stderr.Reset()
 	code = Main([]string{"apply", packDir, "--target", "codex", "--project", projectDir}, &stdout, &stderr)
@@ -1054,7 +910,7 @@ func TestApplyCodexDryRunWritesNothingAndConflictsBlock(t *testing.T) {
 	if !strings.Contains(stdout.String(), "Conflicts:") || !strings.Contains(stderr.String(), "apply blocked") {
 		t.Fatalf("apply conflict output missing details\nstdout:\n%s\nstderr:\n%s", stdout.String(), stderr.String())
 	}
-	assertNotExists(t, filepath.Join(projectDir, ".codex/skills/create-github-draft-pr/SKILL.md"))
+	assertExists(t, filepath.Join(projectDir, ".codex/skills/create-github-draft-pr/SKILL.md"))
 }
 
 func TestRemoveCodexSafeAdoptionRemovesOnlyOwnedArtifacts(t *testing.T) {
@@ -1080,7 +936,7 @@ func TestRemoveCodexSafeAdoptionRemovesOnlyOwnedArtifacts(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("remove dry-run failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
 	}
-	assertExists(t, filepath.Join(projectDir, ".codex/skills/dushnila/SKILL.md"))
+	assertExists(t, filepath.Join(projectDir, ".codex/skills/create-github-draft-pr/SKILL.md"))
 
 	stdout.Reset()
 	stderr.Reset()
@@ -1089,7 +945,6 @@ func TestRemoveCodexSafeAdoptionRemovesOnlyOwnedArtifacts(t *testing.T) {
 		t.Fatalf("remove failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
 	}
 	assertNotExists(t, filepath.Join(projectDir, ".codex/skills/create-github-draft-pr/SKILL.md"))
-	assertNotExists(t, filepath.Join(projectDir, ".codex/skills/dushnila/SKILL.md"))
 	assertNotExists(t, filepath.Join(projectDir, ".codex/config.toml"))
 	assertNotExists(t, filepath.Join(projectDir, "policies/policy-bundle.json"))
 	agents := readFile(t, filepath.Join(projectDir, "AGENTS.md"))
@@ -1158,7 +1013,7 @@ func TestPlanCodexSafeAdoptionJSON(t *testing.T) {
 	for _, want := range []string{
 		`"target": "codex"`,
 		`"action": "create_file"`,
-		`"targetPath": ".codex/skills/dushnila/SKILL.md"`,
+		`"targetPath": ".codex/skills/create-github-draft-pr/SKILL.md"`,
 		`"targetPath": ".codex/config.toml"`,
 		`"markerStyle": "hash"`,
 		`"targetPath": "policies/policy-bundle.json"`,
@@ -1208,10 +1063,10 @@ func TestPlanCodexSafeAdoptionDiffAndContent(t *testing.T) {
 	for _, want := range []string{
 		"diff:",
 		"--- /dev/null",
-		"+++ .codex/skills/dushnila/SKILL.md",
+		"+++ .codex/skills/create-github-draft-pr/SKILL.md",
 		"+++ .codex/config.toml",
 		"content:",
-		"name: \"dushnila\"",
+		"name: \"create-github-draft-pr\"",
 		"# actlane:start github-draft-pr-pack/.codex/config.toml",
 	} {
 		if !strings.Contains(output, want) {
@@ -1220,22 +1075,19 @@ func TestPlanCodexSafeAdoptionDiffAndContent(t *testing.T) {
 	}
 }
 
-func TestCheckUsesResponsibilityContract(t *testing.T) {
+func TestCheckDeniesWorkflowChanges(t *testing.T) {
 	packDir := copyPackToTemp(t)
 	stdin := strings.NewReader(`{"repo":"bakaut/development","baseBranch":"main","branch":"feature","title":"Test","summary":"Test","files":[".github/workflows/release.yml"],"confirmed":true}`)
 	var stdout, stderr bytes.Buffer
 
 	code := MainWithIO([]string{"check", "--pack", packDir, "--capability", "create-github-draft-pr"}, stdin, &stdout, &stderr)
 	if code != 0 {
-		t.Fatalf("check failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+		t.Fatalf("audit check failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
 	}
 	output := stdout.String()
 	for _, want := range []string{
-		`"policyDecision": "requires_approval"`,
-		`"risk": "high"`,
-		`"ci"`,
-		`"security-scan"`,
-		`"humanApprovalRequired": true`,
+		`"policyDecision": "deny"`,
+		`.github/workflows/release.yml`,
 	} {
 		if !strings.Contains(output, want) {
 			t.Fatalf("check output missing %q:\n%s", want, output)
@@ -1243,7 +1095,7 @@ func TestCheckUsesResponsibilityContract(t *testing.T) {
 	}
 }
 
-func TestCheckEnforceStopsCriticalRisk(t *testing.T) {
+func TestCheckEnforceDeniesSecrets(t *testing.T) {
 	packDir := copyPackToTemp(t)
 	stdin := strings.NewReader(`{"repo":"bakaut/development","baseBranch":"main","branch":"feature","title":"Test","summary":"Test","files":["secrets/token.txt"],"confirmed":true}`)
 	var stdout, stderr bytes.Buffer
@@ -1255,8 +1107,7 @@ func TestCheckEnforceStopsCriticalRisk(t *testing.T) {
 	output := stdout.String()
 	for _, want := range []string{
 		`"policyDecision": "deny"`,
-		`"risk": "critical"`,
-		`"stop": true`,
+		`secrets/token.txt`,
 	} {
 		if !strings.Contains(output, want) {
 			t.Fatalf("check enforce output missing %q:\n%s", want, output)
@@ -1264,7 +1115,7 @@ func TestCheckEnforceStopsCriticalRisk(t *testing.T) {
 	}
 }
 
-func TestGeneratedPolicyBundleCarriesResponsibilityContract(t *testing.T) {
+func TestGeneratedPolicyBundleCarriesMinimalSafetyPolicy(t *testing.T) {
 	packDir := copyPackToTemp(t)
 	var stdout, stderr bytes.Buffer
 
@@ -1274,13 +1125,45 @@ func TestGeneratedPolicyBundleCarriesResponsibilityContract(t *testing.T) {
 	}
 	bundle := readFile(t, filepath.Join(packDir, "generated/codex/policies/policy-bundle.json"))
 	for _, want := range []string{
-		`"responsibility":`,
-		`"riskFloor": "critical"`,
-		`"requiredForHandoff"`,
+		`"confirmation":`,
+		`"mustBe": true`,
+		`"branchPrefix": "gpt/"`,
+		`".github/workflows/**"`,
+		`"name": "create_pull_request"`,
 	} {
 		if !strings.Contains(bundle, want) {
 			t.Fatalf("policy bundle missing %q:\n%s", want, bundle)
 		}
+	}
+}
+
+func TestGenerateFullPackPreservesSharedMCPArtifacts(t *testing.T) {
+	packDir := filepath.Join(repoRoot(t), "packs/full")
+	outDir := t.TempDir()
+	var stdout, stderr bytes.Buffer
+	code := Main([]string{"generate", packDir, "--target", "codex", "--out", outDir}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("generate full pack failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	assertExists(t, filepath.Join(outDir, "generated/mcp/server.json"))
+	assertExists(t, filepath.Join(outDir, "generated/mcp/tools.json"))
+	config := readFile(t, filepath.Join(outDir, "generated/codex/codex.config.toml"))
+	if !strings.Contains(config, "[mcp_servers.actlane-safe-gitops]") {
+		t.Fatalf("full pack must preserve agent-facing MCP bindings:\n%s", config)
+	}
+	tools := readFile(t, filepath.Join(outDir, "generated/mcp/tools.json"))
+	for _, want := range []string{`"generatedTool": "create_github_draft_pr_audit"`, `"generatedTool": "create_github_draft_pr_enforce"`} {
+		if !strings.Contains(tools, want) {
+			t.Fatalf("full pack MCP tools missing %q:\n%s", want, tools)
+		}
+	}
+	policy := readFile(t, filepath.Join(outDir, "generated/codex/policies/policy-bundle.json"))
+	if !strings.Contains(policy, `"responsibility":`) {
+		t.Fatalf("full pack must preserve responsibility projection:\n%s", policy)
+	}
+	broker := readFile(t, filepath.Join(outDir, "generated/codex/broker/broker-bundle.json"))
+	if !strings.Contains(broker, `"runtimeProfiles":`) {
+		t.Fatalf("full pack must preserve runtime profiles:\n%s", broker)
 	}
 }
 
@@ -1345,11 +1228,9 @@ func TestFrozenLockfileDetectsProfileSourceDrift(t *testing.T) {
 		t.Fatalf("generate failed: %s", stderr.String())
 	}
 
-	sourcePath := filepath.Join(packDir, "files/prompts/AGENTS.md")
+	sourcePath := filepath.Join(packDir, "target-profiles/opencode.yaml")
 	content := readFile(t, sourcePath)
-	if err := os.WriteFile(sourcePath, []byte(content+"\nDrift marker.\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
+	writeTestFile(t, sourcePath, strings.Replace(content, "requireDiffPreview: true", "requireDiffPreview: false", 1))
 
 	stdout.Reset()
 	stderr.Reset()
@@ -1364,6 +1245,8 @@ func TestFrozenLockfileDetectsProfileSourceDrift(t *testing.T) {
 
 func TestFrozenLockfileDetectsSkillBodySourceDrift(t *testing.T) {
 	packDir := copyPackToTemp(t)
+	setupBodySourceSkill(t, packDir)
+	sourcePath := filepath.Join(packDir, "skills/create-github-draft-pr/SKILL.md")
 	var stdout, stderr bytes.Buffer
 
 	code := Main([]string{"generate", packDir, "--target", "codex"}, &stdout, &stderr)
@@ -1371,11 +1254,10 @@ func TestFrozenLockfileDetectsSkillBodySourceDrift(t *testing.T) {
 		t.Fatalf("generate failed: %s", stderr.String())
 	}
 	lockfile := readFile(t, filepath.Join(packDir, "generated/codex/actlane.lock"))
-	if !strings.Contains(lockfile, `"skills/dushnila/SKILL.md":`) {
+	if !strings.Contains(lockfile, `"skills/create-github-draft-pr/SKILL.md":`) {
 		t.Fatalf("lockfile should include skill bodySource digest:\n%s", lockfile)
 	}
 
-	sourcePath := filepath.Join(packDir, "skills/dushnila/SKILL.md")
 	content := readFile(t, sourcePath)
 	writeTestFile(t, sourcePath, content+"\nBody source drift marker.\n")
 
