@@ -22,10 +22,12 @@ type InspectOptions struct {
 }
 
 type ImportOptions struct {
-	From    string
-	Out     string
-	AIAgent string
-	Force   bool
+	From                string
+	Out                 string
+	AIAgent             string
+	Force               bool
+	IncludeGlobalSkills []string
+	IncludeGlobalMCP    []string
 }
 
 type PackCreateOptions struct {
@@ -43,14 +45,17 @@ type PackInstallOptions struct {
 }
 
 type Discovery struct {
-	Runtime     string
-	Confidence  string
-	Commands    []Artifact
-	Agents      []Artifact
-	Skills      []Artifact
-	MCPServers  []MCPServer
-	Permissions map[string]string
-	Warnings    []string
+	Runtime          string
+	Confidence       string
+	Commands         []Artifact
+	Agents           []Artifact
+	Skills           []Artifact
+	MCPServers       []MCPServer
+	GlobalSkills     []Artifact
+	GlobalMCPServers []MCPServer
+	GlobalHooks      []InventoryObject
+	Permissions      map[string]string
+	Warnings         []string
 }
 
 type Artifact struct {
@@ -59,19 +64,43 @@ type Artifact struct {
 	Description string
 	Body        string
 	Agent       string
+	Scope       string
+	Portability string
+	Reason      string
+	Resources   []SkillResource
+}
+
+type SkillResource struct {
+	Group      string
+	Path       string
+	SourcePath string
 }
 
 type MCPServer struct {
-	Name    string
-	Type    string
-	Command []string
-	Env     map[string]any
-	URL     string
-	Headers map[string]any
-	OAuth   any
-	Timeout int
-	Enabled *bool
-	Tools   []string
+	Name        string
+	Type        string
+	Command     []string
+	Env         map[string]any
+	URL         string
+	Headers     map[string]any
+	OAuth       any
+	Timeout     int
+	Enabled     *bool
+	Tools       []string
+	EnvNames    []string
+	Scope       string
+	SourcePath  string
+	Portability string
+	Reason      string
+}
+
+type InventoryObject struct {
+	Kind        string
+	Name        string
+	Path        string
+	Scope       string
+	Portability string
+	Reason      string
 }
 
 type ImportResult struct {
@@ -125,6 +154,9 @@ func Import(opts ImportOptions) (*ImportResult, error) {
 	if discovery.Runtime == "" {
 		return nil, fmt.Errorf("no supported ai-agent detected; try actlane import --ai-agent opencode or --ai-agent codex")
 	}
+	if err := includeSelectedGlobals(&discovery, opts.IncludeGlobalSkills, opts.IncludeGlobalMCP); err != nil {
+		return nil, err
+	}
 	if err := ensureWritableOutput(out, opts.Force); err != nil {
 		return nil, err
 	}
@@ -133,6 +165,26 @@ func Import(opts ImportOptions) (*ImportResult, error) {
 		return nil, err
 	}
 	return &ImportResult{Out: out, Runtime: discovery.Runtime, Confidence: discovery.Confidence, Files: files}, nil
+}
+
+func includeSelectedGlobals(d *Discovery, skillNames, mcpNames []string) error {
+	for _, name := range uniqueNames(skillNames) {
+		artifact, ok := findArtifact(d.GlobalSkills, name)
+		if !ok {
+			return fmt.Errorf("global skill %q not found; run actlane inspect --ai-agent codex", name)
+		}
+		d.Skills = append(d.Skills, artifact)
+	}
+	for _, name := range uniqueNames(mcpNames) {
+		server, ok := findMCPServer(d.GlobalMCPServers, name)
+		if !ok {
+			return fmt.Errorf("global mcp server %q not found; run actlane inspect --ai-agent codex", name)
+		}
+		d.MCPServers = append(d.MCPServers, server)
+	}
+	d.Skills = uniqueArtifacts(d.Skills)
+	d.MCPServers = uniqueMCPServers(d.MCPServers)
+	return nil
 }
 
 func ReadImportReport(from string) ([]byte, error) {
@@ -323,9 +375,6 @@ func inspectCodex(from, requested string) (Discovery, error) {
 	discovery := Discovery{Runtime: "", Confidence: "none", Permissions: map[string]string{}}
 	configPath := codexConfigPath(root)
 	codexDir := filepath.Join(root, ".codex")
-	if configPath == "" && (requested == "codex" || isDir(codexDir)) {
-		configPath = codexHomeConfigPath()
-	}
 	hasConfig := configPath != ""
 	hasDir := isDir(codexDir)
 	hasAgents := firstExisting(root, []string{"AGENTS.md", "AGENTS.MD", ".codex/AGENTS.md"}) != ""
@@ -344,12 +393,23 @@ func inspectCodex(from, requested string) (Discovery, error) {
 	if hasConfig || hasDir {
 		discovery.Confidence = "high"
 	}
-	discovery.Skills = readCodexSkillArtifacts(root)
+	discovery.Skills = readCodexSkillsAt(root, ".codex/skills", "project-local")
 	discovery.Agents = readCodexGuidanceArtifacts(root)
 	if hasConfig {
 		servers, warnings := readCodexConfig(configPath)
+		markMCPServers(servers, "project-local", configPath)
 		discovery.MCPServers = servers
 		discovery.Warnings = append(discovery.Warnings, warnings...)
+	}
+	if home := codexHomeDir(); home != "" {
+		discovery.GlobalSkills = readCodexSkillsAt(home, "skills", "global")
+		if globalConfig := filepath.Join(home, "config.toml"); exists(globalConfig) {
+			servers, warnings := readCodexConfig(globalConfig)
+			markMCPServers(servers, "global", globalConfig)
+			discovery.GlobalMCPServers = servers
+			discovery.Warnings = append(discovery.Warnings, warnings...)
+		}
+		discovery.GlobalHooks = readCodexHooks(filepath.Join(home, "hooks.json"))
 	}
 	if len(discovery.Skills) == 0 {
 		discovery.Warnings = append(discovery.Warnings, "No Codex skills were found.")
@@ -357,47 +417,86 @@ func inspectCodex(from, requested string) (Discovery, error) {
 	return discovery, nil
 }
 
-func codexHomeConfigPath() string {
+func codexHomeDir() string {
+	if configured := strings.TrimSpace(os.Getenv("CODEX_HOME")); configured != "" {
+		return configured
+	}
 	home, err := os.UserHomeDir()
 	if err != nil || home == "" {
 		return ""
 	}
-	candidate := filepath.Join(home, ".codex", "config.toml")
-	if exists(candidate) {
-		return candidate
-	}
-	return ""
+	return filepath.Join(home, ".codex")
 }
 
-func readCodexSkillArtifacts(root string) []Artifact {
+func readCodexSkillsAt(root, relDir, scope string) []Artifact {
 	var artifacts []Artifact
-	for _, relDir := range []string{".codex/skills", "skills"} {
-		dir := filepath.Join(root, filepath.FromSlash(relDir))
-		entries, err := os.ReadDir(dir)
+	dir := filepath.Join(root, filepath.FromSlash(relDir))
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil
+	}
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		rel := path.Join(relDir, entry.Name(), "SKILL.md")
+		data, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(rel)))
 		if err != nil {
 			continue
 		}
-		for _, entry := range entries {
-			if !entry.IsDir() {
-				continue
-			}
-			rel := path.Join(relDir, entry.Name(), "SKILL.md")
-			data, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(rel)))
-			if err != nil {
-				continue
-			}
-			meta, body := splitFrontmatter(string(data))
-			name := cleanName(defaultString(meta["name"], entry.Name()))
-			artifacts = append(artifacts, Artifact{
-				Name:        name,
-				Path:        rel,
-				Description: defaultString(meta["description"], "Imported Codex skill "+name+"."),
-				Body:        strings.TrimSpace(body),
-			})
-		}
+		meta, body := splitFrontmatter(string(data))
+		name := cleanName(defaultString(meta["name"], entry.Name()))
+		artifacts = append(artifacts, Artifact{
+			Name:        name,
+			Path:        filepath.Join(root, filepath.FromSlash(rel)),
+			Description: defaultString(meta["description"], "Imported Codex skill "+name+"."),
+			Body:        strings.TrimSpace(body),
+			Scope:       scope,
+			Portability: "portable candidate",
+			Reason:      "Skill content is self-contained; review referenced tools and paths.",
+			Resources:   readCodexSkillResources(filepath.Join(dir, entry.Name())),
+		})
 	}
 	sort.Slice(artifacts, func(i, j int) bool { return artifacts[i].Name < artifacts[j].Name })
 	return artifacts
+}
+
+func readCodexSkillResources(skillDir string) []SkillResource {
+	var resources []SkillResource
+	for _, group := range []string{"scripts", "references", "assets"} {
+		groupDir := filepath.Join(skillDir, group)
+		_ = filepath.WalkDir(groupDir, func(sourcePath string, entry os.DirEntry, err error) error {
+			if err != nil {
+				return nil
+			}
+			if entry.Type()&os.ModeSymlink != 0 {
+				if entry.IsDir() {
+					return filepath.SkipDir
+				}
+				return nil
+			}
+			if entry.IsDir() {
+				return nil
+			}
+			rel, err := filepath.Rel(groupDir, sourcePath)
+			if err != nil || rel == "." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+				return nil
+			}
+			resources = append(resources, SkillResource{
+				Group:      group,
+				Path:       path.Join(group, filepath.ToSlash(rel)),
+				SourcePath: sourcePath,
+			})
+			return nil
+		})
+	}
+	sort.Slice(resources, func(i, j int) bool {
+		if resources[i].Group == resources[j].Group {
+			return resources[i].Path < resources[j].Path
+		}
+		return resources[i].Group < resources[j].Group
+	})
+	return resources
 }
 
 func readCodexGuidanceArtifacts(root string) []Artifact {
@@ -420,6 +519,9 @@ func readCodexGuidanceArtifacts(root string) []Artifact {
 			Path:        rel,
 			Description: "Imported Codex guidance " + filepath.Base(rel) + ".",
 			Body:        strings.TrimSpace(string(data)),
+			Scope:       "project-local",
+			Portability: "portable candidate",
+			Reason:      "Project-local guidance.",
 		})
 	}
 	sort.Slice(artifacts, func(i, j int) bool { return artifacts[i].Name < artifacts[j].Name })
@@ -437,8 +539,10 @@ func readCodexConfig(path string) ([]MCPServer, []string) {
 
 func parseCodexMCPServers(content string) []MCPServer {
 	headerRe := regexp.MustCompile(`^\[mcp_servers\.(?:"([^"]+)"|([A-Za-z0-9_-]+))\]$`)
+	envHeaderRe := regexp.MustCompile(`^\[mcp_servers\.(?:"([^"]+)"|([A-Za-z0-9_-]+))\.env\]$`)
 	var servers []MCPServer
 	current := -1
+	envCurrent := -1
 	for _, raw := range strings.Split(content, "\n") {
 		line := strings.TrimSpace(stripTomlComment(raw))
 		if line == "" {
@@ -448,11 +552,22 @@ func parseCodexMCPServers(content string) []MCPServer {
 			matches := headerRe.FindStringSubmatch(line)
 			if matches == nil {
 				current = -1
+				envMatches := envHeaderRe.FindStringSubmatch(line)
+				envCurrent = findMCPServerIndex(servers, defaultMatchName(envMatches))
 				continue
 			}
 			name := defaultString(matches[1], matches[2])
 			servers = append(servers, MCPServer{Name: name, Type: "local"})
 			current = len(servers) - 1
+			envCurrent = -1
+			continue
+		}
+		if envCurrent >= 0 && strings.Contains(line, "=") {
+			key, _, _ := strings.Cut(line, "=")
+			key = strings.Trim(strings.TrimSpace(key), `"`)
+			if key != "" {
+				servers[envCurrent].EnvNames = appendUnique(servers[envCurrent].EnvNames, key)
+			}
 			continue
 		}
 		if current < 0 || !strings.Contains(line, "=") {
@@ -477,10 +592,49 @@ func parseCodexMCPServers(content string) []MCPServer {
 			if servers[current].URL != "" {
 				servers[current].Type = "remote"
 			}
+		case "env":
+			servers[current].EnvNames = parseTomlInlineTableKeys(value)
 		}
 	}
 	sort.Slice(servers, func(i, j int) bool { return servers[i].Name < servers[j].Name })
 	return servers
+}
+
+func markMCPServers(servers []MCPServer, scope, sourcePath string) {
+	for i := range servers {
+		servers[i].Scope = scope
+		servers[i].SourcePath = sourcePath
+		servers[i].Portability = "review required"
+		servers[i].Reason = "MCP servers may depend on local commands, paths, and environment variables."
+		if len(servers[i].Command) > 0 && filepath.IsAbs(servers[i].Command[0]) {
+			servers[i].Reason = "Absolute executable path; manual migration recommended."
+		}
+	}
+}
+
+func readCodexHooks(path string) []InventoryObject {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil
+	}
+	var root map[string]any
+	if err := json.Unmarshal(data, &root); err != nil {
+		return []InventoryObject{{Kind: "hook", Name: "hooks.json", Path: path, Scope: "global", Portability: "not portable", Reason: "Cannot parse hooks configuration."}}
+	}
+	hooks, _ := root["hooks"].(map[string]any)
+	var inventory []InventoryObject
+	for name := range hooks {
+		inventory = append(inventory, InventoryObject{
+			Kind:        "hook",
+			Name:        snakeCase(name),
+			Path:        path,
+			Scope:       "global",
+			Portability: "not portable",
+			Reason:      "Executable hooks and hook state are never imported.",
+		})
+	}
+	sort.Slice(inventory, func(i, j int) bool { return inventory[i].Name < inventory[j].Name })
+	return inventory
 }
 
 func stripTomlComment(line string) string {
@@ -517,6 +671,26 @@ func parseTomlStringArray(value string) []string {
 		items = append(items, match[1])
 	}
 	return items
+}
+
+func parseTomlInlineTableKeys(value string) []string {
+	value = strings.TrimSpace(value)
+	if !strings.HasPrefix(value, "{") || !strings.HasSuffix(value, "}") {
+		return nil
+	}
+	var keys []string
+	for _, pair := range strings.Split(strings.Trim(value, "{}"), ",") {
+		key, _, ok := strings.Cut(pair, "=")
+		if !ok {
+			continue
+		}
+		key = strings.Trim(strings.TrimSpace(key), `"`)
+		if key != "" {
+			keys = append(keys, key)
+		}
+	}
+	sort.Strings(keys)
+	return keys
 }
 
 func readMarkdownArtifacts(root, relDir string) []Artifact {
@@ -627,6 +801,7 @@ func readOpenCodeConfig(path string) (map[string]string, []MCPServer, []string) 
 func writeImportedPack(from, out string, d Discovery) ([]string, error) {
 	capabilityName := inferredCapabilityName(d)
 	skillName := inferredSkillName(d, capabilityName)
+	allSkillNames := importedSkillNames(d, skillName)
 	commandName := inferredCommandName(d, capabilityName)
 	agentName := inferredAgentName(d, capabilityName)
 	policyName := capabilityName + "-policy"
@@ -643,14 +818,33 @@ func writeImportedPack(from, out string, d Discovery) ([]string, error) {
 		return nil
 	}
 
-	if err := write("actlane.yaml", importedManifest(capabilityName, skillName, commandName, agentName, d)); err != nil {
+	if err := write("actlane.yaml", importedManifest(capabilityName, allSkillNames, commandName, agentName, d)); err != nil {
 		return nil, err
 	}
 	if err := write("capabilities/"+capabilityName+".yaml", importedCapability(capabilityName, skillName, commandName, agentName, policyName, d)); err != nil {
 		return nil, err
 	}
-	if err := write("skills/"+skillName+".yaml", importedSkill(skillName, d)); err != nil {
-		return nil, err
+	if len(d.Skills) == 0 {
+		if err := write("skills/"+skillName+".yaml", importedSkill(skillName, d)); err != nil {
+			return nil, err
+		}
+	} else {
+		for _, skill := range uniqueArtifacts(d.Skills) {
+			if err := write("skills/"+skill.Name+".yaml", importedSkillArtifact(skill, d)); err != nil {
+				return nil, err
+			}
+			for _, resource := range skill.Resources {
+				data, err := os.ReadFile(resource.SourcePath)
+				if err != nil {
+					return nil, fmt.Errorf("read imported skill resource %s: %w", resource.SourcePath, err)
+				}
+				rel := path.Join("skills", skill.Name, resource.Path)
+				if err := writeFile(filepath.Join(out, filepath.FromSlash(rel)), data); err != nil {
+					return nil, err
+				}
+				written = append(written, rel)
+			}
+		}
 	}
 	if commandName != "" {
 		if err := write("commands/"+commandName+".yaml", importedCommand(commandName, capabilityName, skillName, agentName, d)); err != nil {
@@ -670,10 +864,10 @@ func writeImportedPack(from, out string, d Discovery) ([]string, error) {
 			return nil, err
 		}
 	}
-	if err := write("target-profiles/opencode.yaml", importedOpenCodeTarget(d, skillName, commandName, agentName)); err != nil {
+	if err := write("target-profiles/opencode.yaml", importedOpenCodeTarget(d, allSkillNames, commandName, agentName)); err != nil {
 		return nil, err
 	}
-	if err := write("target-profiles/codex.yaml", importedCodexTarget(skillName)); err != nil {
+	if err := write("target-profiles/codex.yaml", importedCodexTarget(allSkillNames)); err != nil {
 		return nil, err
 	}
 	if err := writeFile(filepath.Join(out, "files", "AGENTS.md"), importedGuidance(from)); err != nil {
@@ -694,10 +888,14 @@ func writeImportedPack(from, out string, d Discovery) ([]string, error) {
 	return written, nil
 }
 
-func importedManifest(capabilityName, skillName, commandName, agentName string, d Discovery) map[string]any {
+func importedManifest(capabilityName string, skillNames []string, commandName, agentName string, d Discovery) map[string]any {
+	skills := make([]string, 0, len(skillNames))
+	for _, name := range skillNames {
+		skills = append(skills, "skills/"+name+".yaml")
+	}
 	spec := map[string]any{
 		"capabilities":   []string{"capabilities/" + capabilityName + ".yaml"},
-		"skills":         []string{"skills/" + skillName + ".yaml"},
+		"skills":         skills,
 		"policies":       []string{"policies/" + capabilityName + "-policy.yaml"},
 		"targets":        []string{"opencode", "codex"},
 		"targetProfiles": []string{"target-profiles/opencode.yaml", "target-profiles/codex.yaml"},
@@ -720,7 +918,7 @@ func importedManifest(capabilityName, skillName, commandName, agentName string, 
 
 func importedCapability(name, skillName, commandName, agentName, policyName string, d Discovery) map[string]any {
 	spec := map[string]any{
-		"whenToUse": "Use this imported capability when the user asks for the matching OpenCode workflow.",
+		"whenToUse": "Use this imported capability when the user asks for the matching imported workflow.",
 		"inputs":    map[string]any{"request": map[string]any{"type": "string", "required": true}},
 		"outputs":   map[string]any{"summary": map[string]any{"type": "string"}},
 		"policyRef": map[string]any{"name": policyName},
@@ -728,12 +926,12 @@ func importedCapability(name, skillName, commandName, agentName, policyName stri
 	if len(d.MCPServers) > 0 {
 		spec["executionRef"] = map[string]any{"name": name}
 	}
-	return doc("Capability", name, "", "Imported OpenCode capability.", spec, importedAnnotations(d, firstSource(d), true))
+	return doc("Capability", name, "", "Imported "+d.Runtime+" capability.", spec, importedAnnotations(d, firstSource(d), true))
 }
 
 func importedSkill(name string, d Discovery) map[string]any {
-	body := "Use the imported OpenCode workflow."
-	desc := "Imported OpenCode skill."
+	body := "Use the imported workflow."
+	desc := "Imported " + d.Runtime + " skill."
 	source := ""
 	if len(d.Skills) > 0 {
 		body = defaultString(d.Skills[0].Body, body)
@@ -745,6 +943,31 @@ func importedSkill(name string, d Discovery) map[string]any {
 		source = d.Commands[0].Path
 	}
 	return doc("SkillContract", name, "", desc, map[string]any{"body": body}, importedAnnotations(d, source, len(d.Skills) == 0))
+}
+
+func importedSkillArtifact(skill Artifact, d Discovery) map[string]any {
+	annotations := importedAnnotations(d, skill.Path, false)
+	annotations["actlane.ru/import-scope"] = defaultString(skill.Scope, "project-local")
+	if skill.Portability != "" {
+		annotations["actlane.ru/portability"] = skill.Portability
+	}
+	spec := map[string]any{"body": defaultString(skill.Body, "Use the imported Codex skill.")}
+	for _, group := range []string{"scripts", "references", "assets"} {
+		var resources []map[string]any
+		for _, resource := range skill.Resources {
+			if resource.Group != group {
+				continue
+			}
+			resources = append(resources, map[string]any{
+				"source": skill.Name + "/" + resource.Path,
+				"path":   resource.Path,
+			})
+		}
+		if len(resources) > 0 {
+			spec[group] = resources
+		}
+	}
+	return doc("SkillContract", skill.Name, "", skill.Description, spec, annotations)
 }
 
 func importedCommand(name, capabilityName, skillName, agentName string, d Discovery) map[string]any {
@@ -803,7 +1026,7 @@ func importedMCPBinding(capabilityName string, d Discovery) map[string]any {
 	var servers []map[string]any
 	var requiredTools []map[string]any
 	for _, name := range d.MCPServers {
-		server := map[string]any{"name": name.Name, "provider": name.Name, "source": "opencode", "transport": defaultString(name.Type, "local")}
+		server := map[string]any{"name": name.Name, "provider": name.Name, "source": defaultString(name.Scope, d.Runtime), "transport": defaultString(name.Type, "local")}
 		if len(name.Command) > 0 {
 			server["command"] = []string{name.Command[0]}
 			if len(name.Command) > 1 {
@@ -813,7 +1036,7 @@ func importedMCPBinding(capabilityName string, d Discovery) map[string]any {
 		if name.URL != "" {
 			server["url"] = name.URL
 		}
-		if len(name.Env) > 0 {
+		if len(name.Env) > 0 && name.Scope != "global" {
 			server["env"] = name.Env
 		}
 		if len(name.Headers) > 0 {
@@ -844,7 +1067,7 @@ func importedMCPBinding(capabilityName string, d Discovery) map[string]any {
 	return doc("MCPBinding", capabilityName, "", "Inferred imported MCP binding.", spec, importedAnnotations(d, "opencode.jsonc", true))
 }
 
-func importedOpenCodeTarget(d Discovery, skillName, commandName, agentName string) map[string]any {
+func importedOpenCodeTarget(d Discovery, skillNames []string, commandName, agentName string) map[string]any {
 	permission := d.Permissions
 	if len(permission) == 0 {
 		permission = map[string]string{"bash": "ask", "edit": "ask", "skill": "allow"}
@@ -859,7 +1082,9 @@ func importedOpenCodeTarget(d Discovery, skillName, commandName, agentName strin
 	if agentName != "" {
 		files = append(files, map[string]any{"targetPath": ".opencode/agents/" + agentName + ".md", "generatedPath": "generated/opencode/.opencode/agents/" + agentName + ".md", "agentContract": agentName, "owned": true})
 	}
-	files = append(files, map[string]any{"targetPath": ".opencode/skills/" + skillName + "/SKILL.md", "generatedPath": "generated/opencode/.opencode/skills/" + skillName + "/SKILL.md", "skillContract": skillName, "owned": true})
+	for _, skillName := range skillNames {
+		files = append(files, map[string]any{"targetPath": ".opencode/skills/" + skillName + "/SKILL.md", "generatedPath": "generated/opencode/.opencode/skills/" + skillName + "/SKILL.md", "skillContract": skillName, "owned": true})
+	}
 	spec := map[string]any{
 		"target": "opencode", "scope": "project",
 		"output":  map[string]any{"root": "generated/opencode"},
@@ -872,7 +1097,11 @@ func importedOpenCodeTarget(d Discovery, skillName, commandName, agentName strin
 	return doc("TargetProfile", "opencode", "", "OpenCode project-local target.", spec, importedAnnotations(d, "opencode.jsonc", false))
 }
 
-func importedCodexTarget(skillName string) map[string]any {
+func importedCodexTarget(skillNames []string) map[string]any {
+	files := []map[string]any{{"targetPath": "AGENTS.md", "generatedPath": "generated/codex/AGENTS.md", "ownedBlock": true}}
+	for _, skillName := range skillNames {
+		files = append(files, map[string]any{"targetPath": ".codex/skills/" + skillName + "/SKILL.md", "generatedPath": "generated/codex/.codex/skills/" + skillName + "/SKILL.md", "skillContract": skillName, "owned": true})
+	}
 	spec := map[string]any{
 		"target": "codex", "scope": "project",
 		"output":  map[string]any{"root": "generated/codex", "config": "codex.config.toml"},
@@ -880,10 +1109,7 @@ func importedCodexTarget(skillName string) map[string]any {
 		"generate": map[string]any{
 			"config": true, "instructions": true, "agents": false, "commands": false, "skills": true, "mcp": false,
 		},
-		"codex": map[string]any{"config": map[string]any{"filename": "codex.config.toml"}, "files": []map[string]any{
-			{"targetPath": "AGENTS.md", "generatedPath": "generated/codex/AGENTS.md", "ownedBlock": true},
-			{"targetPath": ".codex/skills/" + skillName + "/SKILL.md", "generatedPath": "generated/codex/.codex/skills/" + skillName + "/SKILL.md", "skillContract": skillName, "owned": true},
-		}},
+		"codex": map[string]any{"config": map[string]any{"filename": "codex.config.toml"}, "files": files},
 	}
 	return doc("TargetProfile", "codex", "", "Codex project-local target.", spec, nil)
 }
@@ -917,13 +1143,13 @@ func importedAnnotations(d Discovery, source string, inferred bool) map[string]s
 }
 
 func importedGuidance(from string) []byte {
-	for _, rel := range []string{"AGENTS.md", ".opencode/AGENTS.md"} {
+	for _, rel := range []string{"AGENTS.md", "AGENTS.MD", ".codex/AGENTS.md", ".opencode/AGENTS.md"} {
 		data, err := os.ReadFile(filepath.Join(from, filepath.FromSlash(rel)))
 		if err == nil && len(bytes.TrimSpace(data)) > 0 {
 			return append(bytes.TrimRight(data, "\n"), '\n')
 		}
 	}
-	return []byte("Imported OpenCode project guidance. Review this file before applying generated profiles.\n")
+	return []byte("Imported project guidance. Review this file before applying generated profiles.\n")
 }
 
 func importReport(d Discovery, capabilityName, skillName, commandName, agentName string) string {
@@ -936,6 +1162,24 @@ func importReport(d Discovery, capabilityName, skillName, commandName, agentName
 	writeReportItems(&b, "agent", namesOr(agentName))
 	writeReportItems(&b, "skill", namesOr(skillName))
 	writeReportItems(&b, "mcp server", mcpServerNames(d.MCPServers))
+	b.WriteString("\n## Global inventory\n\n")
+	for _, skill := range d.GlobalSkills {
+		b.WriteString("- skill: " + skill.Name + " [" + skill.Portability + "]\n")
+	}
+	for _, server := range d.GlobalMCPServers {
+		b.WriteString("- mcp: " + server.Name + " [" + server.Portability + "]\n")
+	}
+	for _, hook := range d.GlobalHooks {
+		b.WriteString("- hook: " + hook.Name + " [" + hook.Portability + "]\n")
+	}
+	b.WriteString("\n## Explicit global imports\n\n")
+	writeReportItems(&b, "skill", scopedArtifactNames(d.Skills, "global"))
+	writeReportItems(&b, "mcp server", scopedMCPNames(d.MCPServers, "global"))
+	for _, server := range d.MCPServers {
+		if len(server.EnvNames) > 0 {
+			b.WriteString("- required env names for " + server.Name + ": " + strings.Join(server.EnvNames, ", ") + " (values excluded)\n")
+		}
+	}
 	b.WriteString("\n## Inferred\n\n")
 	writeReportItems(&b, "capability", []string{capabilityName})
 	writeReportItems(&b, "policy", []string{capabilityName + "-policy"})
@@ -944,6 +1188,8 @@ func importReport(d Discovery, capabilityName, skillName, commandName, agentName
 	}
 	b.WriteString("\nWarnings:\n")
 	warnings := append([]string{}, d.Warnings...)
+	warnings = append(warnings, "Global configuration has lower migration accuracy; review and migrate global configuration manually when possible.")
+	warnings = append(warnings, "Hooks, credentials, auth, sessions, history, trust state, logs, caches, SQLite state, and MCP environment values were not imported.")
 	if len(d.MCPServers) > 0 {
 		warnings = append(warnings, "Capability, policy, and MCP binding were inferred and require review.")
 	} else {
@@ -959,6 +1205,26 @@ func mcpServerNames(servers []MCPServer) []string {
 	names := make([]string, 0, len(servers))
 	for _, server := range servers {
 		names = append(names, server.Name)
+	}
+	return names
+}
+
+func scopedArtifactNames(artifacts []Artifact, scope string) []string {
+	var names []string
+	for _, artifact := range artifacts {
+		if artifact.Scope == scope {
+			names = append(names, artifact.Name)
+		}
+	}
+	return names
+}
+
+func scopedMCPNames(servers []MCPServer, scope string) []string {
+	var names []string
+	for _, server := range servers {
+		if server.Scope == scope {
+			names = append(names, server.Name)
+		}
 	}
 	return names
 }
@@ -1019,6 +1285,17 @@ func inferredSkillName(d Discovery, fallback string) string {
 		return d.Skills[0].Name
 	}
 	return fallback
+}
+
+func importedSkillNames(d Discovery, fallback string) []string {
+	if len(d.Skills) == 0 {
+		return []string{fallback}
+	}
+	var names []string
+	for _, skill := range uniqueArtifacts(d.Skills) {
+		names = append(names, skill.Name)
+	}
+	return names
 }
 
 func inferredCommandName(d Discovery, fallback string) string {
@@ -1149,6 +1426,97 @@ func cleanName(value string) string {
 		return "imported-artifact"
 	}
 	return value
+}
+
+func snakeCase(value string) string {
+	value = regexp.MustCompile(`([a-z0-9])([A-Z])`).ReplaceAllString(value, `${1}_${2}`)
+	value = strings.ToLower(value)
+	value = regexp.MustCompile(`[^a-z0-9]+`).ReplaceAllString(value, "_")
+	return strings.Trim(value, "_")
+}
+
+func uniqueNames(values []string) []string {
+	seen := map[string]bool{}
+	var result []string
+	for _, value := range values {
+		value = cleanName(value)
+		if value == "" || seen[value] {
+			continue
+		}
+		seen[value] = true
+		result = append(result, value)
+	}
+	return result
+}
+
+func uniqueArtifacts(values []Artifact) []Artifact {
+	seen := map[string]bool{}
+	var result []Artifact
+	for _, value := range values {
+		if seen[value.Name] {
+			continue
+		}
+		seen[value.Name] = true
+		result = append(result, value)
+	}
+	return result
+}
+
+func uniqueMCPServers(values []MCPServer) []MCPServer {
+	seen := map[string]bool{}
+	var result []MCPServer
+	for _, value := range values {
+		if seen[value.Name] {
+			continue
+		}
+		seen[value.Name] = true
+		result = append(result, value)
+	}
+	return result
+}
+
+func findArtifact(values []Artifact, name string) (Artifact, bool) {
+	name = cleanName(name)
+	for _, value := range values {
+		if value.Name == name {
+			return value, true
+		}
+	}
+	return Artifact{}, false
+}
+
+func findMCPServer(values []MCPServer, name string) (MCPServer, bool) {
+	for _, value := range values {
+		if value.Name == name || cleanName(value.Name) == cleanName(name) {
+			return value, true
+		}
+	}
+	return MCPServer{}, false
+}
+
+func findMCPServerIndex(values []MCPServer, name string) int {
+	for i := range values {
+		if values[i].Name == name {
+			return i
+		}
+	}
+	return -1
+}
+
+func defaultMatchName(matches []string) string {
+	if len(matches) < 3 {
+		return ""
+	}
+	return defaultString(matches[1], matches[2])
+}
+
+func appendUnique(values []string, value string) []string {
+	for _, existing := range values {
+		if existing == value {
+			return values
+		}
+	}
+	return append(values, value)
 }
 
 func marshalYAML(value any) ([]byte, error) {

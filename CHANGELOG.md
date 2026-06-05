@@ -12,7 +12,9 @@ SemVer rationale:
 ### Changed
 
 - Added `actlane inspect --ai-agent codex` for detecting Codex project/global guidance, skills, and MCP server config.
-- Added Codex import support for producing a portable Actlane pack from detected Codex setup.
+- Added safe Codex global inventory and explicit repeatable `--include-global-skill` and `--include-global-mcp` import flags.
+- Added Codex skill-directory import for `SKILL.md` and regular files under `scripts/`, `references/`, and `assets/`, while excluding symlinks.
+- Excluded global hooks, secrets, environment values, credentials, auth, sessions, history, trust state, logs, caches, and SQLite state from imported packs.
 - Updated README use cases to show `Codex config -> Actlane pack -> approved transfer -> OpenCode generation`.
 - Updated CLI/runtime/generator versions to `0.3.0-alpha.13`.
 

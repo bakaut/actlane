@@ -98,6 +98,20 @@ codex mcp list
 
 Imported capability, policy, and MCP binding objects may be inferred. Review `actlane import report` before trusting the pack as a safety contract.
 
+## Safe Codex Global Import
+
+`actlane inspect --ai-agent codex` separates project-local objects from read-only global inventory. Ordinary Codex import includes project-local objects only.
+
+Select supported global objects explicitly with repeatable flags:
+
+```bash
+actlane import --ai-agent codex \
+  --include-global-skill code-review \
+  --include-global-mcp github
+```
+
+Selected skills include `SKILL.md` plus regular files under `scripts/`, `references/`, and `assets/`; symlinks are excluded. MCP environment variable names are reported, but values are never transferred. Hooks, credentials, auth, sessions, history, trust state, logs, caches, and SQLite state are excluded. Review absolute paths and machine-specific MCP commands manually.
+
 The source of truth for Actlane JSON Schemas is outside this Go module:
 
 ```text

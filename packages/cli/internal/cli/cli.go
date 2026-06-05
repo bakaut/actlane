@@ -101,6 +101,10 @@ func runInspect(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stdout, "Try: actlane inspect --ai-agent opencode or --ai-agent codex")
 		return 0
 	}
+	if discovery.Runtime == "codex" {
+		printCodexInspection(stdout, discovery)
+		return 0
+	}
 	fmt.Fprintln(stdout, "Detected:")
 	fmt.Fprintf(stdout, "- ai-agent: %s\n", discovery.Runtime)
 	fmt.Fprintf(stdout, "- confidence: %s\n", discovery.Confidence)
@@ -128,6 +132,53 @@ func runInspect(args []string, stdout, stderr io.Writer) int {
 	return 0
 }
 
+func printCodexInspection(stdout io.Writer, discovery adoption.Discovery) {
+	fmt.Fprintln(stdout, "Detected:")
+	fmt.Fprintln(stdout, "- ai-agent: codex")
+	fmt.Fprintf(stdout, "- confidence: %s\n\n", discovery.Confidence)
+	fmt.Fprintln(stdout, "Project-local:")
+	for _, guidance := range discovery.Agents {
+		fmt.Fprintf(stdout, "- guidance: %s\n", filepath.Base(guidance.Path))
+	}
+	for _, skill := range discovery.Skills {
+		fmt.Fprintf(stdout, "- skill: %s\n", skill.Name)
+	}
+	for _, server := range discovery.MCPServers {
+		fmt.Fprintf(stdout, "- mcp: %s\n", server.Name)
+	}
+	fmt.Fprintln(stdout, "\nAvailable global objects:")
+	for _, skill := range discovery.GlobalSkills {
+		fmt.Fprintf(stdout, "- skill: %s [%s]\n", skill.Name, skill.Portability)
+	}
+	for _, server := range discovery.GlobalMCPServers {
+		fmt.Fprintf(stdout, "- mcp: %s [%s]\n", server.Name, server.Portability)
+		if server.Reason != "" && strings.Contains(strings.ToLower(server.Reason), "absolute") {
+			fmt.Fprintf(stdout, "  reason: %s\n", server.Reason)
+		}
+	}
+	for _, hook := range discovery.GlobalHooks {
+		fmt.Fprintf(stdout, "- hook: %s [%s]\n", hook.Name, hook.Portability)
+	}
+	fmt.Fprintln(stdout, "\nGlobal configuration has lower migration accuracy.")
+	fmt.Fprintln(stdout, "Safe candidates:")
+	fmt.Fprintln(stdout, "- Global skills without external dependencies.")
+	fmt.Fprintln(stdout, "Import with caution:")
+	fmt.Fprintln(stdout, "- MCP servers may contain local paths and machine-specific commands.")
+	fmt.Fprintln(stdout, "- MCP environment variable values are never transferred.")
+	fmt.Fprintln(stdout, "Not imported:")
+	fmt.Fprintln(stdout, "- Hooks, credentials, auth, sessions, history, trust state, logs, caches, and SQLite state.")
+	fmt.Fprintln(stdout, "Recommendation:")
+	fmt.Fprintln(stdout, "- Review and migrate global configuration manually when possible.")
+	fmt.Fprintln(stdout, "\nNext:")
+	fmt.Fprintln(stdout, "  actlane import --ai-agent codex")
+	for _, skill := range discovery.GlobalSkills {
+		fmt.Fprintf(stdout, "  actlane import --ai-agent codex --include-global-skill %s\n", skill.Name)
+	}
+	for _, server := range discovery.GlobalMCPServers {
+		fmt.Fprintf(stdout, "  actlane import --ai-agent codex --include-global-mcp %s\n", server.Name)
+	}
+}
+
 func runImport(args []string, stdout, stderr io.Writer) int {
 	if len(args) > 0 && args[0] == "report" {
 		return runImportReport(args[1:], stdout, stderr)
@@ -141,8 +192,12 @@ func runImport(args []string, stdout, stderr io.Writer) int {
 			opts.Out = strings.TrimPrefix(args[i], "--out=")
 		case strings.HasPrefix(args[i], "--ai-agent="):
 			opts.AIAgent = strings.TrimPrefix(args[i], "--ai-agent=")
-		case args[i] == "opencode":
-			opts.AIAgent = "opencode"
+		case strings.HasPrefix(args[i], "--include-global-skill="):
+			opts.IncludeGlobalSkills = append(opts.IncludeGlobalSkills, strings.TrimPrefix(args[i], "--include-global-skill="))
+		case strings.HasPrefix(args[i], "--include-global-mcp="):
+			opts.IncludeGlobalMCP = append(opts.IncludeGlobalMCP, strings.TrimPrefix(args[i], "--include-global-mcp="))
+		case args[i] == "opencode" || args[i] == "codex":
+			opts.AIAgent = args[i]
 		case args[i] == "--from":
 			i++
 			if i >= len(args) {
@@ -164,6 +219,20 @@ func runImport(args []string, stdout, stderr io.Writer) int {
 				return 2
 			}
 			opts.AIAgent = args[i]
+		case args[i] == "--include-global-skill":
+			i++
+			if i >= len(args) {
+				fmt.Fprintln(stderr, "--include-global-skill requires a value")
+				return 2
+			}
+			opts.IncludeGlobalSkills = append(opts.IncludeGlobalSkills, args[i])
+		case args[i] == "--include-global-mcp":
+			i++
+			if i >= len(args) {
+				fmt.Fprintln(stderr, "--include-global-mcp requires a value")
+				return 2
+			}
+			opts.IncludeGlobalMCP = append(opts.IncludeGlobalMCP, args[i])
 		case args[i] == "--force":
 			opts.Force = true
 		default:

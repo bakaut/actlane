@@ -53,6 +53,14 @@ actlane import --ai-agent codex
 actlane pack create
 ```
 
+Global Codex skills and MCP servers are inventory-only by default. Import selected portable candidates explicitly:
+
+```bash
+actlane import --ai-agent codex \
+  --include-global-skill code-review \
+  --include-global-mcp github
+```
+
 Then Developer A sends `actlane-pack.zip` to Developer B through an approved file-transfer channel.
 
 Then Developer B generates an OpenCode profile from the received pack:
@@ -62,4 +70,4 @@ actlane pack inspect ./actlane-pack.zip
 actlane generate ./actlane-pack.zip --target opencode
 ```
 
-This is the intended migration flow: `Codex config -> Actlane pack -> approved transfer -> OpenCode generation`. Codex import captures project/global Codex guidance, skills, and MCP server config into a portable pack.
+This is the intended migration flow: `Codex config -> Actlane pack -> approved transfer -> OpenCode generation`. Environment values, hooks, credentials, auth, sessions, history, trust state, logs, caches, and SQLite state are never transferred.

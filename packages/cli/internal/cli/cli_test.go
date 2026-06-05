@@ -1442,6 +1442,7 @@ Use the GitHub draft PR workflow.
 
 func TestInspectCodexProjectConfig(t *testing.T) {
 	projectDir := filepath.Join(t.TempDir(), "project")
+	t.Setenv("CODEX_HOME", filepath.Join(t.TempDir(), "empty-codex-home"))
 	writeTestFile(t, filepath.Join(projectDir, "AGENTS.md"), "Project Codex guidance.\n")
 	writeTestFile(t, filepath.Join(projectDir, ".codex/config.toml"), `
 [mcp_servers.github]
@@ -1461,11 +1462,148 @@ Use the GitHub draft PR workflow.
 	if code != 0 {
 		t.Fatalf("inspect failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
 	}
-	for _, want := range []string{"ai-agent: codex", "confidence: high", "skill: create-github-draft-pr", "mcp server: github"} {
+	for _, want := range []string{"ai-agent: codex", "confidence: high", "Project-local:", "skill: create-github-draft-pr", "mcp: github", "Available global objects:"} {
 		if !strings.Contains(stdout.String(), want) {
 			t.Fatalf("inspect codex output missing %q:\n%s", want, stdout.String())
 		}
 	}
+}
+
+func TestCodexGlobalInventoryAndExplicitImport(t *testing.T) {
+	projectDir := filepath.Join(t.TempDir(), "project")
+	codexHome := filepath.Join(t.TempDir(), ".codex")
+	t.Setenv("CODEX_HOME", codexHome)
+	writeTestFile(t, filepath.Join(projectDir, "AGENTS.md"), "Project Codex guidance.\n")
+	writeTestFile(t, filepath.Join(projectDir, ".codex/skills/project-skill/SKILL.md"), `---
+name: project-skill
+description: Project skill.
+---
+
+Project workflow.
+`)
+	writeTestFile(t, filepath.Join(codexHome, "skills/code-review/SKILL.md"), `---
+name: code-review
+description: Global review skill.
+---
+
+	Review carefully.
+`)
+	writeTestFile(t, filepath.Join(codexHome, "skills/code-review/references/checklist.md"), "Review checklist.\n")
+	writeTestFile(t, filepath.Join(codexHome, "skills/code-review/scripts/check.sh"), "#!/bin/sh\nexit 0\n")
+	outsideResource := filepath.Join(t.TempDir(), "outside-secret.txt")
+	writeTestFile(t, outsideResource, "must not be imported\n")
+	if err := os.Symlink(outsideResource, filepath.Join(codexHome, "skills/code-review/references/outside-secret.txt")); err != nil {
+		t.Fatalf("create skill resource symlink: %v", err)
+	}
+	writeTestFile(t, filepath.Join(codexHome, "skills/incident-response/SKILL.md"), `---
+name: incident-response
+description: Global incident response skill.
+---
+
+Respond carefully.
+`)
+	writeTestFile(t, filepath.Join(codexHome, "config.toml"), `
+[mcp_servers.github]
+command = "/usr/local/bin/github-mcp-server"
+args = ["stdio"]
+env = { GITHUB_TOKEN = "secret-token" }
+
+[mcp_servers.lean-ctx]
+command = "lean-ctx"
+`)
+	writeTestFile(t, filepath.Join(codexHome, "hooks.json"), `{"hooks":{"PreToolUse":[{"hooks":[{"command":"danger"}]}]}}`)
+
+	var stdout, stderr bytes.Buffer
+	code := Main([]string{"inspect", "--from", projectDir, "--ai-agent", "codex"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("inspect failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	for _, want := range []string{
+		"Project-local:",
+		"skill: project-skill",
+		"Available global objects:",
+		"skill: code-review [portable candidate]",
+		"skill: incident-response [portable candidate]",
+		"mcp: github [review required]",
+		"hook: pre_tool_use [not portable]",
+		"MCP environment variable values are never transferred",
+		"--include-global-skill code-review",
+		"--include-global-skill incident-response",
+		"--include-global-mcp github",
+		"--include-global-mcp lean-ctx",
+	} {
+		if !strings.Contains(stdout.String(), want) {
+			t.Fatalf("inspect output missing %q:\n%s", want, stdout.String())
+		}
+	}
+
+	localOnly := filepath.Join(t.TempDir(), "local-only")
+	stdout.Reset()
+	stderr.Reset()
+	code = Main([]string{"import", "--from", projectDir, "--out", localOnly, "--ai-agent", "codex"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("local import failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	assertNotExists(t, filepath.Join(localOnly, "skills/code-review.yaml"))
+	assertNotExists(t, filepath.Join(localOnly, "skills/incident-response.yaml"))
+	if content := readFile(t, filepath.Join(localOnly, "import.report.md")); strings.Contains(content, "Explicit global imports\n\n- skill: code-review") {
+		t.Fatalf("ordinary import must not include global skill:\n%s", content)
+	}
+
+	selected := filepath.Join(t.TempDir(), "selected")
+	stdout.Reset()
+	stderr.Reset()
+	code = Main([]string{
+		"import", "--from", projectDir, "--out", selected, "--ai-agent", "codex",
+		"--include-global-skill", "code-review",
+		"--include-global-skill", "incident-response",
+		"--include-global-mcp=github",
+		"--include-global-mcp=lean-ctx",
+	}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("selected import failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	assertExists(t, filepath.Join(selected, "skills/project-skill.yaml"))
+	assertExists(t, filepath.Join(selected, "skills/code-review.yaml"))
+	assertExists(t, filepath.Join(selected, "skills/incident-response.yaml"))
+	assertExists(t, filepath.Join(selected, "skills/code-review/references/checklist.md"))
+	assertExists(t, filepath.Join(selected, "skills/code-review/scripts/check.sh"))
+	assertNotExists(t, filepath.Join(selected, "skills/code-review/references/outside-secret.txt"))
+	binding := readFile(t, filepath.Join(selected, "mcp/bindings/project-skill.yaml"))
+	report := readFile(t, filepath.Join(selected, "import.report.md"))
+	for _, content := range []string{binding, report} {
+		if strings.Contains(content, "secret-token") {
+			t.Fatalf("MCP env value leaked:\n%s", content)
+		}
+		if strings.Contains(content, "danger") {
+			t.Fatalf("hook command leaked:\n%s", content)
+		}
+	}
+	for _, want := range []string{"name: github", "/usr/local/bin/github-mcp-server", "name: lean-ctx"} {
+		if !strings.Contains(binding, want) {
+			t.Fatalf("selected binding missing %q:\n%s", want, binding)
+		}
+	}
+	for _, want := range []string{"skill: code-review", "skill: incident-response", "mcp server: github", "mcp server: lean-ctx", "GITHUB_TOKEN (values excluded)", "hook: pre_tool_use [not portable]"} {
+		if !strings.Contains(report, want) {
+			t.Fatalf("selected report missing %q:\n%s", want, report)
+		}
+	}
+	stdout.Reset()
+	stderr.Reset()
+	code = Main([]string{"validate", selected}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("selected global import must validate, code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	stdout.Reset()
+	stderr.Reset()
+	code = Main([]string{"generate", selected, "--target", "codex"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("selected global import must generate, code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	assertExists(t, filepath.Join(selected, "generated/codex/.codex/skills/code-review/references/checklist.md"))
+	assertExists(t, filepath.Join(selected, "generated/codex/.codex/skills/code-review/scripts/check.sh"))
+	assertExists(t, filepath.Join(selected, "generated/codex/.codex/skills/incident-response/SKILL.md"))
 }
 
 func TestPackInitCreatesValidScaffoldAndDoesNotOverwrite(t *testing.T) {
