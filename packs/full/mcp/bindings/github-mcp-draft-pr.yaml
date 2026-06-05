@@ -1,0 +1,53 @@
+$schema: https://actlane.ru/schemas/v1alpha1/mcp-binding.schema.json
+apiVersion: actlane.ru/v1alpha1
+kind: MCPBinding
+
+metadata:
+  name: github-mcp-draft-pr
+  title: GitHub MCP Draft PR Binding
+  description: Binds create-github-draft-pr to the official GitHub MCP Server.
+
+spec:
+  capabilityRef:
+    name: create-github-draft-pr
+
+  mcpservers:
+    - name: github
+      provider: official-github-mcp
+      source: https://github.com/github/github-mcp-server
+      transport: stdio
+      command:
+        - docker
+      args:
+        - run
+        - -i
+        - --rm
+        - -e
+        - GITHUB_PERSONAL_ACCESS_TOKEN
+        - -e
+        - GITHUB_TOOLS
+        - ghcr.io/github/github-mcp-server
+      env:
+        GITHUB_PERSONAL_ACCESS_TOKEN:
+          fromEnv: GITHUB_PERSONAL_ACCESS_TOKEN
+        GITHUB_TOOLS: create_branch,push_files,create_pull_request
+  requiredTools:
+    - name: create_branch
+      server: github
+      toolset: repos
+      requiredScopes:
+        - repo
+    - name: push_files
+      server: github
+      toolset: repos
+      requiredScopes:
+        - repo
+    - name: create_pull_request
+      server: github
+      toolset: pull_requests
+      requiredScopes:
+        - repo
+
+  strategy:
+    type: builtin
+    handler: actlane.github.createDraftPr

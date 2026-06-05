@@ -1,0 +1,26 @@
+$schema: https://actlane.ru/schemas/v1alpha1/mcp-binding.schema.json
+apiVersion: actlane.ru/v1alpha1
+kind: MCPBinding
+metadata:
+  name: actlane-mcp-broker
+  title: Actlane MCP Broker Binding
+  description: Local Actlane MCP broker for classify, load, run, evidence, and delivery flow.
+spec:
+  capabilityRef:
+    name: create-github-draft-pr
+  mcpservers:
+    - name: actlane-mcp-broker
+      provider: actlane
+      source: local
+      transport: stdio
+      command:
+        - actlane
+      args:
+        - mcp
+        - serve
+        - --pack
+        - ./packs/create-github-draft-pr
+  requiredTools: []
+  strategy:
+    type: builtin
+    handler: actlane.mcp.broker

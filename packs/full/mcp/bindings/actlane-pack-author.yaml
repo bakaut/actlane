@@ -1,0 +1,27 @@
+$schema: https://actlane.ru/schemas/v1alpha1/mcp-binding.schema.json
+apiVersion: actlane.ru/v1alpha1
+kind: MCPBinding
+metadata:
+  name: actlane-pack-author
+  title: Actlane Pack Authoring MCP Binding
+  description: Local Actlane MCP server for guided pack inspection, validation, planning, and confirmed source contract edits.
+spec:
+  capabilityRef:
+    name: create-github-draft-pr
+  mcpservers:
+    - name: actlane-pack-author
+      provider: actlane
+      source: local
+      transport: stdio
+      command:
+        - actlane
+      args:
+        - mcp
+        - author
+        - serve
+        - --pack
+        - ./packs/create-github-draft-pr
+  requiredTools: []
+  strategy:
+    type: builtin
+    handler: actlane.pack.author

@@ -1,0 +1,95 @@
+$schema: https://actlane.ru/schemas/v1alpha1/capability.schema.json
+apiVersion: actlane.ru/v1alpha1
+kind: Capability
+
+metadata:
+  name: create-github-draft-pr
+  title: Create GitHub Draft PR
+  description: Safely prepare a GitHub draft pull request from reviewed changes.
+  labels:
+    domain: gitops
+    risk: medium
+
+spec:
+  intent:
+    type: mutating
+
+    whenToUse:
+      - Use after changes are reviewed and the user asks to prepare a GitHub draft PR.
+
+    whenNotToUse:
+      - Do not use for architecture-only discussion.
+      - Do not use before explicit user confirmation.
+      - Do not use for direct production deploys.
+
+  interface:
+    input:
+      type: object
+      required:
+        - repo
+        - baseBranch
+        - branch
+        - title
+        - summary
+        - files
+        - confirmed
+      properties:
+        repo:
+          type: string
+          description: Repository in owner/name format, for example bakaut/development.
+        baseBranch:
+          type: string
+          description: Base branch for the pull request.
+        branch:
+          type: string
+          description: Requested branch name. Policy may add a safe prefix.
+        title:
+          type: string
+          description: Pull request title.
+        summary:
+          type: string
+          description: Human-reviewed summary of the change.
+        files:
+          type: array
+          description: Reviewed file paths that may be committed.
+          items:
+            type: string
+        confirmed:
+          type: boolean
+          description: Must be true after explicit user confirmation.
+
+    output:
+      type: object
+      properties:
+        prUrl:
+          type: string
+        branch:
+          type: string
+        policyDecision:
+          type: string
+        summary:
+          type: string
+        changedFiles:
+          type: array
+          items:
+            type: string
+
+  policyRef:
+    name: github-draft-pr-policy
+
+  executionRef:
+    name: github-mcp-draft-pr
+
+  responsibilityRef:
+    name: create-github-draft-pr
+
+  runtimeRef:
+    name: create-github-draft-pr
+
+  evidenceRef:
+    name: create-github-draft-pr
+
+  reporting:
+    includeChangedFiles: true
+    includePolicyDecision: true
+    includePrUrl: true

@@ -1,0 +1,29 @@
+$schema: https://actlane.ru/schemas/v1alpha1/skill-contract.schema.json
+apiVersion: actlane.ru/v1alpha1
+kind: SkillContract
+
+metadata:
+  name: create-github-draft-pr
+  description: Safely prepare a GitHub draft pull request from reviewed changes.
+
+spec:
+  body: |-
+    Safely prepare a GitHub draft pull request from reviewed changes.
+
+    When to use:
+
+    - Use after changes are reviewed and the user asks to prepare a GitHub draft PR.
+
+    When not to use:
+
+    - Do not use for architecture-only discussion.
+    - Do not use before explicit user confirmation.
+    - Do not use for direct production deploys.
+
+    Workflow:
+
+    - `inspect-project`: Inspect current repository, existing agent files, and target agent config before mutation.
+    - `run-tests`: Run project test command when configured by the user or project.
+    - `create-branch`: Create a branch using the required safe prefix after confirmation.
+    - `push-files`: Push reviewed files only after confirmation.
+    - `create-draft-pr`: Create a GitHub draft pull request after confirmation.
