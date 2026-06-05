@@ -120,7 +120,7 @@ func TestValidateSkillBodySourceBoundaries(t *testing.T) {
 	t.Run("requires a body source", func(t *testing.T) {
 		packDir := copyPackToTemp(t)
 		path := filepath.Join(packDir, "skills/dushnila.yaml")
-		content := strings.Replace(readFile(t, path), "  bodySource: dushnila/SKILL.md\n", "", 1)
+		content := strings.Replace(normalizeNewlines(readFile(t, path)), "  bodySource: dushnila/SKILL.md\n", "", 1)
 		writeTestFile(t, path, content)
 		assertValidateFails(t, packDir, "exactly one of spec.body or spec.bodySource")
 	})
@@ -703,7 +703,7 @@ func TestMCPServeExecutesAdaptersAndPersistsEvidenceWhenExplicitlyEnabled(t *tes
 func TestPatchGitHubBindingForFakeMCPSupportsCRLF(t *testing.T) {
 	packDir := copyPackToTemp(t)
 	path := filepath.Join(packDir, "mcp/bindings/github-mcp-draft-pr.yaml")
-	content := strings.ReplaceAll(readFile(t, path), "\n", "\r\n")
+	content := strings.ReplaceAll(normalizeNewlines(readFile(t, path)), "\n", "\r\n")
 	writeTestFile(t, path, content)
 
 	patchGitHubBindingForFakeMCP(t, packDir)
@@ -1918,8 +1918,7 @@ func copyDir(t *testing.T, src, dst string) {
 func patchGitHubBindingForFakeMCP(t *testing.T, packDir string) {
 	t.Helper()
 	path := filepath.Join(packDir, "mcp/bindings/github-mcp-draft-pr.yaml")
-	content := readFile(t, path)
-	content = strings.ReplaceAll(content, "\r\n", "\n")
+	content := normalizeNewlines(readFile(t, path))
 	start := strings.Index(content, "  mcpservers:\n")
 	end := strings.Index(content, "  requiredTools:\n")
 	if start < 0 || end < 0 || end <= start {
@@ -1941,6 +1940,11 @@ func patchGitHubBindingForFakeMCP(t *testing.T, packDir string) {
 	if err := os.WriteFile(path, []byte(content[:start]+replacement+content[end:]), 0o644); err != nil {
 		t.Fatal(err)
 	}
+}
+
+func normalizeNewlines(content string) string {
+	content = strings.ReplaceAll(content, "\r\n", "\n")
+	return strings.ReplaceAll(content, "\r", "\n")
 }
 
 func runFakeMCPServer(t *testing.T) {
