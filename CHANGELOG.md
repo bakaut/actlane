@@ -11,6 +11,8 @@ SemVer rationale:
 
 ### Changed
 
+- Added safe adoption `plan`, `apply`, and `remove` support for OpenCode target profiles with conflict protection for existing `opencode.jsonc`.
+- Repaired `packs/full` manifest references so the preserved full-feature compatibility fixture validates and generates again.
 - Added safe external Markdown bodies through exactly one of `SkillContract.spec.body` or `spec.bodySource`.
 - Added validation against missing files, directories, absolute paths, traversal, and symlink body sources.
 - Added external skill body digests to generated lockfiles and stale-output checks.

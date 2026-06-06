@@ -1075,6 +1075,129 @@ func TestPlanCodexSafeAdoptionDiffAndContent(t *testing.T) {
 	}
 }
 
+func TestPlanOpenCodeSafeAdoptionDetectsUserConfigConflict(t *testing.T) {
+	packDir := copyPackToTemp(t)
+	projectDir := t.TempDir()
+	writeTestFile(t, filepath.Join(projectDir, "opencode.jsonc"), "{\n  // user-owned\n}\n")
+	var stdout, stderr bytes.Buffer
+
+	code := Main([]string{"generate", packDir, "--target", "opencode"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("generate failed: %s", stderr.String())
+	}
+	stdout.Reset()
+	stderr.Reset()
+
+	code = Main([]string{"plan", packDir, "--target", "opencode", "--project", projectDir}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("plan failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	output := stdout.String()
+	for _, want := range []string{
+		"Plan target: opencode",
+		"Will create:",
+		".opencode/commands/create-github-draft-pr.md",
+		".opencode/skills/create-github-draft-pr/SKILL.md",
+		"broker/broker-bundle.json",
+		"policies/policy-bundle.json",
+		"Conflicts:",
+		"opencode.jsonc",
+		"Apply blocked: 1 conflict(s)",
+	} {
+		if !strings.Contains(output, want) {
+			t.Fatalf("OpenCode plan output missing %q:\n%s", want, output)
+		}
+	}
+	assertNotExists(t, filepath.Join(projectDir, ".opencode/commands/create-github-draft-pr.md"))
+}
+
+func TestApplyAndRemoveOpenCodeSafeAdoption(t *testing.T) {
+	packDir := copyPackToTemp(t)
+	projectDir := t.TempDir()
+	var stdout, stderr bytes.Buffer
+
+	code := Main([]string{"generate", packDir, "--target", "opencode"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("generate failed: %s", stderr.String())
+	}
+	stdout.Reset()
+	stderr.Reset()
+
+	code = Main([]string{"apply", packDir, "--target", "opencode", "--project", projectDir}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("apply failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	for _, path := range []string{
+		"opencode.jsonc",
+		".opencode/commands/create-github-draft-pr.md",
+		".opencode/skills/create-github-draft-pr/SKILL.md",
+		"broker/broker-bundle.json",
+		"policies/policy-bundle.json",
+	} {
+		assertExists(t, filepath.Join(projectDir, path))
+	}
+	config := readFile(t, filepath.Join(projectDir, "opencode.jsonc"))
+	if !strings.Contains(config, `"actlane-mcp-broker"`) || strings.Contains(config, `"github"`) {
+		t.Fatalf("OpenCode config must expose only Actlane broker:\n%s", config)
+	}
+
+	stdout.Reset()
+	stderr.Reset()
+	code = Main([]string{"apply", packDir, "--target", "opencode", "--project", projectDir}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("second apply failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "Skipped:") {
+		t.Fatalf("second OpenCode apply should skip unchanged output:\n%s", stdout.String())
+	}
+
+	stdout.Reset()
+	stderr.Reset()
+	code = Main([]string{"remove", packDir, "--target", "opencode", "--project", projectDir}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("remove failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	for _, path := range []string{
+		"opencode.jsonc",
+		".opencode/commands/create-github-draft-pr.md",
+		".opencode/skills/create-github-draft-pr/SKILL.md",
+		"broker/broker-bundle.json",
+		"policies/policy-bundle.json",
+	} {
+		assertNotExists(t, filepath.Join(projectDir, path))
+	}
+}
+
+func TestRemoveOpenCodeBlocksUserModifiedGeneratedFile(t *testing.T) {
+	packDir := copyPackToTemp(t)
+	projectDir := t.TempDir()
+	var stdout, stderr bytes.Buffer
+
+	code := Main([]string{"generate", packDir, "--target", "opencode"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("generate failed: %s", stderr.String())
+	}
+	stdout.Reset()
+	stderr.Reset()
+	code = Main([]string{"apply", packDir, "--target", "opencode", "--project", projectDir}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("apply failed: %s", stderr.String())
+	}
+	writeTestFile(t, filepath.Join(projectDir, "opencode.jsonc"), "{\n  // user modified\n}\n")
+
+	stdout.Reset()
+	stderr.Reset()
+	code = Main([]string{"remove", packDir, "--target", "opencode", "--project", projectDir}, &stdout, &stderr)
+	if code == 0 {
+		t.Fatalf("remove should fail on modified OpenCode config\nstdout:\n%s\nstderr:\n%s", stdout.String(), stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "Conflicts:") || !strings.Contains(stderr.String(), "remove blocked") {
+		t.Fatalf("remove conflict output missing details\nstdout:\n%s\nstderr:\n%s", stdout.String(), stderr.String())
+	}
+	assertExists(t, filepath.Join(projectDir, "opencode.jsonc"))
+	assertExists(t, filepath.Join(projectDir, ".opencode/skills/create-github-draft-pr/SKILL.md"))
+}
+
 func TestCheckDeniesWorkflowChanges(t *testing.T) {
 	packDir := copyPackToTemp(t)
 	stdin := strings.NewReader(`{"repo":"bakaut/development","baseBranch":"main","branch":"feature","title":"Test","summary":"Test","files":[".github/workflows/release.yml"],"confirmed":true}`)

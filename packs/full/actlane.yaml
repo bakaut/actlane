@@ -32,7 +32,7 @@ spec:
         - project
 
   capabilities:
-    - capabilities/create-github-draft-pr.yaml
+    - capabilities/full.yaml
 
   skills:
     - skills/create-github-draft-pr.yaml
@@ -40,28 +40,28 @@ spec:
     - skills/scope-governor.yaml
 
   commands:
-    - commands/create-github-draft-pr.yaml
+    - commands/full.yaml
 
   agents:
-    - subagents/create-github-draft-pr.yaml
+    - subagents/full.yaml
 
   contracts:
-    - contracts/create-github-draft-pr.yaml
+    - contracts/full.yaml
 
   runtimeProfiles:
-    - runtime-profiles/create-github-draft-pr.yaml
+    - runtime-profiles/full.yaml
 
   evidence:
-    - evidence/create-github-draft-pr.yaml
+    - evidence/full.yaml
 
   policies:
-    - policies/github-draft-pr.policy.yaml
+    - policies/full.yaml
 
   mcpBindings:
-    - mcp/bindings/actlane-safe-gitops.yaml
-    - mcp/bindings/actlane-mcp-broker.yaml
-    - mcp/bindings/actlane-pack-author.yaml
-    - mcp/bindings/github-mcp-draft-pr.yaml
+    - mcp/bindings/safe-gitops.yaml
+    - mcp/bindings/mcp-broker.yaml
+    - mcp/bindings/mcp-pack-author.yaml
+    - mcp/bindings/mcp-draft-pr.yaml
 
   targetProfiles:
     - target-profiles/codex.yaml

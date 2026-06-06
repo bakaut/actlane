@@ -111,8 +111,9 @@ func BuildPlan(loaded *pack.LoadedPack, opts PlanOptions) (*Plan, error) {
 	if err != nil {
 		return nil, err
 	}
-	if targetProfile.Spec.Target != "codex" {
-		return nil, fmt.Errorf("safe adoption plan currently supports codex only")
+	files, err := targetFilesForAdoption(targetProfile)
+	if err != nil {
+		return nil, err
 	}
 	if opts.From == "" {
 		opts.From = filepath.Join(loaded.Root, filepath.FromSlash(targetProfile.Spec.Output.Root))
@@ -122,7 +123,7 @@ func BuildPlan(loaded *pack.LoadedPack, opts PlanOptions) (*Plan, error) {
 		Project:   opts.Project,
 		Generated: opts.From,
 	}
-	for _, file := range targetProfile.Spec.Codex.Files {
+	for _, file := range files {
 		if file.TargetPath == "" || file.GeneratedPath == "" {
 			continue
 		}
@@ -314,14 +315,15 @@ func RemovePlan(loaded *pack.LoadedPack, opts RemoveOptions) (*RemoveResult, err
 	if err != nil {
 		return nil, err
 	}
-	if targetProfile.Spec.Target != "codex" {
-		return nil, fmt.Errorf("safe remove currently supports codex only")
+	files, err := targetFilesForAdoption(targetProfile)
+	if err != nil {
+		return nil, err
 	}
 	if opts.From == "" {
 		opts.From = filepath.Join(loaded.Root, filepath.FromSlash(targetProfile.Spec.Output.Root))
 	}
 	result := &RemoveResult{Target: opts.Target, Project: opts.Project, DryRun: opts.DryRun}
-	for _, file := range targetProfile.Spec.Codex.Files {
+	for _, file := range files {
 		if file.TargetPath == "" {
 			continue
 		}
@@ -529,6 +531,17 @@ func targetProfileForPlan(loaded *pack.LoadedPack, target string) (pack.TargetPr
 		}
 	}
 	return pack.TargetProfile{}, fmt.Errorf("unsupported target %q", target)
+}
+
+func targetFilesForAdoption(targetProfile pack.TargetProfile) ([]pack.TargetProfileFile, error) {
+	switch targetProfile.Spec.Target {
+	case "codex":
+		return targetProfile.Spec.Codex.Files, nil
+	case "opencode":
+		return targetProfile.Spec.OpenCode.Files, nil
+	default:
+		return nil, fmt.Errorf("safe adoption currently supports codex and opencode only")
+	}
 }
 
 func cleanPlanPath(filePath string) (string, error) {

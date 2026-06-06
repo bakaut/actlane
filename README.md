@@ -41,7 +41,10 @@ actlane plan ./packs/create-github-draft-pr --target codex --project .
 actlane apply ./packs/create-github-draft-pr --target codex --project .
 ```
 
-The generated Codex profile includes project-local instructions, skills, MCP config, policy bundle, and broker bundle artifacts. Review the `plan` output before `apply`.
+Use `--target opencode` to safely plan and apply the same pack for OpenCode.
+An existing user-owned `opencode.jsonc` is reported as a conflict instead of
+being overwritten or automatically merged. Review the `plan` output before
+`apply`.
 
 ## Use Case: Share Codex Config To OpenCode
 
