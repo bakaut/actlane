@@ -21,7 +21,7 @@ spec:
 
     projectPaths:
       configSnippet: .codex/config.toml
-      skillsDir: .codex/skills
+      skillsDir: .agents/skills
       instructionsFile: AGENTS.md
 
   generate:
@@ -51,15 +51,15 @@ spec:
         generatedPath: generated/codex/broker/broker-bundle.json
         owned: true
 
-      - targetPath: .codex/skills/create-github-draft-pr/SKILL.md
-        generatedPath: generated/codex/.codex/skills/create-github-draft-pr/SKILL.md
+      - targetPath: .agents/skills/create-github-draft-pr/SKILL.md
+        generatedPath: generated/codex/.agents/skills/create-github-draft-pr/SKILL.md
         skillContract: create-github-draft-pr
         owned: true
-      - targetPath: .codex/skills/dushnila/SKILL.md
-        generatedPath: generated/codex/.codex/skills/dushnila/SKILL.md
+      - targetPath: .agents/skills/dushnila/SKILL.md
+        generatedPath: generated/codex/.agents/skills/dushnila/SKILL.md
         skillContract: dushnila
         owned: true
-      - targetPath: .codex/skills/scope-governor/SKILL.md
-        generatedPath: generated/codex/.codex/skills/scope-governor/SKILL.md
+      - targetPath: .agents/skills/scope-governor/SKILL.md
+        generatedPath: generated/codex/.agents/skills/scope-governor/SKILL.md
         skillContract: scope-governor
         owned: true

@@ -12,13 +12,13 @@ actlane version
 Override install options:
 
 ```bash
-ACTLANE_VERSION=v0.3.0-alpha.14 ACTLANE_INSTALL_DIR="$HOME/.local/bin" sh -c "$(curl -fsSL https://actlane.ru/install.sh)"
+ACTLANE_VERSION=v0.3.0-alpha.15 ACTLANE_INSTALL_DIR="$HOME/.local/bin" sh -c "$(curl -fsSL https://actlane.ru/install.sh)"
 ```
 
 Docker:
 
 ```bash
-docker run --rm ghcr.io/actlane/actlane:0.3.0-alpha.14 version
+docker run --rm ghcr.io/actlane/actlane:0.3.0-alpha.15 version
 ```
 
 Implemented MVP commands:
@@ -101,6 +101,10 @@ Imported capability, policy, and MCP binding objects may be inferred. Review `ac
 ## Safe Codex Global Import
 
 `actlane inspect --ai-agent codex` separates project-local objects from read-only global inventory. Ordinary Codex import includes project-local objects only.
+
+Project-local Codex skills use `.agents/skills`, and user-global skills use
+`$HOME/.agents/skills`. Legacy project `.codex/skills` and global
+`CODEX_HOME/skills` directories remain inspectable with migration warnings.
 
 Select supported global objects explicitly with repeatable flags:
 

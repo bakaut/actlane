@@ -64,6 +64,11 @@ actlane import --ai-agent codex \
   --include-global-mcp github
 ```
 
+Codex project skills are discovered and safely adopted under
+`.agents/skills`. Actlane still reads legacy `.codex/skills` installations for
+import compatibility and reports a warning; newly generated Codex profiles use
+`.agents/skills`.
+
 Then Developer A sends `actlane-pack.zip` to Developer B through an approved file-transfer channel.
 
 Then Developer B generates an OpenCode profile from the received pack:

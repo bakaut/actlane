@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.3.0-alpha.15] - 2026-06-09
+
+Seventeenth SemVer-tagged CLI MVP release.
+
+SemVer rationale:
+
+- prerelease bump from `0.3.0-alpha.14` to `0.3.0-alpha.15` because Codex skill discovery, generation, and safe adoption now use the current project-local skill paths while preserving backward-compatible legacy import fallback before `1.0.0`;
+- keeps the `alpha` prerelease channel because agent adoption paths and contracts remain pre-stable.
+
+### Changed
+
+- Changed Codex project skill generation, scaffold defaults, and safe adoption targets from `.codex/skills` to `.agents/skills`.
+- Added Codex project skill discovery from `.agents/skills` directories between the inspected directory and repository root.
+- Added user-global Codex skill discovery from `$HOME/.agents/skills`.
+- Preserved read-only import fallback for legacy project `.codex/skills` and global `CODEX_HOME/skills`, with migration warnings and modern-path precedence.
+- Included Codex discovery warnings in human-readable `actlane inspect` output.
+- Updated tests and adoption documentation for modern and legacy Codex skill paths.
+- Updated CLI/runtime/generator, pack metadata, README examples, release workflow, and Docker workflow versions to `0.3.0-alpha.15`.
+
 ## [0.3.0-alpha.14] - 2026-06-05
 
 Sixteenth SemVer-tagged CLI MVP release.

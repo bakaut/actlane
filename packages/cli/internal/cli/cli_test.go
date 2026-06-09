@@ -310,7 +310,7 @@ func TestGenerateCodexWritesCodexProfile(t *testing.T) {
 	}
 
 	assertExists(t, filepath.Join(packDir, "generated/codex/codex.config.toml"))
-	assertExists(t, filepath.Join(packDir, "generated/codex/.codex/skills/create-github-draft-pr/SKILL.md"))
+	assertExists(t, filepath.Join(packDir, "generated/codex/.agents/skills/create-github-draft-pr/SKILL.md"))
 	assertNotExists(t, filepath.Join(packDir, "generated/codex/AGENTS.md"))
 	assertExists(t, filepath.Join(packDir, "generated/codex/policies/policy-bundle.json"))
 	assertExists(t, filepath.Join(packDir, "generated/codex/broker/broker-bundle.json"))
@@ -345,7 +345,7 @@ func TestGenerateCodexWritesCodexProfile(t *testing.T) {
 		}
 	}
 
-	skill := readFile(t, filepath.Join(packDir, "generated/codex/.codex/skills/create-github-draft-pr/SKILL.md"))
+	skill := readFile(t, filepath.Join(packDir, "generated/codex/.agents/skills/create-github-draft-pr/SKILL.md"))
 	for _, want := range []string{
 		"name: \"create-github-draft-pr\"",
 		"description: \"Safely prepare a GitHub draft pull request from reviewed changes.\"",
@@ -714,7 +714,7 @@ func TestMCPAuthorServeExposesPackAuthoringTools(t *testing.T) {
 		`\"name\": \"github-draft-pr-pack\"`,
 		`\"valid\": true`,
 		`\"target\": \"codex\"`,
-		`\"path\": \"generated/codex/.codex/skills/create-github-draft-pr/SKILL.md\"`,
+		`\"path\": \"generated/codex/.agents/skills/create-github-draft-pr/SKILL.md\"`,
 		`\"path\": \"capabilities/safe-deploy.yaml\"`,
 		`\"path\": \"target-profiles/opencode.yaml\"`,
 		`\"mutationPermitted\": false`,
@@ -735,7 +735,7 @@ func TestPlanCodexSafeAdoptionDetectsCreatesAndConflicts(t *testing.T) {
 	packDir := copyPackToTemp(t)
 	projectDir := t.TempDir()
 	writeTestFile(t, filepath.Join(projectDir, "AGENTS.md"), "# Existing guidance\n")
-	writeTestFile(t, filepath.Join(projectDir, ".codex/skills/create-github-draft-pr/SKILL.md"), "user-owned skill\n")
+	writeTestFile(t, filepath.Join(projectDir, ".agents/skills/create-github-draft-pr/SKILL.md"), "user-owned skill\n")
 	var stdout, stderr bytes.Buffer
 
 	code := Main([]string{"generate", packDir, "--target", "codex"}, &stdout, &stderr)
@@ -765,7 +765,7 @@ func TestPlanCodexSafeAdoptionDetectsCreatesAndConflicts(t *testing.T) {
 		"preview:",
 		"sha256:",
 		"Conflicts:",
-		".codex/skills/create-github-draft-pr/SKILL.md",
+		".agents/skills/create-github-draft-pr/SKILL.md",
 		"Apply blocked: 1 conflict(s)",
 	} {
 		if !strings.Contains(output, want) {
@@ -813,7 +813,7 @@ func TestPlanRequiresTargetAndDefaultsGeneratedAndCurrentProject(t *testing.T) {
 	for _, want := range []string{
 		"Plan target: codex",
 		"Generated: " + filepath.Join(packDir, "generated/codex"),
-		".codex/skills/create-github-draft-pr/SKILL.md",
+		".agents/skills/create-github-draft-pr/SKILL.md",
 		".codex/config.toml",
 		"policies/policy-bundle.json",
 		"broker/broker-bundle.json",
@@ -842,7 +842,7 @@ func TestApplyCodexSafeAdoptionCreatesAndUpdatesIdempotently(t *testing.T) {
 		t.Fatalf("apply failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
 	}
 	for _, path := range []string{
-		".codex/skills/create-github-draft-pr/SKILL.md",
+		".agents/skills/create-github-draft-pr/SKILL.md",
 		".codex/config.toml",
 		"policies/policy-bundle.json",
 		"broker/broker-bundle.json",
@@ -895,12 +895,12 @@ func TestApplyCodexDryRunWritesNothingAndConflictsBlock(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("apply dry-run failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
 	}
-	assertNotExists(t, filepath.Join(projectDir, ".codex/skills/create-github-draft-pr/SKILL.md"))
+	assertNotExists(t, filepath.Join(projectDir, ".agents/skills/create-github-draft-pr/SKILL.md"))
 	assertNotExists(t, filepath.Join(projectDir, ".codex/config.toml"))
 	assertNotExists(t, filepath.Join(projectDir, "policies/policy-bundle.json"))
 	assertNotExists(t, filepath.Join(projectDir, "broker/broker-bundle.json"))
 
-	writeTestFile(t, filepath.Join(projectDir, ".codex/skills/create-github-draft-pr/SKILL.md"), "user-owned\n")
+	writeTestFile(t, filepath.Join(projectDir, ".agents/skills/create-github-draft-pr/SKILL.md"), "user-owned\n")
 	stdout.Reset()
 	stderr.Reset()
 	code = Main([]string{"apply", packDir, "--target", "codex", "--project", projectDir}, &stdout, &stderr)
@@ -910,7 +910,7 @@ func TestApplyCodexDryRunWritesNothingAndConflictsBlock(t *testing.T) {
 	if !strings.Contains(stdout.String(), "Conflicts:") || !strings.Contains(stderr.String(), "apply blocked") {
 		t.Fatalf("apply conflict output missing details\nstdout:\n%s\nstderr:\n%s", stdout.String(), stderr.String())
 	}
-	assertExists(t, filepath.Join(projectDir, ".codex/skills/create-github-draft-pr/SKILL.md"))
+	assertExists(t, filepath.Join(projectDir, ".agents/skills/create-github-draft-pr/SKILL.md"))
 }
 
 func TestRemoveCodexSafeAdoptionRemovesOnlyOwnedArtifacts(t *testing.T) {
@@ -936,7 +936,7 @@ func TestRemoveCodexSafeAdoptionRemovesOnlyOwnedArtifacts(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("remove dry-run failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
 	}
-	assertExists(t, filepath.Join(projectDir, ".codex/skills/create-github-draft-pr/SKILL.md"))
+	assertExists(t, filepath.Join(projectDir, ".agents/skills/create-github-draft-pr/SKILL.md"))
 
 	stdout.Reset()
 	stderr.Reset()
@@ -944,7 +944,7 @@ func TestRemoveCodexSafeAdoptionRemovesOnlyOwnedArtifacts(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("remove failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
 	}
-	assertNotExists(t, filepath.Join(projectDir, ".codex/skills/create-github-draft-pr/SKILL.md"))
+	assertNotExists(t, filepath.Join(projectDir, ".agents/skills/create-github-draft-pr/SKILL.md"))
 	assertNotExists(t, filepath.Join(projectDir, ".codex/config.toml"))
 	assertNotExists(t, filepath.Join(projectDir, "policies/policy-bundle.json"))
 	agents := readFile(t, filepath.Join(projectDir, "AGENTS.md"))
@@ -982,7 +982,7 @@ func TestRemoveCodexBlocksUserModifiedGeneratedFile(t *testing.T) {
 	if !strings.Contains(stdout.String(), "Conflicts:") || !strings.Contains(stderr.String(), "remove blocked") {
 		t.Fatalf("remove conflict output missing details\nstdout:\n%s\nstderr:\n%s", stdout.String(), stderr.String())
 	}
-	assertExists(t, filepath.Join(projectDir, ".codex/skills/create-github-draft-pr/SKILL.md"))
+	assertExists(t, filepath.Join(projectDir, ".agents/skills/create-github-draft-pr/SKILL.md"))
 	assertExists(t, filepath.Join(projectDir, "policies/policy-bundle.json"))
 }
 
@@ -1013,7 +1013,7 @@ func TestPlanCodexSafeAdoptionJSON(t *testing.T) {
 	for _, want := range []string{
 		`"target": "codex"`,
 		`"action": "create_file"`,
-		`"targetPath": ".codex/skills/create-github-draft-pr/SKILL.md"`,
+		`"targetPath": ".agents/skills/create-github-draft-pr/SKILL.md"`,
 		`"targetPath": ".codex/config.toml"`,
 		`"markerStyle": "hash"`,
 		`"targetPath": "policies/policy-bundle.json"`,
@@ -1063,7 +1063,7 @@ func TestPlanCodexSafeAdoptionDiffAndContent(t *testing.T) {
 	for _, want := range []string{
 		"diff:",
 		"--- /dev/null",
-		"+++ .codex/skills/create-github-draft-pr/SKILL.md",
+		"+++ .agents/skills/create-github-draft-pr/SKILL.md",
 		"+++ .codex/config.toml",
 		"content:",
 		"name: \"create-github-draft-pr\"",
@@ -1552,7 +1552,7 @@ Use the GitHub draft PR workflow.
 	if code != 0 {
 		t.Fatalf("generate from default pack zip failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
 	}
-	assertExists(t, filepath.Join(consumerDir, "generated/codex/.codex/skills/create-github-draft-pr/SKILL.md"))
+	assertExists(t, filepath.Join(consumerDir, "generated/codex/.agents/skills/create-github-draft-pr/SKILL.md"))
 	assertNotExists(t, filepath.Join(consumerDir, ".actlane"))
 
 	installedDir := filepath.Join(t.TempDir(), ".actlane")
@@ -1570,7 +1570,7 @@ Use the GitHub draft PR workflow.
 	if code != 0 {
 		t.Fatalf("generate with default target failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
 	}
-	assertExists(t, filepath.Join(installedDir, "generated/codex/.codex/skills/create-github-draft-pr/SKILL.md"))
+	assertExists(t, filepath.Join(installedDir, "generated/codex/.agents/skills/create-github-draft-pr/SKILL.md"))
 	assertExists(t, filepath.Join(installedDir, "generated/codex/actlane.lock"))
 }
 
@@ -1583,7 +1583,7 @@ func TestInspectCodexProjectConfig(t *testing.T) {
 command = "github-mcp-server"
 args = ["stdio"]
 `)
-	writeTestFile(t, filepath.Join(projectDir, ".codex/skills/create-github-draft-pr/SKILL.md"), `---
+	writeTestFile(t, filepath.Join(projectDir, ".agents/skills/create-github-draft-pr/SKILL.md"), `---
 name: create-github-draft-pr
 description: Draft PR skill.
 ---
@@ -1603,12 +1603,65 @@ Use the GitHub draft PR workflow.
 	}
 }
 
+func TestInspectCodexSkillsUsesModernPathsAndLegacyFallback(t *testing.T) {
+	repoDir := filepath.Join(t.TempDir(), "repo")
+	nestedDir := filepath.Join(repoDir, "services", "api")
+	t.Setenv("CODEX_HOME", filepath.Join(t.TempDir(), "empty-codex-home"))
+	writeTestFile(t, filepath.Join(repoDir, ".git", "HEAD"), "ref: refs/heads/main\n")
+	writeTestFile(t, filepath.Join(repoDir, ".agents/skills/shared/SKILL.md"), `---
+name: shared
+description: Modern shared skill.
+---
+Modern body.
+`)
+	writeTestFile(t, filepath.Join(repoDir, ".codex/skills/shared/SKILL.md"), `---
+name: shared
+description: Legacy shared skill.
+---
+Legacy body.
+`)
+	writeTestFile(t, filepath.Join(nestedDir, ".agents/skills/local/SKILL.md"), `---
+name: local
+description: Nested local skill.
+---
+Local body.
+`)
+	var stdout, stderr bytes.Buffer
+	code := Main([]string{"inspect", "--from", nestedDir, "--ai-agent", "codex"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("inspect failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	for _, want := range []string{
+		"skill: local",
+		"skill: shared",
+		"Legacy project-local Codex skills found under .codex/skills; prefer .agents/skills.",
+	} {
+		if !strings.Contains(stdout.String(), want) {
+			t.Fatalf("inspect output missing %q:\n%s", want, stdout.String())
+		}
+	}
+	if strings.Count(stdout.String(), "skill: shared") != 1 {
+		t.Fatalf("modern and legacy duplicate should be deduplicated:\n%s", stdout.String())
+	}
+	importDir := filepath.Join(t.TempDir(), "imported")
+	stdout.Reset()
+	stderr.Reset()
+	code = Main([]string{"import", "--from", nestedDir, "--out", importDir, "--ai-agent", "codex"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("import failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	if skill := readFile(t, filepath.Join(importDir, "skills/shared.yaml")); !strings.Contains(skill, "Modern body.") || strings.Contains(skill, "Legacy body.") {
+		t.Fatalf("modern skill must take precedence over legacy duplicate:\n%s", skill)
+	}
+}
 func TestCodexGlobalInventoryAndExplicitImport(t *testing.T) {
 	projectDir := filepath.Join(t.TempDir(), "project")
 	codexHome := filepath.Join(t.TempDir(), ".codex")
+	userHome := t.TempDir()
 	t.Setenv("CODEX_HOME", codexHome)
+	t.Setenv("HOME", userHome)
 	writeTestFile(t, filepath.Join(projectDir, "AGENTS.md"), "Project Codex guidance.\n")
-	writeTestFile(t, filepath.Join(projectDir, ".codex/skills/project-skill/SKILL.md"), `---
+	writeTestFile(t, filepath.Join(projectDir, ".agents/skills/project-skill/SKILL.md"), `---
 name: project-skill
 description: Project skill.
 ---
@@ -1636,6 +1689,11 @@ description: Global incident response skill.
 
 Respond carefully.
 `)
+	writeTestFile(t, filepath.Join(userHome, ".agents/skills/modern-review/SKILL.md"), `---
+name: modern-review
+description: Modern global review skill.
+Review with the modern path.
+`)
 	writeTestFile(t, filepath.Join(codexHome, "config.toml"), `
 [mcp_servers.github]
 command = "/usr/local/bin/github-mcp-server"
@@ -1658,11 +1716,14 @@ command = "lean-ctx"
 		"Available global objects:",
 		"skill: code-review [portable candidate]",
 		"skill: incident-response [portable candidate]",
+		"skill: modern-review [portable candidate]",
 		"mcp: github [review required]",
 		"hook: pre_tool_use [not portable]",
+		"Legacy global Codex skills found under CODEX_HOME/skills; prefer $HOME/.agents/skills.",
 		"MCP environment variable values are never transferred",
 		"--include-global-skill code-review",
 		"--include-global-skill incident-response",
+		"--include-global-skill modern-review",
 		"--include-global-mcp github",
 		"--include-global-mcp lean-ctx",
 	} {
@@ -1691,6 +1752,7 @@ command = "lean-ctx"
 		"import", "--from", projectDir, "--out", selected, "--ai-agent", "codex",
 		"--include-global-skill", "code-review",
 		"--include-global-skill", "incident-response",
+		"--include-global-skill", "modern-review",
 		"--include-global-mcp=github",
 		"--include-global-mcp=lean-ctx",
 	}, &stdout, &stderr)
@@ -1700,6 +1762,7 @@ command = "lean-ctx"
 	assertExists(t, filepath.Join(selected, "skills/project-skill.yaml"))
 	assertExists(t, filepath.Join(selected, "skills/code-review.yaml"))
 	assertExists(t, filepath.Join(selected, "skills/incident-response.yaml"))
+	assertExists(t, filepath.Join(selected, "skills/modern-review.yaml"))
 	assertExists(t, filepath.Join(selected, "skills/code-review/references/checklist.md"))
 	assertExists(t, filepath.Join(selected, "skills/code-review/scripts/check.sh"))
 	assertNotExists(t, filepath.Join(selected, "skills/code-review/references/outside-secret.txt"))
@@ -1718,7 +1781,7 @@ command = "lean-ctx"
 			t.Fatalf("selected binding missing %q:\n%s", want, binding)
 		}
 	}
-	for _, want := range []string{"skill: code-review", "skill: incident-response", "mcp server: github", "mcp server: lean-ctx", "GITHUB_TOKEN (values excluded)", "hook: pre_tool_use [not portable]"} {
+	for _, want := range []string{"skill: code-review", "skill: incident-response", "skill: modern-review", "mcp server: github", "mcp server: lean-ctx", "GITHUB_TOKEN (values excluded)", "hook: pre_tool_use [not portable]"} {
 		if !strings.Contains(report, want) {
 			t.Fatalf("selected report missing %q:\n%s", want, report)
 		}
@@ -1735,9 +1798,10 @@ command = "lean-ctx"
 	if code != 0 {
 		t.Fatalf("selected global import must generate, code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
 	}
-	assertExists(t, filepath.Join(selected, "generated/codex/.codex/skills/code-review/references/checklist.md"))
-	assertExists(t, filepath.Join(selected, "generated/codex/.codex/skills/code-review/scripts/check.sh"))
-	assertExists(t, filepath.Join(selected, "generated/codex/.codex/skills/incident-response/SKILL.md"))
+	assertExists(t, filepath.Join(selected, "generated/codex/.agents/skills/code-review/references/checklist.md"))
+	assertExists(t, filepath.Join(selected, "generated/codex/.agents/skills/code-review/scripts/check.sh"))
+	assertExists(t, filepath.Join(selected, "generated/codex/.agents/skills/incident-response/SKILL.md"))
+	assertExists(t, filepath.Join(selected, "generated/codex/.agents/skills/modern-review/SKILL.md"))
 }
 
 func TestPackInitCreatesValidScaffoldAndDoesNotOverwrite(t *testing.T) {
@@ -1783,7 +1847,7 @@ func TestPackInitCreatesValidScaffoldAndDoesNotOverwrite(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("generate initialized codex pack failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
 	}
-	assertExists(t, filepath.Join(outDir, "generated/codex/.codex/skills/safe-deploy/SKILL.md"))
+	assertExists(t, filepath.Join(outDir, "generated/codex/.agents/skills/safe-deploy/SKILL.md"))
 
 	stdout.Reset()
 	stderr.Reset()

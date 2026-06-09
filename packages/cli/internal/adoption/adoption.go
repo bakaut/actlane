@@ -375,14 +375,17 @@ func inspectCodex(from, requested string) (Discovery, error) {
 	discovery := Discovery{Runtime: "", Confidence: "none", Permissions: map[string]string{}}
 	configPath := codexConfigPath(root)
 	codexDir := filepath.Join(root, ".codex")
+	modernProjectSkills := readCodexRepoSkills(root)
+	legacyProjectSkills := readCodexLegacyRepoSkills(root)
 	hasConfig := configPath != ""
 	hasDir := isDir(codexDir)
+	hasSkills := len(modernProjectSkills) > 0 || len(legacyProjectSkills) > 0
 	hasAgents := firstExisting(root, []string{"AGENTS.md", "AGENTS.MD", ".codex/AGENTS.md"}) != ""
 	hasInstructions := firstExisting(root, []string{"instructions.md", ".codex/instructions.md"}) != ""
-	if requested != "codex" && !hasConfig && !hasDir {
+	if requested != "codex" && !hasConfig && !hasDir && !hasSkills {
 		return discovery, nil
 	}
-	if requested == "codex" && !hasConfig && !hasDir && !hasAgents && !hasInstructions {
+	if requested == "codex" && !hasConfig && !hasDir && !hasSkills && !hasAgents && !hasInstructions {
 		if requested == "codex" {
 			return discovery, fmt.Errorf("codex project not found in %s", from)
 		}
@@ -390,10 +393,13 @@ func inspectCodex(from, requested string) (Discovery, error) {
 	}
 	discovery.Runtime = "codex"
 	discovery.Confidence = "medium"
-	if hasConfig || hasDir {
+	if hasConfig || hasDir || hasSkills {
 		discovery.Confidence = "high"
 	}
-	discovery.Skills = readCodexSkillsAt(root, ".codex/skills", "project-local")
+	discovery.Skills = uniqueArtifacts(append(modernProjectSkills, legacyProjectSkills...))
+	if len(legacyProjectSkills) > 0 {
+		discovery.Warnings = append(discovery.Warnings, "Legacy project-local Codex skills found under .codex/skills; prefer .agents/skills.")
+	}
 	discovery.Agents = readCodexGuidanceArtifacts(root)
 	if hasConfig {
 		servers, warnings := readCodexConfig(configPath)
@@ -402,7 +408,12 @@ func inspectCodex(from, requested string) (Discovery, error) {
 		discovery.Warnings = append(discovery.Warnings, warnings...)
 	}
 	if home := codexHomeDir(); home != "" {
-		discovery.GlobalSkills = readCodexSkillsAt(home, "skills", "global")
+		modernGlobalSkills := readCodexGlobalSkills()
+		legacyGlobalSkills := readCodexSkillsAt(home, "skills", "global")
+		discovery.GlobalSkills = uniqueArtifacts(append(modernGlobalSkills, legacyGlobalSkills...))
+		if len(legacyGlobalSkills) > 0 {
+			discovery.Warnings = append(discovery.Warnings, "Legacy global Codex skills found under CODEX_HOME/skills; prefer $HOME/.agents/skills.")
+		}
 		if globalConfig := filepath.Join(home, "config.toml"); exists(globalConfig) {
 			servers, warnings := readCodexConfig(globalConfig)
 			markMCPServers(servers, "global", globalConfig)
@@ -417,6 +428,41 @@ func inspectCodex(from, requested string) (Discovery, error) {
 	return discovery, nil
 }
 
+func readCodexRepoSkills(from string) []Artifact {
+	return readCodexRepoSkillsAt(from, ".agents/skills")
+}
+func readCodexLegacyRepoSkills(from string) []Artifact {
+	return readCodexRepoSkillsAt(from, ".codex/skills")
+}
+func readCodexRepoSkillsAt(from, relDir string) []Artifact {
+	var artifacts []Artifact
+	for _, root := range codexSkillSearchRoots(from) {
+		artifacts = append(artifacts, readCodexSkillsAt(root, relDir, "project-local")...)
+	}
+	return uniqueArtifacts(artifacts)
+}
+func codexSkillSearchRoots(from string) []string {
+	var roots []string
+	current := filepath.Clean(from)
+	for {
+		roots = append(roots, current)
+		if exists(filepath.Join(current, ".git")) {
+			return roots
+		}
+		parent := filepath.Dir(current)
+		if parent == current {
+			return roots[:1]
+		}
+		current = parent
+	}
+}
+func readCodexGlobalSkills() []Artifact {
+	home, err := os.UserHomeDir()
+	if err != nil || home == "" {
+		return nil
+	}
+	return readCodexSkillsAt(home, ".agents/skills", "global")
+}
 func codexHomeDir() string {
 	if configured := strings.TrimSpace(os.Getenv("CODEX_HOME")); configured != "" {
 		return configured
@@ -913,7 +959,7 @@ func importedManifest(capabilityName string, skillNames []string, commandName, a
 	if len(d.MCPServers) > 0 {
 		spec["mcpBindings"] = []string{"mcp/bindings/" + capabilityName + ".yaml"}
 	}
-	return doc("CapabilityPack", "imported-"+d.Runtime+"-pack", "0.3.0-alpha.14", "Imported "+d.Runtime+" project.", spec, importedAnnotations(d, "", false))
+	return doc("CapabilityPack", "imported-"+d.Runtime+"-pack", "0.3.0-alpha.15", "Imported "+d.Runtime+" project.", spec, importedAnnotations(d, "", false))
 }
 
 func importedCapability(name, skillName, commandName, agentName, policyName string, d Discovery) map[string]any {
@@ -1100,7 +1146,7 @@ func importedOpenCodeTarget(d Discovery, skillNames []string, commandName, agent
 func importedCodexTarget(skillNames []string) map[string]any {
 	files := []map[string]any{{"targetPath": "AGENTS.md", "generatedPath": "generated/codex/AGENTS.md", "ownedBlock": true}}
 	for _, skillName := range skillNames {
-		files = append(files, map[string]any{"targetPath": ".codex/skills/" + skillName + "/SKILL.md", "generatedPath": "generated/codex/.codex/skills/" + skillName + "/SKILL.md", "skillContract": skillName, "owned": true})
+		files = append(files, map[string]any{"targetPath": ".agents/skills/" + skillName + "/SKILL.md", "generatedPath": "generated/codex/.agents/skills/" + skillName + "/SKILL.md", "skillContract": skillName, "owned": true})
 	}
 	spec := map[string]any{
 		"target": "codex", "scope": "project",

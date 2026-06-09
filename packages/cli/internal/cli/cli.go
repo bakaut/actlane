@@ -19,7 +19,7 @@ import (
 	"github.com/actlane/actlane/packages/cli/internal/schema"
 )
 
-const version = "0.3.0-alpha.14"
+const version = "0.3.0-alpha.15"
 
 func Main(args []string, stdout, stderr io.Writer) int {
 	return MainWithIO(args, os.Stdin, stdout, stderr)
@@ -146,6 +146,12 @@ func printCodexInspection(stdout io.Writer, discovery adoption.Discovery) {
 	for _, server := range discovery.MCPServers {
 		fmt.Fprintf(stdout, "- mcp: %s\n", server.Name)
 	}
+	if len(discovery.Warnings) > 0 {
+		fmt.Fprintln(stdout, "\nWarnings:")
+		for _, warning := range discovery.Warnings {
+			fmt.Fprintf(stdout, "- %s\n", warning)
+		}
+	}
 	fmt.Fprintln(stdout, "\nAvailable global objects:")
 	for _, skill := range discovery.GlobalSkills {
 		fmt.Fprintf(stdout, "- skill: %s [%s]\n", skill.Name, skill.Portability)
@@ -160,14 +166,14 @@ func printCodexInspection(stdout io.Writer, discovery adoption.Discovery) {
 		fmt.Fprintf(stdout, "- hook: %s [%s]\n", hook.Name, hook.Portability)
 	}
 	fmt.Fprintln(stdout, "\nGlobal configuration has lower migration accuracy.")
-	fmt.Fprintln(stdout, "Safe candidates:")
+	fmt.Fprintln(stdout, "\nSafe candidates:")
 	fmt.Fprintln(stdout, "- Global skills without external dependencies.")
-	fmt.Fprintln(stdout, "Import with caution:")
+	fmt.Fprintln(stdout, "\nImport with caution:")
 	fmt.Fprintln(stdout, "- MCP servers may contain local paths and machine-specific commands.")
 	fmt.Fprintln(stdout, "- MCP environment variable values are never transferred.")
-	fmt.Fprintln(stdout, "Not imported:")
+	fmt.Fprintln(stdout, "\nNot imported:")
 	fmt.Fprintln(stdout, "- Hooks, credentials, auth, sessions, history, trust state, logs, caches, and SQLite state.")
-	fmt.Fprintln(stdout, "Recommendation:")
+	fmt.Fprintln(stdout, "\nRecommendation:")
 	fmt.Fprintln(stdout, "- Review and migrate global configuration manually when possible.")
 	fmt.Fprintln(stdout, "\nNext:")
 	fmt.Fprintln(stdout, "  actlane import --ai-agent codex")

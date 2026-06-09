@@ -16,7 +16,7 @@ spec:
     requireDiffPreview: true
     projectPaths:
       configSnippet: .codex/config.toml
-      skillsDir: .codex/skills
+      skillsDir: .agents/skills
   generate:
     config: true
     instructions: false
@@ -38,7 +38,7 @@ spec:
       - targetPath: broker/broker-bundle.json
         generatedPath: generated/codex/broker/broker-bundle.json
         owned: true
-      - targetPath: .codex/skills/create-github-draft-pr/SKILL.md
-        generatedPath: generated/codex/.codex/skills/create-github-draft-pr/SKILL.md
+      - targetPath: .agents/skills/create-github-draft-pr/SKILL.md
+        generatedPath: generated/codex/.agents/skills/create-github-draft-pr/SKILL.md
         skillContract: create-github-draft-pr
         owned: true

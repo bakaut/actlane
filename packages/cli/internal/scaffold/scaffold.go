@@ -704,8 +704,8 @@ func targetProfileFileMappings(target, name string, contracts ContractSet) strin
         owned: true
 `, name))
 		default:
-			b.WriteString(fmt.Sprintf(`      - targetPath: .codex/skills/%[1]s/SKILL.md
-        generatedPath: generated/codex/.codex/skills/%[1]s/SKILL.md
+			b.WriteString(fmt.Sprintf(`      - targetPath: .agents/skills/%[1]s/SKILL.md
+        generatedPath: generated/codex/.agents/skills/%[1]s/SKILL.md
         skillContract: %[1]s
         owned: true
 `, name))

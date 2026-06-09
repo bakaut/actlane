@@ -69,6 +69,13 @@ actlane inspect --ai-agent opencode
 actlane import --ai-agent opencode
 ```
 
+For Codex, current skills are discovered from `.agents/skills` directories
+between the inspected directory and repository root. User-global skills are
+discovered from `$HOME/.agents/skills`. Legacy `.codex/skills` and
+`CODEX_HOME/skills` directories remain read-only import fallbacks and produce
+migration warnings. When the same skill name exists in modern and legacy
+locations, the modern skill takes precedence.
+
 `actlane import` defaults to:
 
 ```text

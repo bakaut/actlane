@@ -23,7 +23,7 @@ Actlane started as a design and specification repository. It now also contains a
 - Optional durable evidence files via `actlane_run_capability` argument `evidenceDir`.
 - Optional external stdio MCP adapter execution via `actlane_run_capability` argument `executeAdapters: true`.
 - Generated OpenCode and Codex artifacts, target-local policy bundles, and `actlane.lock`.
-- Codex safe adoption into `.codex/skills`, `.codex/config.toml`, `AGENTS.md`, and `policies/policy-bundle.json`.
+- Codex safe adoption into `.agents/skills`, `.codex/config.toml`, `AGENTS.md`, and `policies/policy-bundle.json`, with legacy `.codex/skills` discovery fallback.
 - Local MCP policy evaluator via `actlane mcp serve --policy-bundle <policy-bundle.json>`.
 - Local MCP pack authoring helper via `actlane mcp author serve --pack <pack>` for inspect, validate, plan, confirmed apply, preview, and error explanation.
 - Brownfield OpenCode import into `.actlane/` with inferred capability, policy, MCP binding, command, agent, skill, target profile, report, and lockfile artifacts.
