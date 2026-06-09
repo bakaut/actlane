@@ -3,7 +3,7 @@ apiVersion: actlane.ru/v1alpha1
 kind: CapabilityPack
 metadata:
   name: github-draft-pr-pack
-  version: 0.3.0-alpha.15
+  version: 0.3.0-alpha.16
   description: Minimal project-local capability pack for safe GitHub draft pull requests.
 spec:
   capabilities:

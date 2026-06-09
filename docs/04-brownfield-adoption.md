@@ -140,15 +140,25 @@ This defaults to:
 --out actlane-pack.zip
 ```
 
-Another developer can inspect and install the pack for a different target:
+Another developer can use the archive directly for a different target:
 
 ```bash
 actlane pack inspect actlane-pack.zip
-actlane pack install actlane-pack.zip --target codex
-actlane generate
+actlane generate actlane-pack.zip --target codex
+actlane plan actlane-pack.zip --target codex
+actlane apply actlane-pack.zip --target codex
 ```
 
-`pack install --target codex` writes the selected target into `.actlane/.local.yaml`, so `actlane generate` can run without repeating `--target`.
+For archive input, `generate` writes only `generated/<target>/` in the current
+directory. `plan` reads that staging directory and remains read-only. `apply`
+rebuilds the plan, blocks conflicts, and is the only step that writes target
+project files. Explicit `--from` and `--project` values override the staging
+and project defaults.
+
+`pack install --target codex` remains available when the consumer wants a
+local `.actlane/` source pack. It writes the selected target into
+`.actlane/.local.yaml`, so `actlane generate` can run without repeating
+`--target`.
 
 Actlane must not convert OpenCode files directly into Codex files. The conversion path is:
 

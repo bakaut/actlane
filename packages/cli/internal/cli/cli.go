@@ -19,7 +19,7 @@ import (
 	"github.com/actlane/actlane/packages/cli/internal/schema"
 )
 
-const version = "0.3.0-alpha.15"
+const version = "0.3.0-alpha.16"
 
 func Main(args []string, stdout, stderr io.Writer) int {
 	return MainWithIO(args, os.Stdin, stdout, stderr)
@@ -475,17 +475,17 @@ func runPackInspect(args []string, stdout, stderr io.Writer) int {
 	if info.SourceRuntime != "" {
 		fmt.Fprintf(stdout, "Source runtime: %s\n", info.SourceRuntime)
 	}
-	fmt.Fprintln(stdout, "Objects:")
+	fmt.Fprintln(stdout, "\nObjects:")
 	for _, kind := range sortedObjectKinds(info.Objects) {
 		count := info.Objects[kind]
 		fmt.Fprintf(stdout, "- %s: %d\n", kind, count)
 	}
-	fmt.Fprintln(stdout, "Targets:")
+	fmt.Fprintln(stdout, "\nTargets:")
 	for _, target := range info.Targets {
 		fmt.Fprintf(stdout, "- %s\n", target)
 	}
 	if len(info.Warnings) > 0 {
-		fmt.Fprintln(stdout, "Warnings:")
+		fmt.Fprintln(stdout, "\nWarnings:")
 		for _, warning := range info.Warnings {
 			fmt.Fprintf(stdout, "- %s\n", warning)
 		}
@@ -982,6 +982,9 @@ func runPlan(args []string, stdout, stderr io.Writer) int {
 	}
 	cleanup := func() {}
 	if shouldUsePackArchive(packDir, packArgExplicit) {
+		if opts.From == "" && opts.Target != "" {
+			opts.From = filepath.Join("generated", opts.Target)
+		}
 		archive := packDir
 		if !packArgExplicit {
 			archive = "actlane-pack.zip"
@@ -1083,6 +1086,9 @@ func runApply(args []string, stdout, stderr io.Writer) int {
 	}
 	cleanup := func() {}
 	if shouldUsePackArchive(packDir, packArgExplicit) {
+		if opts.From == "" {
+			opts.From = filepath.Join("generated", opts.Target)
+		}
 		archive := packDir
 		if !packArgExplicit {
 			archive = "actlane-pack.zip"

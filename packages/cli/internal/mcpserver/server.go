@@ -209,7 +209,7 @@ func (s *Server) handle(req request) response {
 			},
 			"serverInfo": map[string]any{
 				"name":    "actlane-safe-gitops",
-				"version": "0.3.0-alpha.15",
+				"version": "0.3.0-alpha.16",
 			},
 		})
 	case "tools/list":
@@ -1382,7 +1382,7 @@ func callExternalMCPTool(server pack.MCPRuntimeServer, tool string, args map[str
 	reader := bufio.NewReader(stdout)
 	if _, err := exchangeMCP(stdin, reader, 1, "initialize", map[string]any{
 		"protocolVersion": "2024-11-05",
-		"clientInfo":      map[string]any{"name": "actlane", "version": "0.3.0-alpha.15"},
+		"clientInfo":      map[string]any{"name": "actlane", "version": "0.3.0-alpha.16"},
 	}); err != nil {
 		_ = stdin.Close()
 		_ = cmd.Wait()

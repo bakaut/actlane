@@ -14,7 +14,7 @@ import (
 	"github.com/actlane/actlane/packages/cli/internal/scaffold"
 )
 
-const serverVersion = "0.3.0-alpha.15"
+const serverVersion = "0.3.0-alpha.16"
 
 type Server struct {
 	packDir string

@@ -12,13 +12,13 @@ actlane version
 Override install options:
 
 ```bash
-ACTLANE_VERSION=v0.3.0-alpha.15 ACTLANE_INSTALL_DIR="$HOME/.local/bin" sh -c "$(curl -fsSL https://actlane.ru/install.sh)"
+ACTLANE_VERSION=v0.3.0-alpha.16 ACTLANE_INSTALL_DIR="$HOME/.local/bin" sh -c "$(curl -fsSL https://actlane.ru/install.sh)"
 ```
 
 Docker:
 
 ```bash
-docker run --rm ghcr.io/actlane/actlane:0.3.0-alpha.15 version
+docker run --rm ghcr.io/actlane/actlane:0.3.0-alpha.16 version
 ```
 
 Implemented MVP commands:
@@ -80,15 +80,22 @@ import:  --from . --out .actlane --ai-agent auto
 pack:    --from .actlane --out actlane-pack.zip
 ```
 
-Another developer can install the pack for Codex:
+Another developer can use the archive directly:
 
 ```bash
 actlane pack inspect actlane-pack.zip
-actlane pack install actlane-pack.zip --target codex
-actlane generate
+actlane generate actlane-pack.zip --target codex
+actlane plan actlane-pack.zip --target codex
+actlane apply actlane-pack.zip --target codex
 ```
 
-`pack install --target codex` writes `.actlane/.local.yaml`, so `generate` can resolve the default target without `--target`.
+For direct archive use, `generate` writes only `generated/codex/`. `plan`
+compares that staging directory with the current project without writing, and
+`apply` performs the ownership-aware project changes.
+
+`pack install actlane-pack.zip --target codex` remains available when a local
+`.actlane/` source pack is preferred. It writes `.actlane/.local.yaml`, so
+`generate` can resolve the default target without `--target`.
 
 Codex reads project-local MCP config from `.codex/config.toml` when it is run from the project root:
 

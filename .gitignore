@@ -3,3 +3,6 @@
 packages/cli/dist/
 packs/**/generated/**
 .agents/*
+.actlane/*
+actlane-pack.zip
+generated/*

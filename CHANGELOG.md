@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.3.0-alpha.16] - 2026-06-09
+
+Eighteenth SemVer-tagged CLI MVP release.
+
+SemVer rationale:
+
+- prerelease bump from `0.3.0-alpha.15` to `0.3.0-alpha.16` because direct pack archive adoption now supports a backward-compatible `generate -> plan -> apply` workflow before `1.0.0`;
+- keeps the `alpha` prerelease channel because archive adoption and target apply contracts remain pre-stable.
+
+### Changed
+
+- Added direct archive `plan` and `apply` defaults that read generated staging artifacts from `generated/<target>/`.
+- Kept `generate <archive> --target <target>` limited to materializing staging artifacts without changing target project files.
+- Added end-to-end coverage for archive inspect, generate, read-only plan, apply, and user-owned conflict protection.
+- Updated archive handoff documentation to make reviewed apply explicit while preserving `pack install` as an optional local source-pack workflow.
+- Improved human-readable `pack inspect` section spacing.
+- Ignored local `.actlane/`, `actlane-pack.zip`, and `generated/` workflow artifacts.
+- Updated CLI/runtime/generator, pack metadata, README examples, release workflow, and Docker workflow versions to `0.3.0-alpha.16`.
+
 ## [0.3.0-alpha.15] - 2026-06-09
 
 Seventeenth SemVer-tagged CLI MVP release.

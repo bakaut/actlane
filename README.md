@@ -71,11 +71,18 @@ import compatibility and reports a warning; newly generated Codex profiles use
 
 Then Developer A sends `actlane-pack.zip` to Developer B through an approved file-transfer channel.
 
-Then Developer B generates an OpenCode profile from the received pack:
+Then Developer B inspects, materializes, reviews, and applies an OpenCode
+profile from the received pack:
 
 ```bash
 actlane pack inspect ./actlane-pack.zip
 actlane generate ./actlane-pack.zip --target opencode
+actlane plan ./actlane-pack.zip --target opencode
+actlane apply ./actlane-pack.zip --target opencode
 ```
 
-This is the intended migration flow: `Codex config -> Actlane pack -> approved transfer -> OpenCode generation`. Environment values, hooks, credentials, auth, sessions, history, trust state, logs, caches, and SQLite state are never transferred.
+`generate` writes only `./generated/opencode/`. `plan` reads that staging
+directory without mutation, and `apply` is the only step that writes OpenCode
+project files.
+
+This is the intended migration flow: `Codex config -> Actlane pack -> approved transfer -> OpenCode generation -> reviewed apply`. Environment values, hooks, credentials, auth, sessions, history, trust state, logs, caches, and SQLite state are never transferred.

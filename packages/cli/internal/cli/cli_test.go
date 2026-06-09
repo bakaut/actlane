@@ -1574,6 +1574,90 @@ Use the GitHub draft PR workflow.
 	assertExists(t, filepath.Join(installedDir, "generated/codex/actlane.lock"))
 }
 
+func TestPackArchiveGeneratePlanApplyFlow(t *testing.T) {
+	packDir := copyPackToTemp(t)
+	archive := filepath.Join(t.TempDir(), "actlane-pack.zip")
+	var stdout, stderr bytes.Buffer
+	code := Main([]string{"pack", "create", "--from", packDir, "--out", archive}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("pack create failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+
+	consumerDir := t.TempDir()
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chdir(consumerDir); err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := os.Chdir(wd); err != nil {
+			t.Fatal(err)
+		}
+	}()
+
+	stdout.Reset()
+	stderr.Reset()
+	code = Main([]string{"pack", "inspect", archive}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("pack inspect failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+
+	stdout.Reset()
+	stderr.Reset()
+	code = Main([]string{"generate", archive, "--target", "opencode"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("generate from archive failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	assertExists(t, filepath.Join(consumerDir, "generated/opencode/opencode.jsonc"))
+	assertNotExists(t, filepath.Join(consumerDir, "opencode.jsonc"))
+	assertNotExists(t, filepath.Join(consumerDir, ".opencode"))
+
+	stdout.Reset()
+	stderr.Reset()
+	code = Main([]string{"plan", archive, "--target", "opencode"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("plan from archive failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "Generated: generated/opencode") || !strings.Contains(stdout.String(), "Will create:") {
+		t.Fatalf("plan should use generated archive staging output:\n%s", stdout.String())
+	}
+	assertNotExists(t, filepath.Join(consumerDir, "opencode.jsonc"))
+	assertNotExists(t, filepath.Join(consumerDir, ".opencode"))
+
+	stdout.Reset()
+	stderr.Reset()
+	code = Main([]string{"apply", archive, "--target", "opencode"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("apply from archive failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	assertExists(t, filepath.Join(consumerDir, "opencode.jsonc"))
+	assertExists(t, filepath.Join(consumerDir, ".opencode/commands/create-github-draft-pr.md"))
+	assertExists(t, filepath.Join(consumerDir, ".opencode/skills/create-github-draft-pr/SKILL.md"))
+
+	conflictDir := t.TempDir()
+	if err := os.Chdir(conflictDir); err != nil {
+		t.Fatal(err)
+	}
+	writeTestFile(t, filepath.Join(conflictDir, "opencode.jsonc"), "{\"userOwned\":true}\n")
+	stdout.Reset()
+	stderr.Reset()
+	code = Main([]string{"generate", archive, "--target", "opencode"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("conflict generate failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	stdout.Reset()
+	stderr.Reset()
+	code = Main([]string{"apply", archive, "--target", "opencode"}, &stdout, &stderr)
+	if code == 0 || !strings.Contains(stdout.String(), "Conflicts:") || !strings.Contains(stderr.String(), "apply blocked") {
+		t.Fatalf("user-owned conflict should block apply, code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	if got := readFile(t, filepath.Join(conflictDir, "opencode.jsonc")); got != "{\"userOwned\":true}\n" {
+		t.Fatalf("conflicting user-owned file changed:\n%s", got)
+	}
+}
+
 func TestInspectCodexProjectConfig(t *testing.T) {
 	projectDir := filepath.Join(t.TempDir(), "project")
 	t.Setenv("CODEX_HOME", filepath.Join(t.TempDir(), "empty-codex-home"))
