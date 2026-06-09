@@ -1,3 +1,5 @@
 .serena
+.opencode/
 packages/cli/dist/
 packs/**/generated/**
+.agents/*

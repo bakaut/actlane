@@ -1,0 +1,99 @@
+@startuml
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam roundcorner 12
+skinparam ArrowColor #1B5EBE
+skinparam ActivityBorderColor #1B5EBE
+skinparam ActivityBackgroundColor #F8FBFF
+skinparam ActivityFontColor #061A40
+skinparam NoteBackgroundColor #FFF8ED
+skinparam NoteBorderColor #FF8A00
+
+title Codex Development Automation Flow
+
+start
+
+repeat
+  partition "actlane-architect" {
+    :/architect <task>;
+    :Prepare repository context;
+    :Separate facts, assumptions,\ndecisions, risks, and open questions;
+    :Define boundaries, contracts,\nflow, and engineer handoff;
+  }
+  if (Architecture approved?) then (no)
+    :Clarify open questions or\nrevise architecture;
+  endif
+repeat while (Architecture approved?) is (no)
+
+repeat
+  partition "actlane-engineer" {
+    :/implement;
+    :Implement approved handoff;
+    :Update contracts, schemas,\nvalidation, generators, fixtures,\nand related documentation;
+    :Regenerate target artifacts;
+  }
+
+  partition "Verification" {
+    :/verify;
+    fork
+      :Run Go tests;
+    fork again
+      :Validate minimal pack\nand packs/full;
+    fork again
+      :Check Codex and OpenCode\ngenerated output drift;
+    fork again
+      :Run broker smoke tests\nwhen runtime or MCP changes;
+    end fork
+  }
+
+  if (Verification passes?) then (yes)
+    partition "Completion Gate" {
+      :/finish;
+      :Review scope and diff;
+      :Check README, STATUS, examples,\ngenerated artifacts, and risks;
+    }
+    if (Change complete?) then (yes)
+      :Mark change ready;
+    else (no)
+      :Return missing work\nto actlane-engineer;
+    endif
+  else (no)
+    :Return failures and evidence\nto actlane-engineer;
+  endif
+repeat while (Change ready?) is (no)
+
+if (Release requested?) then (yes)
+  partition "actlane-release-manager" {
+    :/release <version|auto>;
+    :Choose or validate SemVer bump;
+    :Update CHANGELOG, versions,\npacks, docs, and workflow defaults;
+    :Run verification and\nstale-version search;
+  }
+
+  if (Publication explicitly confirmed?) then (yes)
+    :Publish CLI release\nand Docker image;
+  else (no)
+    :Leave release prepared\nbut unpublished;
+  endif
+else (no)
+  :Deliver completed change;
+endif
+
+stop
+
+note right
+Primary public surface:
+3 skills and 5 commands.
+
+Repo-local Codex invocation:
+$actlane-command-architect,
+$actlane-command-implement,
+$actlane-command-verify,
+$actlane-command-finish,
+and $actlane-command-release.
+
+Internal stages remain hidden
+until independently useful.
+end note
+
+@enduml

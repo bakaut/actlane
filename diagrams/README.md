@@ -12,6 +12,7 @@ Rendered SVG files should live in `diagrams/svg/` when rendering is available.
 - `plantuml/pack-portability-flow.puml` - how one pack can move across agent runtimes.
 - `plantuml/brownfield-adoption-flow.puml` - safe adoption in an existing project.
 - `plantuml/optional-runtime-enforcement.puml` - optional policy enforcement after generation.
+- `plantuml/codex-development-automation-flow.puml` - the three-skill, five-command Codex development and release flow.
 
 ## Guardrail
 
