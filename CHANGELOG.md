@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.3.0-alpha.17] - 2026-06-11
+
+Nineteenth SemVer-tagged CLI MVP release.
+
+SemVer rationale:
+
+- prerelease bump from `0.3.0-alpha.16` to `0.3.0-alpha.17` because the CLI adds a backward-compatible confirmed Codex-to-OpenCode migration facade and strengthens safe archive removal before `1.0.0`;
+- keeps the `alpha` prerelease channel because migration orchestration and adoption ownership contracts remain pre-stable.
+
+### Changed
+
+- Added `actlane migrate opencode` as a user-focused facade over inspect, import, generate, plan, and apply.
+- Added conflict-free preview, one confirmation, `--dry-run`, `--diff`, `--yes`, `--json`, explicit agent flags, and project selection.
+- Kept migration staging temporary while preserving a hidden `.actlane/migrations/codex-to-opencode/` snapshot for safe removal.
+- Kept global Codex objects and personal runtime state outside automatic migration.
+- Strengthened archive removal so missing generated staging blocks removal instead of treating unmatched owned files as user modifications.
+- Added migration lifecycle, conflict, cancellation, JSON, snapshot removal, and archive removal coverage.
+- Added ADR and user documentation for the migration facade and durable snapshot contract.
+- Updated CLI/runtime/generator, pack metadata, README examples, release workflow, and Docker workflow versions to `0.3.0-alpha.17`.
+
 ## [0.3.0-alpha.16] - 2026-06-09
 
 Eighteenth SemVer-tagged CLI MVP release.

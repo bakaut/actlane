@@ -12,13 +12,13 @@ actlane version
 Override install options:
 
 ```bash
-ACTLANE_VERSION=v0.3.0-alpha.16 ACTLANE_INSTALL_DIR="$HOME/.local/bin" sh -c "$(curl -fsSL https://actlane.ru/install.sh)"
+ACTLANE_VERSION=v0.3.0-alpha.17 ACTLANE_INSTALL_DIR="$HOME/.local/bin" sh -c "$(curl -fsSL https://actlane.ru/install.sh)"
 ```
 
 Docker:
 
 ```bash
-docker run --rm ghcr.io/actlane/actlane:0.3.0-alpha.16 version
+docker run --rm ghcr.io/actlane/actlane:0.3.0-alpha.17 version
 ```
 
 Implemented MVP commands:
@@ -28,6 +28,7 @@ go run ./cmd/actlane version
 go run ./cmd/actlane inspect
 go run ./cmd/actlane import
 go run ./cmd/actlane import report
+go run ./cmd/actlane migrate opencode
 go run ./cmd/actlane pack init safe-deploy --out ../../packs/safe-deploy
 go run ./cmd/actlane pack init thefirm --out ../../packs/thefirm --targets codex,opencode --contracts all
 go run ./cmd/actlane pack create
@@ -61,6 +62,31 @@ From the repository root, run `./scripts/smoke-mcp-broker.sh` for a full MCP bro
 
 The MVP supports OpenCode and Codex targets.
 
+## Codex To OpenCode Migration
+
+For a local project with project-local Codex configuration:
+
+```bash
+actlane migrate opencode
+```
+
+The command imports and generates in a temporary workspace, displays the
+ownership-aware OpenCode plan, asks once for confirmation, applies it, and
+preserves the source pack and generated target under
+`.actlane/migrations/codex-to-opencode/`.
+
+```bash
+actlane migrate opencode --dry-run --diff
+actlane migrate opencode --yes
+actlane migrate --from-agent codex --to-agent opencode --project .
+actlane remove .actlane/migrations/codex-to-opencode --target opencode
+```
+
+The MVP supports Codex to OpenCode only. It transfers project-local objects and
+does not automatically transfer global skills, global MCP servers, credentials,
+hooks, sessions, history, or other personal runtime state. Existing differing
+user-owned OpenCode files block migration.
+
 ## Brownfield OpenCode Import
 
 For an existing OpenCode project, Actlane can capture the native setup into `.actlane/`:
@@ -87,11 +113,15 @@ actlane pack inspect actlane-pack.zip
 actlane generate actlane-pack.zip --target codex
 actlane plan actlane-pack.zip --target codex
 actlane apply actlane-pack.zip --target codex
+actlane remove actlane-pack.zip --target codex
 ```
 
 For direct archive use, `generate` writes only `generated/codex/`. `plan`
 compares that staging directory with the current project without writing, and
-`apply` performs the ownership-aware project changes.
+`apply` performs the ownership-aware project changes. `remove` uses the same
+staging directory and blocks atomically when an Actlane-owned target differs
+or generated staging is missing. Use `--from` to select another staging
+directory.
 
 `pack install actlane-pack.zip --target codex` remains available when a local
 `.actlane/` source pack is preferred. It writes `.actlane/.local.yaml`, so

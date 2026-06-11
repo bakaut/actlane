@@ -773,7 +773,16 @@ func planRemoveOperation(project, marker, sourcePath, targetRel, ownershipID str
 	}
 	if file.Owned {
 		generated, err := os.ReadFile(sourcePath)
-		if err == nil && string(existing) == string(generated) {
+		if err != nil {
+			op.Status = "conflict"
+			if os.IsNotExist(err) {
+				op.Reason = "generated source is missing; run generate or provide --from"
+			} else {
+				op.Reason = "generated source is unreadable: " + err.Error()
+			}
+			return op
+		}
+		if string(existing) == string(generated) {
 			op.Status = "removed"
 			op.Reason = "target matches generated content"
 			return op

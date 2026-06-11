@@ -1636,6 +1636,16 @@ func TestPackArchiveGeneratePlanApplyFlow(t *testing.T) {
 	assertExists(t, filepath.Join(consumerDir, ".opencode/commands/create-github-draft-pr.md"))
 	assertExists(t, filepath.Join(consumerDir, ".opencode/skills/create-github-draft-pr/SKILL.md"))
 
+	stdout.Reset()
+	stderr.Reset()
+	code = Main([]string{"remove", archive, "--target", "opencode"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("remove from archive failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	assertNotExists(t, filepath.Join(consumerDir, "opencode.jsonc"))
+	assertNotExists(t, filepath.Join(consumerDir, ".opencode/commands/create-github-draft-pr.md"))
+	assertNotExists(t, filepath.Join(consumerDir, ".opencode/skills/create-github-draft-pr/SKILL.md"))
+
 	conflictDir := t.TempDir()
 	if err := os.Chdir(conflictDir); err != nil {
 		t.Fatal(err)
@@ -1656,6 +1666,178 @@ func TestPackArchiveGeneratePlanApplyFlow(t *testing.T) {
 	if got := readFile(t, filepath.Join(conflictDir, "opencode.jsonc")); got != "{\"userOwned\":true}\n" {
 		t.Fatalf("conflicting user-owned file changed:\n%s", got)
 	}
+}
+
+func TestPackArchiveRemoveRequiresGeneratedStagingAndSupportsFromOverride(t *testing.T) {
+	packDir := copyPackToTemp(t)
+	archive := filepath.Join(t.TempDir(), "actlane-pack.zip")
+	var stdout, stderr bytes.Buffer
+	code := Main([]string{"pack", "create", "--from", packDir, "--out", archive}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("pack create failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+
+	consumerDir := t.TempDir()
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chdir(consumerDir); err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := os.Chdir(wd); err != nil {
+			t.Fatal(err)
+		}
+	}()
+
+	customOut := filepath.Join(consumerDir, "custom-staging")
+	stdout.Reset()
+	stderr.Reset()
+	code = Main([]string{"generate", archive, "--target", "opencode", "--out", customOut}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("generate with custom staging failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	customFrom := filepath.Join(customOut, "generated", "opencode")
+	stdout.Reset()
+	stderr.Reset()
+	code = Main([]string{"apply", archive, "--target", "opencode", "--from", customFrom}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("apply with custom staging failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+
+	stdout.Reset()
+	stderr.Reset()
+	code = Main([]string{"remove", archive, "--target", "opencode"}, &stdout, &stderr)
+	if code == 0 || !strings.Contains(stdout.String(), "generated source is missing; run generate or provide --from") || !strings.Contains(stderr.String(), "remove blocked") {
+		t.Fatalf("missing default staging should block remove, code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	assertExists(t, filepath.Join(consumerDir, "opencode.jsonc"))
+	assertExists(t, filepath.Join(consumerDir, ".opencode/skills/create-github-draft-pr/SKILL.md"))
+
+	stdout.Reset()
+	stderr.Reset()
+	code = Main([]string{"remove", archive, "--target", "opencode", "--from", customFrom}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("remove with custom staging failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	assertNotExists(t, filepath.Join(consumerDir, "opencode.jsonc"))
+	assertNotExists(t, filepath.Join(consumerDir, ".opencode/skills/create-github-draft-pr/SKILL.md"))
+}
+
+func TestMigrateCodexToOpenCodeAndRemoveFromSnapshot(t *testing.T) {
+	projectDir := setupCodexMigrationProject(t)
+	snapshotDir := filepath.Join(projectDir, ".actlane/migrations/codex-to-opencode")
+	var stdout, stderr bytes.Buffer
+
+	code := MainWithIO([]string{"migrate", "opencode", "--project", projectDir}, strings.NewReader("yes\n"), &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("migrate failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	for _, want := range []string{"Plan target: opencode", "Apply Codex to OpenCode migration?", "Migration snapshot:"} {
+		if !strings.Contains(stdout.String(), want) {
+			t.Fatalf("migrate output missing %q:\n%s", want, stdout.String())
+		}
+	}
+	if strings.Contains(stdout.String(), "actlane-migrate-") {
+		t.Fatalf("migrate output exposed temporary workspace:\n%s", stdout.String())
+	}
+	assertExists(t, filepath.Join(projectDir, "opencode.jsonc"))
+	assertExists(t, filepath.Join(projectDir, ".opencode/skills/project-skill/SKILL.md"))
+	assertNotExists(t, filepath.Join(projectDir, ".opencode/skills/global-skill/SKILL.md"))
+	assertExists(t, filepath.Join(snapshotDir, "actlane.yaml"))
+	assertExists(t, filepath.Join(snapshotDir, "generated/opencode/opencode.jsonc"))
+	assertNotExists(t, filepath.Join(projectDir, "generated"))
+
+	stdout.Reset()
+	stderr.Reset()
+	code = Main([]string{"remove", snapshotDir, "--target", "opencode", "--project", projectDir}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("remove from migration snapshot failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	assertNotExists(t, filepath.Join(projectDir, "opencode.jsonc"))
+	assertNotExists(t, filepath.Join(projectDir, ".opencode/skills/project-skill/SKILL.md"))
+}
+
+func TestMigrateCodexToOpenCodeDoesNotMutateBeforeConfirmation(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		args       []string
+		input      string
+		wantCode   int
+		wantStdout string
+		wantStderr string
+	}{
+		{name: "dry-run", args: []string{"--dry-run", "--diff"}, wantCode: 0, wantStdout: "Migration dry-run: no changes applied."},
+		{name: "declined", input: "no\n", wantCode: 1, wantStderr: "migration cancelled"},
+		{name: "eof", wantCode: 1, wantStderr: "migration cancelled"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			projectDir := setupCodexMigrationProject(t)
+			args := append([]string{"migrate", "opencode", "--project", projectDir}, tc.args...)
+			var stdout, stderr bytes.Buffer
+			code := MainWithIO(args, strings.NewReader(tc.input), &stdout, &stderr)
+			if code != tc.wantCode {
+				t.Fatalf("migrate returned code %d, want %d\nstdout:\n%s\nstderr:\n%s", code, tc.wantCode, stdout.String(), stderr.String())
+			}
+			if tc.wantStdout != "" && !strings.Contains(stdout.String(), tc.wantStdout) {
+				t.Fatalf("stdout missing %q:\n%s", tc.wantStdout, stdout.String())
+			}
+			if tc.wantStderr != "" && !strings.Contains(stderr.String(), tc.wantStderr) {
+				t.Fatalf("stderr missing %q:\n%s", tc.wantStderr, stderr.String())
+			}
+			assertNotExists(t, filepath.Join(projectDir, "opencode.jsonc"))
+			assertNotExists(t, filepath.Join(projectDir, ".actlane/migrations/codex-to-opencode"))
+		})
+	}
+}
+
+func TestMigrateCodexToOpenCodeBlocksUserOwnedConflict(t *testing.T) {
+	projectDir := setupCodexMigrationProject(t)
+	writeTestFile(t, filepath.Join(projectDir, "opencode.jsonc"), "{\n  // user-owned\n}\n")
+	var stdout, stderr bytes.Buffer
+
+	code := MainWithIO([]string{"migrate", "--from-agent", "codex", "--to-agent", "opencode", "--project", projectDir, "--yes"}, strings.NewReader(""), &stdout, &stderr)
+	if code == 0 || !strings.Contains(stdout.String(), "Conflicts:") || !strings.Contains(stderr.String(), "apply blocked") {
+		t.Fatalf("conflicting migrate should be blocked, code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	if got := readFile(t, filepath.Join(projectDir, "opencode.jsonc")); got != "{\n  // user-owned\n}\n" {
+		t.Fatalf("conflicting user file changed:\n%s", got)
+	}
+	assertNotExists(t, filepath.Join(projectDir, ".actlane/migrations/codex-to-opencode"))
+}
+
+func TestMigrateCodexToOpenCodeJSONDryRun(t *testing.T) {
+	projectDir := setupCodexMigrationProject(t)
+	var stdout, stderr bytes.Buffer
+
+	code := MainWithIO([]string{"migrate", "opencode", "--project", projectDir, "--dry-run", "--json"}, strings.NewReader(""), &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("JSON dry-run failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	var result struct {
+		Status string `json:"status"`
+		Source string `json:"source"`
+		Target string `json:"target"`
+		Plan   struct {
+			Operations []struct {
+				Diff string `json:"diff"`
+			} `json:"operations"`
+		} `json:"plan"`
+	}
+	if err := json.Unmarshal(stdout.Bytes(), &result); err != nil {
+		t.Fatalf("migrate JSON output is invalid: %v\n%s", err, stdout.String())
+	}
+	if result.Status != "dry-run" || result.Source != "codex" || result.Target != "opencode" {
+		t.Fatalf("unexpected migrate JSON result: %+v", result)
+	}
+	for _, operation := range result.Plan.Operations {
+		if operation.Diff != "" {
+			t.Fatalf("JSON output included diff without --diff")
+		}
+	}
+	assertNotExists(t, filepath.Join(projectDir, "opencode.jsonc"))
+	assertNotExists(t, filepath.Join(projectDir, ".actlane/migrations/codex-to-opencode"))
 }
 
 func TestInspectCodexProjectConfig(t *testing.T) {
@@ -2040,6 +2222,30 @@ func copyPackToTemp(t *testing.T) string {
 		t.Fatal(err)
 	}
 	return dst
+}
+
+func setupCodexMigrationProject(t *testing.T) string {
+	t.Helper()
+	projectDir := filepath.Join(t.TempDir(), "project")
+	codexHome := filepath.Join(t.TempDir(), "codex-home")
+	t.Setenv("CODEX_HOME", codexHome)
+	t.Setenv("HOME", t.TempDir())
+	writeTestFile(t, filepath.Join(projectDir, "AGENTS.md"), "Project Codex guidance.\n")
+	writeTestFile(t, filepath.Join(projectDir, ".agents/skills/project-skill/SKILL.md"), `---
+name: project-skill
+description: Project skill.
+---
+
+Use the project workflow.
+`)
+	writeTestFile(t, filepath.Join(codexHome, "skills/global-skill/SKILL.md"), `---
+name: global-skill
+description: Global skill.
+---
+
+Do not migrate automatically.
+`)
+	return projectDir
 }
 
 func copyDir(t *testing.T, src, dst string) {

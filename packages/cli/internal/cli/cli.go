@@ -19,7 +19,7 @@ import (
 	"github.com/actlane/actlane/packages/cli/internal/schema"
 )
 
-const version = "0.3.0-alpha.16"
+const version = "0.3.0-alpha.17"
 
 func Main(args []string, stdout, stderr io.Writer) int {
 	return MainWithIO(args, os.Stdin, stdout, stderr)
@@ -41,6 +41,8 @@ func MainWithIO(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		return runInspect(args[1:], stdout, stderr)
 	case "import":
 		return runImport(args[1:], stdout, stderr)
+	case "migrate":
+		return runMigrate(args[1:], stdin, stdout, stderr)
 	case "pack":
 		return runPack(args[1:], stdout, stderr)
 	case "generate":
@@ -62,6 +64,293 @@ func MainWithIO(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		usage(stderr)
 		return 2
 	}
+}
+
+func runMigrate(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
+	target := ""
+	fromAgent := "codex"
+	toAgent := ""
+	projectDir := "."
+	dryRun := false
+	diff := false
+	yes := false
+	jsonOutput := false
+	for i := 0; i < len(args); i++ {
+		switch {
+		case !isFlag(args[i]) && target == "":
+			target = args[i]
+		case strings.HasPrefix(args[i], "--from-agent="):
+			fromAgent = strings.TrimPrefix(args[i], "--from-agent=")
+		case strings.HasPrefix(args[i], "--to-agent="):
+			toAgent = strings.TrimPrefix(args[i], "--to-agent=")
+		case strings.HasPrefix(args[i], "--project="):
+			projectDir = strings.TrimPrefix(args[i], "--project=")
+		case args[i] == "--from-agent":
+			i++
+			if i >= len(args) {
+				fmt.Fprintln(stderr, "--from-agent requires a value")
+				return 2
+			}
+			fromAgent = args[i]
+		case args[i] == "--to-agent":
+			i++
+			if i >= len(args) {
+				fmt.Fprintln(stderr, "--to-agent requires a value")
+				return 2
+			}
+			toAgent = args[i]
+		case args[i] == "--project":
+			i++
+			if i >= len(args) {
+				fmt.Fprintln(stderr, "--project requires a value")
+				return 2
+			}
+			projectDir = args[i]
+		case args[i] == "--dry-run":
+			dryRun = true
+		case args[i] == "--diff":
+			diff = true
+		case args[i] == "--yes":
+			yes = true
+		case args[i] == "--json":
+			jsonOutput = true
+		default:
+			fmt.Fprintf(stderr, "unknown migrate argument %q\n", args[i])
+			return 2
+		}
+	}
+	if target == "" {
+		target = toAgent
+	}
+	if toAgent == "" {
+		toAgent = target
+	}
+	if target == "" {
+		fmt.Fprintln(stderr, "migrate failed: target is required; use actlane migrate opencode")
+		return 2
+	}
+	if target != toAgent {
+		fmt.Fprintln(stderr, "migrate failed: positional target and --to-agent must match")
+		return 2
+	}
+	if fromAgent != "codex" || toAgent != "opencode" {
+		fmt.Fprintln(stderr, "migrate failed: MVP supports only codex to opencode")
+		return 2
+	}
+
+	projectDir, err := filepath.Abs(projectDir)
+	if err != nil {
+		fmt.Fprintf(stderr, "migrate failed: resolve project: %v\n", err)
+		return 1
+	}
+	snapshotDir := filepath.Join(projectDir, ".actlane", "migrations", "codex-to-opencode")
+	if _, err := os.Stat(snapshotDir); err == nil {
+		fmt.Fprintf(stderr, "migrate failed: migration snapshot already exists at %s\n", snapshotDir)
+		return 1
+	} else if !os.IsNotExist(err) {
+		fmt.Fprintf(stderr, "migrate failed: inspect migration snapshot: %v\n", err)
+		return 1
+	}
+
+	discovery, err := adoption.Inspect(adoption.InspectOptions{From: projectDir, AIAgent: fromAgent})
+	if err != nil {
+		fmt.Fprintf(stderr, "migrate failed: inspect source: %v\n", err)
+		return 1
+	}
+	if discovery.Runtime != "codex" {
+		fmt.Fprintln(stderr, "migrate failed: no project-local Codex configuration detected")
+		return 1
+	}
+
+	workspace, err := os.MkdirTemp("", "actlane-migrate-*")
+	if err != nil {
+		fmt.Fprintf(stderr, "migrate failed: create temporary workspace: %v\n", err)
+		return 1
+	}
+	defer os.RemoveAll(workspace)
+	packDir := filepath.Join(workspace, "pack")
+	if _, err := adoption.Import(adoption.ImportOptions{From: projectDir, Out: packDir, AIAgent: fromAgent}); err != nil {
+		fmt.Fprintf(stderr, "migrate failed: import source: %v\n", err)
+		return 1
+	}
+	loaded, err := pack.Load(packDir)
+	if err != nil {
+		fmt.Fprintf(stderr, "migrate failed: load imported pack: %v\n", err)
+		return 1
+	}
+	if err := pack.Validate(loaded); err != nil {
+		fmt.Fprintf(stderr, "migrate failed: validate imported pack: %v\n", err)
+		return 1
+	}
+	if _, err := profile.Generate(loaded, profile.Options{Target: toAgent, OutDir: packDir}); err != nil {
+		fmt.Fprintf(stderr, "migrate failed: generate target: %v\n", err)
+		return 1
+	}
+	planOpts := adoption.PlanOptions{Target: toAgent, Project: projectDir, Diff: diff, JSON: jsonOutput}
+	plan, err := adoption.BuildPlan(loaded, planOpts)
+	if err != nil {
+		fmt.Fprintf(stderr, "migrate failed: build plan: %v\n", err)
+		return 1
+	}
+	plan.Generated = "temporary migration workspace"
+	for i := range plan.Operations {
+		plan.Operations[i].GeneratedPath = ""
+	}
+	if !jsonOutput {
+		fmt.Fprint(stdout, adoption.FormatPlanText(plan, planOpts))
+	}
+	if plan.Conflicts > 0 {
+		if jsonOutput {
+			if err := printMigrateJSON(stdout, "blocked", fromAgent, toAgent, projectDir, "", plan, nil, planOpts); err != nil {
+				fmt.Fprintf(stderr, "migrate failed: format result: %v\n", err)
+				return 1
+			}
+		}
+		fmt.Fprintf(stderr, "migrate failed: apply blocked: %d conflict(s)\n", plan.Conflicts)
+		return 1
+	}
+	if dryRun {
+		if jsonOutput {
+			if err := printMigrateJSON(stdout, "dry-run", fromAgent, toAgent, projectDir, "", plan, nil, planOpts); err != nil {
+				fmt.Fprintf(stderr, "migrate failed: format result: %v\n", err)
+				return 1
+			}
+		} else {
+			fmt.Fprintln(stdout, "\nMigration dry-run: no changes applied.")
+		}
+		return 0
+	}
+	if !yes {
+		if jsonOutput {
+			fmt.Fprint(stderr, adoption.FormatPlanText(plan, planOpts))
+		}
+		promptWriter := stdout
+		if jsonOutput {
+			promptWriter = stderr
+		}
+		fmt.Fprint(promptWriter, "\nApply Codex to OpenCode migration? [y/N] ")
+		var answer string
+		if _, err := fmt.Fscan(stdin, &answer); err != nil || (strings.ToLower(answer) != "y" && strings.ToLower(answer) != "yes") {
+			fmt.Fprintln(stderr, "migration cancelled")
+			return 1
+		}
+	}
+
+	applyResult, err := adoption.ApplyPlan(plan, adoption.ApplyOptions{PlanOptions: planOpts})
+	if err != nil {
+		fmt.Fprintf(stderr, "migrate failed: apply: %v\n", err)
+		return 1
+	}
+	if err := persistMigrationSnapshot(packDir, snapshotDir); err != nil {
+		_, rollbackErr := adoption.RemovePlan(loaded, adoption.RemoveOptions{PlanOptions: planOpts})
+		if rollbackErr != nil {
+			fmt.Fprintf(stderr, "migrate failed: persist snapshot: %v; rollback failed: %v\n", err, rollbackErr)
+		} else {
+			fmt.Fprintf(stderr, "migrate failed: persist snapshot: %v; applied files rolled back\n", err)
+		}
+		return 1
+	}
+	if jsonOutput {
+		if err := printMigrateJSON(stdout, "applied", fromAgent, toAgent, projectDir, snapshotDir, plan, applyResult, planOpts); err != nil {
+			fmt.Fprintf(stderr, "migrate failed: format result: %v\n", err)
+			return 1
+		}
+	} else {
+		fmt.Fprint(stdout, adoption.FormatApplyText(applyResult))
+		fmt.Fprintf(stdout, "\nMigration snapshot: %s\n", snapshotDir)
+	}
+	return 0
+}
+
+func printMigrateJSON(w io.Writer, status, source, target, project, snapshot string, plan *adoption.Plan, apply *adoption.ApplyResult, opts adoption.PlanOptions) error {
+	planData, err := adoption.FormatPlanJSON(plan, opts)
+	if err != nil {
+		return err
+	}
+	var planValue any
+	if err := json.Unmarshal(planData, &planValue); err != nil {
+		return err
+	}
+	result := map[string]any{
+		"status":  status,
+		"source":  source,
+		"target":  target,
+		"project": project,
+		"plan":    planValue,
+	}
+	if snapshot != "" {
+		result["snapshot"] = snapshot
+	}
+	if apply != nil {
+		result["apply"] = apply
+	}
+	data, err := json.MarshalIndent(result, "", "  ")
+	if err != nil {
+		return err
+	}
+	_, err = fmt.Fprintln(w, string(data))
+	return err
+}
+
+func persistMigrationSnapshot(source, destination string) error {
+	parent := filepath.Dir(destination)
+	if err := os.MkdirAll(parent, 0o755); err != nil {
+		return err
+	}
+	pending, err := os.MkdirTemp(parent, ".codex-to-opencode-*")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(pending)
+	if err := copyTree(source, pending); err != nil {
+		return err
+	}
+	return os.Rename(pending, destination)
+}
+
+func copyTree(source, destination string) error {
+	return filepath.WalkDir(source, func(sourcePath string, entry os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		rel, err := filepath.Rel(source, sourcePath)
+		if err != nil {
+			return err
+		}
+		if rel == "." {
+			return nil
+		}
+		destinationPath := filepath.Join(destination, rel)
+		info, err := entry.Info()
+		if err != nil {
+			return err
+		}
+		if entry.Type()&os.ModeSymlink != 0 {
+			return fmt.Errorf("snapshot source contains unsupported symlink %s", rel)
+		}
+		if entry.IsDir() {
+			return os.MkdirAll(destinationPath, info.Mode().Perm())
+		}
+		sourceFile, err := os.Open(sourcePath)
+		if err != nil {
+			return err
+		}
+		destinationFile, err := os.OpenFile(destinationPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, info.Mode().Perm())
+		if err != nil {
+			_ = sourceFile.Close()
+			return err
+		}
+		if _, err := io.Copy(destinationFile, sourceFile); err != nil {
+			_ = sourceFile.Close()
+			_ = destinationFile.Close()
+			return err
+		}
+		if err := sourceFile.Close(); err != nil {
+			_ = destinationFile.Close()
+			return err
+		}
+		return destinationFile.Close()
+	})
 }
 
 func runInspect(args []string, stdout, stderr io.Writer) int {
@@ -1191,6 +1480,9 @@ func runRemove(args []string, stdout, stderr io.Writer) int {
 	}
 	cleanup := func() {}
 	if shouldUsePackArchive(packDir, packArgExplicit) {
+		if opts.From == "" {
+			opts.From = filepath.Join("generated", opts.Target)
+		}
 		archive := packDir
 		if !packArgExplicit {
 			archive = "actlane-pack.zip"
@@ -1264,7 +1556,7 @@ func runSchema(args []string, stdout, stderr io.Writer) int {
 }
 
 func usage(w io.Writer) {
-	fmt.Fprintln(w, "usage: actlane <version|inspect|import|pack|validate|generate|plan|apply|remove|check|mcp|schema>")
+	fmt.Fprintln(w, "usage: actlane <version|inspect|import|migrate|pack|validate|generate|plan|apply|remove|check|mcp|schema>")
 }
 
 func isFlag(value string) bool {

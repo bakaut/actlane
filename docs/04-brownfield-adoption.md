@@ -8,6 +8,30 @@ The long-term adoption lifecycle is:
 inspect -> init -> generate -> diff -> plan -> apply -> remove
 ```
 
+For the common local-project Codex to OpenCode case, `actlane migrate opencode`
+is a facade over the existing adoption lifecycle:
+
+```text
+detect Codex
+-> temporary import
+-> temporary OpenCode generation
+-> plan
+-> confirm
+-> apply
+-> .actlane/migrations/codex-to-opencode snapshot
+```
+
+The facade supports `--dry-run`, `--diff`, `--yes`, `--json`, and `--project`.
+It migrates project-local objects only and preserves the successful hidden
+snapshot because safe removal of whole owned files requires the exact generated
+content:
+
+```bash
+actlane remove .actlane/migrations/codex-to-opencode --target opencode
+```
+
+Existing differing user-owned files block migration before confirmation.
+
 The current MVP starts with a narrower portability flow:
 
 ```text
@@ -147,13 +171,16 @@ actlane pack inspect actlane-pack.zip
 actlane generate actlane-pack.zip --target codex
 actlane plan actlane-pack.zip --target codex
 actlane apply actlane-pack.zip --target codex
+actlane remove actlane-pack.zip --target codex
 ```
 
 For archive input, `generate` writes only `generated/<target>/` in the current
 directory. `plan` reads that staging directory and remains read-only. `apply`
 rebuilds the plan, blocks conflicts, and is the only step that writes target
-project files. Explicit `--from` and `--project` values override the staging
-and project defaults.
+project files. `remove` reads the same staging directory and removes only
+unchanged Actlane-owned files and blocks. Missing staging or modified owned
+files block the entire remove operation. Explicit `--from` and `--project`
+values override the staging and project defaults.
 
 `pack install --target codex` remains available when the consumer wants a
 local `.actlane/` source pack. It writes the selected target into

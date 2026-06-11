@@ -13,7 +13,7 @@ Actlane started as a design and specification repository. It now also contains a
 - Documentation for the first intended pack: `safe-gitops`.
 - Hand-written `safe-gitops` pack artifacts and examples.
 - Working Go CLI MVP in `packages/cli`.
-- `inspect`, `import`, `import report`, `pack init`, `pack create`, `pack inspect`, `pack install`, `validate`, `generate`, `plan`, `apply`, `remove`, `check`, `mcp serve`, `mcp author serve`, `--check`, `--frozen-lockfile`, and schema inspection commands.
+- `inspect`, `import`, `import report`, `migrate`, `pack init`, `pack create`, `pack inspect`, `pack install`, `validate`, `generate`, `plan`, `apply`, `remove`, `check`, `mcp serve`, `mcp author serve`, `--check`, `--frozen-lockfile`, and schema inspection commands.
 - First executable MVP pack: `packs/create-github-draft-pr`.
 - Minimal source pack scaffold creation via `actlane pack init <name>`.
 - RuntimeProfile and EvidenceContract MVP for advisory MCP broker classification.
@@ -27,6 +27,7 @@ Actlane started as a design and specification repository. It now also contains a
 - Local MCP policy evaluator via `actlane mcp serve --policy-bundle <policy-bundle.json>`.
 - Local MCP pack authoring helper via `actlane mcp author serve --pack <pack>` for inspect, validate, plan, confirmed apply, preview, and error explanation.
 - Brownfield OpenCode import into `.actlane/` with inferred capability, policy, MCP binding, command, agent, skill, target profile, report, and lockfile artifacts.
+- Confirmed local-project Codex to OpenCode migration through `actlane migrate opencode`, with dry-run, conflict blocking, and a durable hidden removal snapshot.
 - Manual GitHub Actions release workflow for Linux, macOS, and Windows CLI artifacts.
 
 ## What Does Not Exist Yet
